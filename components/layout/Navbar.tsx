@@ -31,7 +31,7 @@ function ChatRoomSearch({ onRoomSelect }: ChatRoomSearchProps) {
 
   // 검색된 채팅방 목록
   const filteredRooms = useMemo(() => {
-    if (!searchQuery.trim()) return [];
+    if (!searchQuery.trim()) return mockRooms;
     
     const query = searchQuery.toLowerCase();
     return mockRooms.filter(room => 
@@ -53,15 +53,13 @@ function ChatRoomSearch({ onRoomSelect }: ChatRoomSearchProps) {
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
-    setShowResults(value.trim().length > 0);
+    setShowResults(true);
   }, []);
 
   // 입력창 포커스 핸들러
   const handleFocus = useCallback(() => {
-    if (searchQuery.trim()) {
-      setShowResults(true);
-    }
-  }, [searchQuery]);
+    setShowResults(true);
+  }, []);
 
   // 결과 목록 외부 클릭 시 숨기기
   const searchRef = useRef<HTMLDivElement>(null);
@@ -92,26 +90,35 @@ function ChatRoomSearch({ onRoomSelect }: ChatRoomSearchProps) {
 
       {/* 검색 결과 드롭다운 */}
       {showResults && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-main border-2 border-border rounded-base shadow-lg z-50 max-h-60 overflow-y-auto">
-          {filteredRooms.length > 0 ? (
-            filteredRooms.map((room) => (
-              <button
-                key={room.id}
-                onClick={() => handleRoomSelect(room)}
-                className="w-full px-3 py-2 text-left hover:bg-main/80 transition-colors border-b border-border last:border-b-0 flex items-center gap-2"
-              >
-                <span className="text-lg">{room.image}</span>
-                <div className="flex-1">
-                  <div className="font-semibold text-main-foreground">{room.name}</div>
-                  <div className="text-sm text-main-foreground/70">{room.description}</div>
+        <div className="absolute top-full left-0 right-0 mt-1 z-50">
+          <div 
+            className="w-full max-h-60 overflow-y-auto text-popover-foreground border rounded-md shadow-[var(--shadow)]"
+            style={{ backgroundColor: 'oklch(72.27% 0.1894 50.19)' }}
+          >
+            <div className="px-2 py-1.5 text-sm font-semibold">채팅방 목록</div>
+            <div className="h-px bg-border mx-1"></div>
+            {filteredRooms.length > 0 ? (
+              filteredRooms.map((room) => (
+                <div
+                  key={room.id}
+                  onClick={() => handleRoomSelect(room)}
+                  className="relative flex cursor-pointer select-none items-center rounded-[5px] px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground hover:border-2 hover:border-black data-[disabled]:pointer-events-none data-[disabled]:opacity-50 gap-3 border-2 border-transparent"
+                >
+                  <span className="text-lg">{room.image}</span>
+                  <div className="flex-1">
+                    <div className="font-semibold">{room.name}</div>
+                    <div className="text-sm text-muted-foreground">{room.description}</div>
+                  </div>
                 </div>
-              </button>
-            ))
-          ) : (
-            <div className="px-3 py-2 text-sm text-main-foreground/70">
-              &apos;{searchQuery}&apos;와 일치하는 채팅방이 없습니다.
-            </div>
-          )}
+              ))
+            ) : (
+              <div className="relative flex select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                <span className="text-sm text-muted-foreground">
+                  &apos;{searchQuery}&apos;와 일치하는 채팅방이 없습니다.
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

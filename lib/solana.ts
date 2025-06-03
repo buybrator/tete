@@ -58,15 +58,14 @@ export function getCurrentNetwork(): SolanaNetwork {
   return network;
 }
 
-// 🚀 서버사이드 프록시를 사용하는 Connection 생성 (IP 차단 완전 우회)
+// 🚀 개선된 Connection 생성 (백업 전략 포함)
 export function createSolanaConnection(network?: SolanaNetwork): Connection {
   const currentNetwork = network || getCurrentNetwork();
   
-  // 브라우저 환경에서는 프록시 사용, 서버에서는 직접 연결
   let endpoint: string;
   
   if (typeof window !== 'undefined') {
-    // 브라우저 환경: 프록시 사용
+    // 브라우저 환경: 프록시 우선, 실패 시 직접 연결
     endpoint = `${window.location.origin}/api/solana-rpc`;
     console.log(`🚀 Creating Solana connection via browser proxy: ${endpoint} (${currentNetwork})`);
   } else {
@@ -76,10 +75,135 @@ export function createSolanaConnection(network?: SolanaNetwork): Connection {
     console.log(`🚀 Creating Solana connection via server: ${endpoint} (${currentNetwork})`);
   }
   
+  // 단순한 Connection 생성
   return new Connection(endpoint, {
     commitment: 'confirmed',
-    confirmTransactionInitialTimeout: 60000,
+    confirmTransactionInitialTimeout: 90000, // 90초로 증가
+    disableRetryOnRateLimit: true, // 속도 제한 재시도 비활성화
+    httpHeaders: {
+      'User-Agent': 'SolanaSwapChat/1.0',
+    },
+    fetch: typeof window !== 'undefined' ? window.fetch.bind(window) : undefined,
   });
+}
+
+// 🎯 백업 Connection 생성 (프록시 실패 시 직접 연결)
+export function createDirectConnection(network?: SolanaNetwork): Connection {
+  const currentNetwork = network || getCurrentNetwork();
+  const config = NETWORK_CONFIG[currentNetwork];
+  
+  console.log(`🔄 Creating direct connection to: ${config.url} (${currentNetwork})`);
+  
+  return new Connection(config.url, {
+    commitment: 'confirmed',
+    confirmTransactionInitialTimeout: 90000,
+    disableRetryOnRateLimit: true,
+    httpHeaders: {
+      'User-Agent': 'SolanaSwapChat/1.0',
+    },
+    fetch: typeof window !== 'undefined' ? window.fetch.bind(window) : undefined,
+  });
+}
+
+// 📦 연결 캐시 시스템
+interface ConnectionCache {
+  connection: Connection;
+  isHealthy: boolean;
+  lastChecked: number;
+  network: SolanaNetwork;
+}
+
+let connectionCache: ConnectionCache | null = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5분 캐시
+const HEALTH_CHECK_TIMEOUT = 5000; // 5초 타임아웃
+
+// 🚀 안정적인 Connection 가져오기 (캐싱 + 자동 백업)
+export async function getStableConnection(network?: SolanaNetwork): Promise<Connection> {
+  const currentNetwork = network || getCurrentNetwork();
+  const now = Date.now();
+  
+  // 캐시된 연결이 유효한지 확인
+  if (connectionCache && 
+      connectionCache.network === currentNetwork && 
+      connectionCache.isHealthy && 
+      (now - connectionCache.lastChecked) < CACHE_DURATION) {
+    console.log('✨ 캐시된 연결 재사용');
+    return connectionCache.connection;
+  }
+  
+  console.log('🔄 새로운 연결 생성 중...');
+  
+  try {
+    // 1차: 프록시 연결 시도
+    const proxyConnection = createSolanaConnection(currentNetwork);
+    
+    // 빠른 연결 테스트 (타임아웃 적용)
+    const healthCheckPromise = proxyConnection.getSlot();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Health check timeout')), HEALTH_CHECK_TIMEOUT)
+    );
+    
+    await Promise.race([healthCheckPromise, timeoutPromise]);
+    
+    // 연결 성공 - 캐시에 저장
+    connectionCache = {
+      connection: proxyConnection,
+      isHealthy: true,
+      lastChecked: now,
+      network: currentNetwork
+    };
+    
+    console.log('✅ 프록시 연결 성공 (캐시됨)');
+    return proxyConnection;
+    
+  } catch (error) {
+    console.warn('⚠️ 프록시 연결 실패, 직접 연결 시도:', error);
+    
+    try {
+      // 2차: 직접 연결 시도
+      const directConnection = createDirectConnection(currentNetwork);
+      
+      // 빠른 연결 테스트
+      const healthCheckPromise = directConnection.getSlot();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Direct health check timeout')), HEALTH_CHECK_TIMEOUT)
+      );
+      
+      await Promise.race([healthCheckPromise, timeoutPromise]);
+      
+      // 직접 연결 성공 - 캐시에 저장
+      connectionCache = {
+        connection: directConnection,
+        isHealthy: true,
+        lastChecked: now,
+        network: currentNetwork
+      };
+      
+      console.log('✅ 직접 연결 성공 (캐시됨)');
+      return directConnection;
+      
+    } catch (directError) {
+      console.error('❌ 모든 연결 방식 실패:', directError);
+      
+      // 캐시 무효화
+      const oldCache = connectionCache;
+      connectionCache = null;
+      
+      // 기존 연결이라도 반환 (최후의 수단)
+      if (oldCache?.connection) {
+        console.log('🔄 기존 캐시된 연결 사용 (비상용)');
+        return oldCache.connection;
+      }
+      
+      throw new Error('Solana 네트워크에 연결할 수 없습니다');
+    }
+  }
+}
+
+// 캐시 무효화 함수 (문제 발생 시 사용)
+export function invalidateConnectionCache(): void {
+  console.log('🗑️ 연결 캐시 무효화');
+  connectionCache = null;
 }
 
 // RPC 엔드포인트 자동 선택 (이제 프록시에서 처리되므로 단순화)
@@ -88,13 +212,75 @@ export async function findHealthyRpcEndpoint(network: SolanaNetwork): Promise<st
   return '/api/solana-rpc';
 }
 
-// 안정적인 Connection 생성 (프록시 사용)
-export async function createStableConnection(network?: SolanaNetwork): Promise<Connection> {
-  const currentNetwork = network || getCurrentNetwork();
-  
-  console.log(`🔧 Creating stable connection for ${currentNetwork}...`);
-  
-  return createSolanaConnection(currentNetwork);
+// 네트워크 통계 정보
+export async function getNetworkStats(conn?: Connection) {
+  try {
+    const solanaConnection = conn || getSolanaConnection();
+    const [blockHeight, epochInfo, supply] = await Promise.all([
+      solanaConnection.getBlockHeight(),
+      solanaConnection.getEpochInfo(),
+      solanaConnection.getSupply(),
+    ]);
+
+    return {
+      blockHeight,
+      epochInfo,
+      supply: {
+        total: supply.value.total / LAMPORTS_PER_SOL,
+        circulating: supply.value.circulating / LAMPORTS_PER_SOL,
+        nonCirculating: supply.value.nonCirculating / LAMPORTS_PER_SOL,
+      },
+    };
+  } catch (error) {
+    console.error('Failed to get network stats:', error);
+    throw error;
+  }
+}
+
+// 연결 상태 모니터링
+export class SolanaConnectionMonitor {
+  private connection: Connection;
+  private isMonitoring = false;
+  private onStatusChange?: (status: { connected: boolean; error?: string }) => void;
+
+  constructor(connection?: Connection) {
+    this.connection = connection || getSolanaConnection();
+  }
+
+  startMonitoring(onStatusChange: (status: { connected: boolean; error?: string }) => void) {
+    this.onStatusChange = onStatusChange;
+    this.isMonitoring = true;
+    // 초기 상태만 확인 (자동 반복 제거)
+    this.checkStatus();
+  }
+
+  stopMonitoring() {
+    this.isMonitoring = false;
+    this.onStatusChange = undefined;
+  }
+
+  // 🎯 수동 상태 확인 메서드 추가
+  async checkStatusManually() {
+    if (!this.isMonitoring) return;
+    await this.checkStatus();
+  }
+
+  private async checkStatus() {
+    if (!this.isMonitoring) return;
+
+    try {
+      await this.connection.getBlockHeight();
+      this.onStatusChange?.({ connected: true });
+    } catch (error) {
+      this.onStatusChange?.({
+        connected: false,
+        error: error instanceof Error ? error.message : 'Connection failed',
+      });
+    }
+
+    // 🚫 자동 폴링 제거 - 필요할 때만 수동으로 호출
+    // setTimeout(() => this.checkStatus(), 30000);
+  }
 }
 
 // 기본 Connection 인스턴스 (싱글톤)
@@ -121,22 +307,31 @@ export async function checkSolanaConnection(conn?: Connection): Promise<{
   blockHeight?: number;
   error?: string;
 }> {
+  const currentNetwork = getCurrentNetwork();
+  const solanaConnection = conn || getSolanaConnection();
+  
   try {
-    const solanaConnection = conn || getSolanaConnection();
-    const blockHeight = await solanaConnection.getBlockHeight();
-    const currentNetwork = getCurrentNetwork();
+    // 빠른 건강성 체크 (3초 타임아웃)
+    const healthPromise = solanaConnection.getSlot();
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Connection timeout')), 3000)
+    );
+    
+    const slot = await Promise.race([healthPromise, timeoutPromise]);
     
     return {
       connected: true,
-      network: NETWORK_CONFIG[currentNetwork].name,
-      blockHeight,
+      network: currentNetwork,
+      blockHeight: slot,
     };
   } catch (error) {
-    console.error('Solana connection check failed:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.warn(`⚠️ 연결 확인 실패 (${currentNetwork}):`, errorMessage);
+    
     return {
       connected: false,
-      network: NETWORK_CONFIG[getCurrentNetwork()].name,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      network: currentNetwork,
+      error: errorMessage,
     };
   }
 }
@@ -195,72 +390,6 @@ export async function confirmTransaction(
   } catch (error) {
     console.error('Failed to confirm transaction:', error);
     return false;
-  }
-}
-
-// 네트워크 통계 정보
-export async function getNetworkStats(conn?: Connection) {
-  try {
-    const solanaConnection = conn || getSolanaConnection();
-    const [blockHeight, epochInfo, supply] = await Promise.all([
-      solanaConnection.getBlockHeight(),
-      solanaConnection.getEpochInfo(),
-      solanaConnection.getSupply(),
-    ]);
-
-    return {
-      blockHeight,
-      epochInfo,
-      supply: {
-        total: supply.value.total / LAMPORTS_PER_SOL,
-        circulating: supply.value.circulating / LAMPORTS_PER_SOL,
-        nonCirculating: supply.value.nonCirculating / LAMPORTS_PER_SOL,
-      },
-    };
-  } catch (error) {
-    console.error('Failed to get network stats:', error);
-    throw error;
-  }
-}
-
-// 연결 상태 모니터링
-export class SolanaConnectionMonitor {
-  private connection: Connection;
-  private isMonitoring = false;
-  private onStatusChange?: (status: { connected: boolean; error?: string }) => void;
-
-  constructor(connection?: Connection) {
-    this.connection = connection || getSolanaConnection();
-  }
-
-  startMonitoring(onStatusChange: (status: { connected: boolean; error?: string }) => void) {
-    this.onStatusChange = onStatusChange;
-    this.isMonitoring = true;
-    this.checkStatus();
-  }
-
-  stopMonitoring() {
-    this.isMonitoring = false;
-    this.onStatusChange = undefined;
-  }
-
-  private async checkStatus() {
-    if (!this.isMonitoring) return;
-
-    try {
-      await this.connection.getBlockHeight();
-      this.onStatusChange?.({ connected: true });
-    } catch (error) {
-      this.onStatusChange?.({
-        connected: false,
-        error: error instanceof Error ? error.message : 'Connection failed',
-      });
-    }
-
-    // 30초마다 상태 체크
-    if (this.isMonitoring) {
-      setTimeout(() => this.checkStatus(), 30000);
-    }
   }
 }
 

@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 
 type Props = {
   side: 'buy' | 'sell';
-  avatar: string;
+  avatar?: string;
   amount: string;
   message: string;
   userAddress?: string;

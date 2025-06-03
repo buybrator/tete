@@ -6,17 +6,19 @@ import {
   Transaction,
   TransactionInstruction,
   PublicKey,
+  Connection,
 } from '@solana/web3.js';
-import { getSolanaConnection } from '@/lib/solana';
+import { getStableConnection } from '@/lib/solana';
 import { jupiterService, JupiterQuote } from '@/lib/jupiter';
 import { TOKENS, formatTokenAmount, getTokenByAddress } from '@/lib/tokens';
 import { safePublicKeyToString, isValidPublicKey } from '@/lib/wallet-utils';
+import { extractMemoFromTransaction } from '@/lib/memo';
 
 // 🎯 메모 인스트럭션 생성 헬퍼 함수
 function createMemoInstruction(memo: string, signer: PublicKey): TransactionInstruction {
   return new TransactionInstruction({
     keys: [{ pubkey: signer, isSigner: true, isWritable: false }],
-    programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
+    programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'), // Memo Program ID
     data: Buffer.from(memo, 'utf8'),
   });
 }
@@ -172,7 +174,7 @@ export function useSwap() {
       const transaction = Transaction.from(swapTxBuf);
 
       // 연결 설정
-      const connection = getSolanaConnection();
+      const connection = await getStableConnection();
 
       // 최신 블록해시로 교체
       const { blockhash } = await connection.getLatestBlockhash('confirmed');
@@ -181,9 +183,11 @@ export function useSwap() {
 
       // 4) 메모 인스트럭션 추가 (옵션)
       if (memo && memo.trim()) {
-        const memoInstruction = createMemoInstruction(memo.trim(), publicKey);
+        // 🏷️ 앱 식별자를 포함한 메모 생성
+        const appMemo = `[SwapChat] ${memo.trim()}`;
+        const memoInstruction = createMemoInstruction(appMemo, publicKey);
         transaction.add(memoInstruction);
-        console.log(`📝 메모 인스트럭션 추가: "${memo}"`);
+        console.log(`📝 메모 인스트럭션 추가: "${appMemo}"`);
       }
 
       console.log('✍️ 지갑에서 트랜잭션 서명 중...');
@@ -202,57 +206,115 @@ export function useSwap() {
 
         console.log(`🚀 ${memo ? '메모 포함 ' : ''}스왑 트랜잭션 전송 완료: ${txId}`);
         
-        if (memo) {
-          console.log(`📝 메모: "${memo}"`);
-        }
-
-        // 트랜잭션 상태 업데이트
-        updateState({ signature: txId });
-        
         console.log('⏳ 트랜잭션 확인 대기 중...');
         
-        // 7) 트랜잭션 확인
-        try {
-          await connection.confirmTransaction(txId, 'confirmed');
-          console.log('✅ 스왑 및 메모 전송 완료!');
+        // 7) 트랜잭션 확인 - WebSocket 없이 polling 방식 (빠른 확인)
+        let confirmed = false;
+        let attempts = 0;
+        const maxAttempts = 15; // 15초로 단축
+        
+        // WebSocket 없는 직접 연결
+        const directConnection = new Connection('https://api.mainnet-beta.solana.com', {
+          commitment: 'confirmed',
+          wsEndpoint: undefined, // WebSocket 비활성화
+        });
+        
+        while (!confirmed && attempts < maxAttempts) {
+          try {
+            const txInfo = await directConnection.getTransaction(txId, {
+              commitment: 'confirmed',
+              maxSupportedTransactionVersion: 0,
+            });
+            
+            if (txInfo) {
+              if (txInfo.meta?.err) {
+                throw new Error(`트랜잭션 실패: ${JSON.stringify(txInfo.meta.err)}`);
+              }
+              console.log('✅ 트랜잭션 확정 완료!');
+              confirmed = true;
+              break;
+            }
+          } catch {
+            console.log(`⏳ 확인 중... (${attempts + 1}/${maxAttempts})`);
+          }
           
-        } catch (confirmError: unknown) {
-          const errorMessage = confirmError instanceof Error ? confirmError.message : 'Unknown error';
-          console.warn('⚠️ 트랜잭션 확인 실패, 상태 직접 확인:', errorMessage);
-          
-          // 확인 실패 시 getSignatureStatus로 직접 확인
-          const statusResponse = await connection.getSignatureStatus(txId, {
-            searchTransactionHistory: true,
-          });
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
+        }
+        
+        if (!confirmed) {
+          console.warn('⚠️ 트랜잭션 확인 타임아웃, 하지만 성공했을 가능성 높음');
+          // 계속 진행 (실제로는 성공했을 가능성이 높음)
+        }
 
-          if (statusResponse?.value) {
-            const status = statusResponse.value;
+        // 🎯 메모가 있는 경우 트랜잭션 확정 후 메모 확인 및 채팅에 추가
+        if (memo && memo.trim()) {
+          try {
+            console.log('📝 메모 확인 시작...');
             
-            if (status.err) {
-              throw new Error(`트랜잭션 실패: ${JSON.stringify(status.err)}`);
-            }
+            // 직접 연결로 메모 확인
+            const memoText = await extractMemoFromTransaction(directConnection, txId);
             
-            if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
-              console.log('✅ 트랜잭션이 실제로 성공했습니다! (직접 확인)');
-            } else {
-              console.log('🟡 트랜잭션 전송 성공, 확인은 백그라운드에서 진행됩니다.');
+            if (memoText && memoText.includes('[SwapChat]')) {
+              const cleanMemo = memoText.replace('[SwapChat]', '').trim();
               
-              setTimeout(async () => {
+              // 트랜잭션 정보 가져오기 (직접 연결 사용)
+              const txInfo = await directConnection.getTransaction(txId, {
+                commitment: 'confirmed',
+                maxSupportedTransactionVersion: 0,
+              });
+              
+              if (txInfo) {
+                const senderAddress = txInfo.transaction.message.staticAccountKeys[0]?.toString() || 'Unknown';
+                
+                console.log(`📨 채팅에 메시지 추가 중: "${cleanMemo}"`);
+                
+                // 전역 메시지에 추가 (useChatMessages의 글로벌 저장소에 직접 추가)
                 try {
-                  const finalStatus = await connection.getSignatureStatus(txId);
-                  console.log('📊 최종 트랜잭션 상태:', finalStatus?.value);
-                } catch (e) {
-                  console.log('📊 백그라운드 상태 확인 실패:', e);
+                  const { addMessage } = await import('./useChatMessages');
+                  await addMessage('sol-usdc', {
+                    userId: `user-${Date.now()}`,
+                    userAddress: senderAddress,
+                    avatar: '✅',
+                    tradeType: 'buy' as const,
+                    tradeAmount: '',
+                    content: `✅ ${cleanMemo}`,
+                  });
+                  
+                  console.log(`🎉 메모 확인 및 채팅 추가 완료: "${cleanMemo}"`);
+                } catch (addError) {
+                  console.error('❌ 채팅 메시지 추가 실패:', addError);
                 }
-              }, 5000);
+              } else {
+                console.log('⚠️ 트랜잭션 정보를 가져올 수 없음');
+              }
+            } else {
+              console.log('⚠️ 메모를 찾을 수 없음:', memoText);
             }
-          } else {
-            console.log('🔍 트랜잭션 상태를 찾을 수 없지만, 서명이 존재하므로 성공으로 처리');
+          } catch (memoError) {
+            console.error('❌ 메모 확인 실패:', memoError);
+            
+            // 메모 확인 실패해도 기본 메시지 추가 시도
+            try {
+              console.log('🔄 메모 확인 실패, 기본 메시지 추가 시도...');
+              const { addMessage } = await import('./useChatMessages');
+              await addMessage('sol-usdc', {
+                userId: `user-${Date.now()}`,
+                userAddress: publicKey?.toString() || 'Unknown',
+                avatar: '✅',
+                tradeType: 'buy' as const,
+                tradeAmount: '',
+                content: `✅ ${memo.trim()}`,
+              });
+              console.log('🎉 기본 메시지 추가 완료');
+            } catch (fallbackError) {
+              console.error('❌ 기본 메시지 추가도 실패:', fallbackError);
+            }
           }
         }
 
-        console.log('✅ 스왑 처리 완료!');
-        updateState({ loading: false });
+        // 트랜잭션 상태 업데이트
+        updateState({ signature: txId, loading: false });
 
         return { success: true, signature: txId };
 

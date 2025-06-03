@@ -14,7 +14,7 @@ import {
   SupportedProtocol,
   MemoTransactionResult
 } from '@/lib/memo';
-import { createStableConnection } from '@/lib/solana';
+import { getStableConnection } from '@/lib/solana';
 
 interface UseMemoState {
   isSending: boolean;
@@ -83,7 +83,7 @@ export function useMemo() {
       const transaction = createMemoTransaction(message, publicKey);
 
       // 최신 블록해시 설정
-      const stableConnection = await createStableConnection();
+      const stableConnection = await getStableConnection();
       const { blockhash } = await stableConnection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
 
@@ -176,7 +176,7 @@ export function useMemo() {
   // 트랜잭션에서 메모 추출
   const getMemoFromTransaction = useCallback(async (signature: string): Promise<string | null> => {
     try {
-      const stableConnection = await createStableConnection();
+      const stableConnection = await getStableConnection();
       return await extractMemoFromTransaction(stableConnection, signature);
     } catch (error) {
       console.error('메모 추출 실패:', error);

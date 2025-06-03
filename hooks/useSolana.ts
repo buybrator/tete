@@ -155,17 +155,15 @@ export function useSolana() {
     initializeConnection();
   }, [initializeConnection]);
 
-  // 연결 상태 모니터링 시작
+  // 연결 상태 모니터링 시작 제거 (필요시에만 수동 확인)
   useEffect(() => {
     if (connection && status.connected) {
+      console.log('✅ 연결 모니터 준비됨 - 수동 확인만 가능');
+      // 🚫 자동 모니터링 제거 - 필요시에만 수동으로 확인
       monitorRef.current = new SolanaConnectionMonitor(connection);
-      monitorRef.current.startMonitoring((monitorStatus) => {
-        setStatus(prev => ({
-          ...prev,
-          connected: monitorStatus.connected,
-          error: monitorStatus.error,
-        }));
-      });
+      
+      // 자동 모니터링 시작하지 않음
+      // monitorRef.current.startMonitoring(...)
 
       return () => {
         monitorRef.current?.stopMonitoring();
@@ -199,7 +197,7 @@ export function useSolana() {
   };
 }
 
-// Solana 네트워크 상태만 관리하는 경량 버전
+// Solana 네트워크 상태만 관리하는 경량 버전 (수동 새로고침만)
 export function useSolanaStatus() {
   const [status, setStatus] = useState<SolanaConnectionStatus>({
     connected: false,
@@ -207,33 +205,34 @@ export function useSolanaStatus() {
     loading: true,
   });
 
-  useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const connectionStatus = await checkSolanaConnection();
-        setStatus({
-          ...connectionStatus,
-          loading: false,
-        });
-      } catch (error) {
-        setStatus({
-          connected: false,
-          network: getCurrentNetwork(),
-          loading: false,
-          error: error instanceof Error ? error.message : 'Status check failed',
-        });
-      }
-    };
-
-    checkStatus();
-    
-    // 1분마다 상태 체크
-    const interval = setInterval(checkStatus, 60000);
-    
-    return () => clearInterval(interval);
+  // 상태 체크 함수
+  const checkStatus = useCallback(async () => {
+    try {
+      setStatus(prev => ({ ...prev, loading: true }));
+      const connectionStatus = await checkSolanaConnection();
+      setStatus({
+        ...connectionStatus,
+        loading: false,
+      });
+    } catch (error) {
+      setStatus({
+        connected: false,
+        network: getCurrentNetwork(),
+        loading: false,
+        error: error instanceof Error ? error.message : 'Status check failed',
+      });
+    }
   }, []);
 
-  return status;
+  // 초기 한 번만 상태 체크 (자동 폴링 제거)
+  useEffect(() => {
+    checkStatus();
+  }, [checkStatus]);
+
+  return {
+    ...status,
+    refresh: checkStatus, // 수동 새로고침 함수 제공
+  };
 }
 
 export default useSolana; 

@@ -46,8 +46,16 @@ export function useWallet() {
       
       console.log('🔗 Solana Wallet Adapter 연결됨:', walletAddress);
       
-      // 인증 처리
-      handleAuthentication(walletAddress);
+      // 🚨 자동 인증 비활성화 - 수동으로 인증하도록 변경
+      // handleAuthentication(walletAddress);
+      
+      // 단순히 연결 상태만 업데이트
+      setWalletState(prev => ({
+        ...prev,
+        isConnected: true,
+        address: walletAddress,
+      }));
+      
     } else if (!connected) {
       console.log('❌ Solana Wallet Adapter 연결 해제됨');
       handleDisconnection();
@@ -311,10 +319,13 @@ export function useWallet() {
     authToken,
     connectWallet,
     disconnectWallet,
+    tryAutoLogin,
+    authenticate: handleAuthentication,
     updateProfile,
     refreshBalance,
     updateNickname,
     updateAvatar,
+    isAuthenticated: !!authToken,
     formatWalletAddress,
     DEFAULT_AVATARS,
     clearError: () => setError(null),

@@ -1,15 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import React, { useState } from 'react';
 import { useWalletAdapter } from '@/hooks/useWalletAdapter';
+import { 
+  Card, CardContent, CardDescription, CardHeader, CardTitle 
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Copy, ExternalLink, RefreshCw, Wallet, X, Send } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  Wallet, Copy, ExternalLink, RefreshCw, Send, X 
+} from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { safePublicKeyToString, formatWalletAddress } from '@/lib/wallet-utils';
 
@@ -24,8 +27,6 @@ export default function WalletAdapter({
   showBalance = true, 
   showActions = true 
 }: WalletAdapterProps) {
-  const { setVisible } = useWalletModal();
-  
   const {
     publicKey,
     isConnected,

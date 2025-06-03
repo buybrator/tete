@@ -5,6 +5,7 @@ import { StagewiseProvider } from './stagewise-provider';
 import WalletProviderWrapper from '@/providers/WalletProvider';
 import { TradeSettingsProvider } from '@/contexts/TradeSettingsContext';
 import { Toaster } from 'sonner';
+import ErrorSuppressor from '@/components/ErrorSuppressor';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ko" className={inter.className}>
       <body className="min-h-screen bg-background text-foreground antialiased">
+        <ErrorSuppressor />
         <WalletProviderWrapper>
           <TradeSettingsProvider>
             <StagewiseProvider>{children}</StagewiseProvider>

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { Transaction, PublicKey, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
-import { createStableConnection, checkSolanaConnection } from '@/lib/solana';
+import { getStableConnection as getLibStableConnection, checkSolanaConnection } from '@/lib/solana';
 import { Connection } from '@solana/web3.js';
 
 interface WalletAdapterState {
@@ -90,19 +90,27 @@ export function useWalletAdapter() {
   // 안정적인 연결 확보
   const getStableConnection = useCallback(async (): Promise<Connection> => {
     try {
-      // 현재 연결 상태 확인
-      const healthCheck = await checkSolanaConnection(connection);
+      // 현재 연결 상태를 먼저 빠르게 확인 (타임아웃 짧게)
+      const quickHealthCheck = Promise.race([
+        checkSolanaConnection(connection),
+        new Promise<{ connected: boolean }>((_, reject) => 
+          setTimeout(() => reject(new Error('Health check timeout')), 3000)
+        )
+      ]);
+      
+      const healthCheck = await quickHealthCheck;
       if (healthCheck.connected) {
+        console.log('✅ 기존 연결 상태 양호');
         return connection;
       }
       
       // 연결이 불안정하면 새로운 안정적인 연결 생성
-      console.log('Current connection unstable, finding healthy endpoint...');
-      return await createStableConnection();
+      console.log('🔄 연결 상태 불안정, 새로운 연결 시도...');
+      return await getLibStableConnection();
     } catch (error) {
-      console.error('Failed to get stable connection:', error);
-      // fallback to current connection
-      return connection;
+      console.warn('Connection health check failed, using library stable connection:', error);
+      // fallback to library stable connection
+      return await getLibStableConnection();
     }
   }, [connection]);
 
@@ -285,14 +293,15 @@ export function useWalletAdapter() {
     setError(null);
   }, []);
 
-  // 연결 상태가 변경될 때 잔고 조회
+  // 연결 상태가 변경될 때 잔고 조회 제거 (수동으로만 조회)
   useEffect(() => {
     if (connected && publicKey) {
-      fetchBalance();
+      console.log('✅ 지갑 연결됨 - 수동 잔고 조회만 가능');
+      // 🚫 자동 잔고 조회 제거 - fetchBalance() 호출 제거
     } else {
       setBalance(null);
     }
-  }, [connected, publicKey, fetchBalance]);
+  }, [connected, publicKey]); // fetchBalance 의존성 제거
 
   return {
     // 상태

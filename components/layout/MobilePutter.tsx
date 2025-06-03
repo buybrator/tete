@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Label } from '@/components/ui/label';
 import { Compass, Search, User, X, Upload } from 'lucide-react';
 import { useWallet } from '@/hooks/useWallet';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 
 // Mock 채팅방 데이터 (Navbar와 동일)
 const mockRooms = [
@@ -21,7 +22,8 @@ const mockRooms = [
 
 // 모바일용 지갑 프로필 컴포넌트
 function MobileWalletProfile() {
-  const { walletState, connectWallet, disconnectWallet, updateNickname, updateAvatar, DEFAULT_AVATARS } = useWallet();
+  const { walletState, disconnectWallet, updateNickname, updateAvatar, DEFAULT_AVATARS } = useWallet();
+  const { setVisible } = useWalletModal();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [tempNickname, setTempNickname] = useState('');
   const [tempAvatar, setTempAvatar] = useState('');
@@ -75,7 +77,7 @@ function MobileWalletProfile() {
       <button 
         className="group relative flex flex-col items-center justify-center gap-1 bg-transparent hover:bg-blue-400 text-black transition-colors duration-150 font-bold h-full px-3 py-2 border-none outline-none"
         style={{ boxShadow: 'none', border: 'none', background: 'transparent' }}
-        onClick={connectWallet}
+        onClick={() => setVisible(true)}
       >
         <User className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
         <span className="text-xs uppercase tracking-wide leading-none">account</span>
@@ -107,7 +109,15 @@ function MobileWalletProfile() {
               )}
             </Avatar>
           </div>
-          <span className="text-xs uppercase tracking-wide leading-none">account</span>
+          {walletState.nickname ? (
+            <span className="text-xs uppercase tracking-wide leading-none">
+              {walletState.nickname}
+            </span>
+          ) : (
+            <span className="text-xs tracking-wide leading-none">
+              {`${walletState.address?.slice(0, 4)}...${walletState.address?.slice(-4)}`}
+            </span>
+          )}
         </button>
       </DialogTrigger>
 

@@ -1,4 +1,3 @@
-import { PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
 import { SWAP_CONFIG } from './tokens';
 
 // 🔄 Jupiter Quote 응답 타입

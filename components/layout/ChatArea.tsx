@@ -274,8 +274,8 @@ export default function ChatArea() {
                 <ChatBubble
                   side={message.tradeType}
                   avatar={message.avatar}
-                  amount={message.amount}
-                  message={message.message}
+                  amount={message.tradeAmount || 0}
+                  message={message.content || ''}
                   userAddress={message.userAddress}
                   timestamp={message.timestamp}
                 />
@@ -354,8 +354,8 @@ export default function ChatArea() {
               <ChatBubble
                 side={message.tradeType}
                 avatar={message.avatar}
-                amount={message.amount}
-                message={message.message}
+                amount={message.tradeAmount || 0}
+                message={message.content || ''}
                 userAddress={message.userAddress}
                 timestamp={message.timestamp}
               />
