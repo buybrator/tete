@@ -1,5 +1,11 @@
-import { Pool, PoolClient } from 'pg';
+// 서버 전용 파일 - 클라이언트에서 import하지 말 것
+import { Pool, PoolClient, QueryResult } from 'pg';
 import dotenv from 'dotenv';
+
+// 서버 환경에서만 실행되도록 보장
+if (typeof window !== 'undefined') {
+  throw new Error('Database connection should only be used on the server side');
+}
 
 dotenv.config();
 
@@ -32,7 +38,7 @@ class DatabaseConnection {
     }
   }
 
-  async query(text: string, params?: any[]): Promise<any> {
+  async query(text: string, params?: unknown[]): Promise<QueryResult> {
     const start = Date.now();
     try {
       const res = await this.pool.query(text, params);

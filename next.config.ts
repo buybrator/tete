@@ -6,6 +6,32 @@ const nextConfig: NextConfig = {
   },
   basePath: process.env.NODE_ENV === 'production' ? '' : '',
   
+  // Next.js 15에서 서버 전용 패키지들을 위한 설정
+  serverExternalPackages: ['pg', 'express', 'socket.io'],
+  
+  // Webpack 설정으로 Node.js 전용 모듈들을 클라이언트에서 제외
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // 클라이언트 번들에서 서버 전용 모듈들 제외
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        child_process: false,
+        'pg-native': false,
+        pg: false,
+        express: false,
+        'socket.io': false,
+      };
+      
+      // 서버 전용 모듈들을 external로 처리
+      config.externals = config.externals || [];
+      config.externals.push('pg', 'express', 'socket.io', 'cors');
+    }
+    return config;
+  },
+  
   // CORS 문제 해결을 위한 프록시 설정
   async rewrites() {
     return [
