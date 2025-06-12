@@ -1,0 +1,142 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 환경변수 파일 관리 규칙
+
+이 규칙은 프로젝트의 환경변수 파일, 특히 [.env.local](mdc:.env.local) 파일의 관리와 수정에 대한 지침을 제공합니다.
+
+## **필수 알림 규칙**
+
+- **`.env.local` 파일 수정이 필요한 경우 무조건 사용자에게 알려야 합니다**
+- 새로운 환경변수가 추가되거나 기존 변수가 변경될 때 명시적으로 안내
+- 자동으로 파일을 수정하지 말고 사용자가 수동으로 적용하도록 안내
+
+## **환경변수 카테고리**
+
+### API Keys (민감 정보)
+```env
+# Solana RPC URLs
+NEXT_PUBLIC_RPC_URL=https://solana-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+
+# Database
+DATABASE_URL=postgresql://username:password@localhost:5432/dbname
+
+# Authentication
+NEXTAUTH_SECRET=your-secret-key
+NEXTAUTH_URL=http://localhost:3000
+```
+
+### 공개 환경변수
+```env
+# Public configuration
+NEXT_PUBLIC_APP_NAME=Solana Chat App
+NEXT_PUBLIC_NETWORK=mainnet-beta
+```
+
+## **변경 감지 시나리오**
+
+### 🚨 사용자 알림이 필요한 경우:
+
+1. **새로운 API 연동**
+   - 새로운 서비스 API 키 추가
+   - RPC URL 변경 또는 추가
+   - 데이터베이스 연결 문자열 변경
+
+2. **기능 개발로 인한 환경변수 추가**
+   - 새로운 외부 서비스 연동
+   - 개발/프로덕션 환경 분리 설정
+   - 기능 플래그 환경변수
+
+3. **보안 관련 변경**
+   - JWT 시크릿 키 변경
+   - 암호화 키 추가
+   - CORS 설정 변경
+
+## **알림 메시지 템플릿**
+
+```markdown
+🔧 **환경변수 수정 필요!**
+
+`.env.local` 파일에 다음 내용을 추가/수정해주세요:
+
+```env
+NEW_VARIABLE=your_value_here
+EXISTING_VARIABLE=updated_value
+```
+
+**변경 이유:** [구체적인 이유 설명]
+**적용 방법:** 파일을 수동으로 편집한 후 개발 서버를 재시작해주세요.
+```
+
+## **파일 구조 및 우선순위**
+
+1. **[.env.local](mdc:.env.local)** - 로컬 개발용 (Git 제외)
+2. **[.env.example](mdc:.env.example)** - 템플릿 파일 (Git 포함)
+3. **[.env](mdc:.env)** - 기본 환경변수 (Git 포함 가능)
+
+## **코드에서 환경변수 사용 패턴**
+
+### ✅ 올바른 사용법
+```typescript
+// 서버 사이드에서만 사용
+const apiKey = process.env.SECRET_API_KEY;
+
+// 클라이언트에서 사용 (NEXT_PUBLIC_ 접두사 필수)
+const publicUrl = process.env.NEXT_PUBLIC_RPC_URL;
+
+// 기본값 제공
+const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
+```
+
+### ❌ 피해야 할 패턴
+```typescript
+// 민감한 정보를 클라이언트에 노출
+const secretKey = process.env.SECRET_KEY; // 위험!
+
+// 환경변수 없을 때 처리 안함
+const url = process.env.API_URL; // undefined일 수 있음
+```
+
+## **개발 워크플로우**
+
+1. **새 기능 개발 시:**
+   - 환경변수가 필요한지 확인
+   - [.env.example](mdc:.env.example) 업데이트
+   - 사용자에게 `.env.local` 수정 안내
+
+2. **API 연동 시:**
+   - API 키/URL 환경변수 추가
+   - 연결 테스트 코드 작성
+   - 에러 처리 및 폴백 로직 구현
+
+3. **배포 전 체크리스트:**
+   - 모든 필수 환경변수 확인
+   - 프로덕션용 값으로 설정
+   - 민감 정보 보안 검토
+
+## **Solana 프로젝트 특화 환경변수**
+
+```env
+# Solana RPC 설정
+NEXT_PUBLIC_RPC_URL=https://solana-mainnet.g.alchemy.com/v2/YOUR_KEY
+NEXT_PUBLIC_SOLANA_NETWORK=mainnet-beta
+
+# 지갑 연결
+NEXT_PUBLIC_WALLET_ADAPTER_NETWORK=mainnet-beta
+
+# 채팅방 관련
+NEXT_PUBLIC_CHATROOM_CONTRACT=your_program_id_here
+```
+
+## **트러블슈팅**
+
+- **환경변수가 undefined인 경우:** 서버 재시작 필요
+- **NEXT_PUBLIC_ 접두사 누락:** 클라이언트에서 접근 불가
+- **특수문자 포함 값:** 따옴표로 감싸기 `KEY="value with spaces"`
+
+---
+
+**중요:** 이 규칙에 따라 환경변수 관련 변경사항이 발생하면 반드시 사용자에게 명시적으로 알리고 수동 적용을 요청해야 합니다.
+

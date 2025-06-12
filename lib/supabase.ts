@@ -2,34 +2,40 @@ import { createClient } from '@supabase/supabase-js'
 
 // 환경 변수 검증 및 로드
 function getSupabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  // 임시로 하드코딩하여 테스트
+  const url = 'https://ozeooonqxrjvdoajgvnz.supabase.co'
+  const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZW9vb25xeHJqdmRvYWpndm56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NDk1MjYsImV4cCI6MjA2NDMyNTUyNn0.d32Li6tfOvj96CKSfaVDkAKLK8WpGtFO9CiZf_cbY4Q'
 
-  // 빌드 시점에는 플레이스홀더 허용
-  if (!url || !key) {
-    console.warn('Missing Supabase environment variables, using fallback values')
-    return {
-      url: url || 'https://placeholder.supabase.co',
-      key: key || 'placeholder-key'
-    }
-  }
+  console.log('🔐 Supabase 설정:', { url, keyLength: key.length })
 
   return { url, key }
 }
 
 // 서버 사이드 환경 변수 로드
 function getSupabaseAdminConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const url = 'https://ozeooonqxrjvdoajgvnz.supabase.co'
+  
+  // ✅ 실제 service_role 키 사용
+  const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZW9vb25xeHJqdmRvYWpndm56Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODc0OTUyNiwiZXhwIjoyMDY0MzI1NTI2fQ.FHrUT_yvvWAgyO8RU3ucaAdWIHfPpD9gwypeF8dcLb0'
 
-  // 빌드 시점에는 플레이스홀더 허용
-  if (!url || !serviceKey) {
-    console.warn('Missing Supabase admin environment variables, using fallback values')
-    return {
-      url: url || 'https://placeholder.supabase.co',
-      serviceKey: serviceKey || 'placeholder-service-key'
+  console.log('🚨 현재 Service Key 토큰 정보:')
+  try {
+    // JWT 토큰 디코딩으로 role 확인
+    const payload = JSON.parse(atob(serviceKey.split('.')[1]))
+    console.log('📊 토큰 role:', payload.role)
+    console.log('📊 토큰 정보:', { iss: payload.iss, ref: payload.ref, role: payload.role })
+    
+    if (payload.role === 'service_role') {
+      console.log('✅ SERVICE_ROLE KEY 사용 중! RLS 우회 가능!')
+    } else if (payload.role === 'anon') {
+      console.error('🚨 ANON KEY 사용 중! SERVICE_ROLE KEY가 필요합니다!')
+      console.error('🔧 Supabase 대시보드 > Settings > API > service_role key를 복사하세요')
     }
+  } catch (e) {
+    console.error('❌ 토큰 디코딩 실패:', e)
   }
+
+  console.log('🔐 Supabase Admin 설정:', { url, keyLength: serviceKey.length })
 
   return { url, serviceKey }
 }
@@ -83,25 +89,79 @@ export type Database = {
     Tables: {
       chat_rooms: {
         Row: {
+          id: string
+          name: string
+          description: string | null
+          image: string | null
+          token_address: string | null
+          created_by: string
+          member_count: number | null
+          is_active: boolean | null
           created_at: string | null
-          creation_tx_signature: string
-          creator_wallet: string
-          room_name: string
-          token_address: string
+          updated_at: string | null
         }
         Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          image?: string | null
+          token_address?: string | null
+          created_by: string
+          member_count?: number | null
+          is_active?: boolean | null
           created_at?: string | null
-          creation_tx_signature: string
-          creator_wallet: string
-          room_name: string
-          token_address: string
+          updated_at?: string | null
         }
         Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          image?: string | null
+          token_address?: string | null
+          created_by?: string
+          member_count?: number | null
+          is_active?: boolean | null
           created_at?: string | null
-          creation_tx_signature?: string
-          creator_wallet?: string
-          room_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      token_price_history: {
+        Row: {
+          id: string
+          token_address: string
+          price: number
+          open_price: number
+          high_price: number
+          low_price: number
+          close_price: number
+          timestamp_15min: string
+          volume: number | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          token_address: string
+          price: number
+          open_price: number
+          high_price: number
+          low_price: number
+          close_price: number
+          timestamp_15min: string
+          volume?: number | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
           token_address?: string
+          price?: number
+          open_price?: number
+          high_price?: number
+          low_price?: number
+          close_price?: number
+          timestamp_15min?: string
+          volume?: number | null
+          created_at?: string | null
         }
         Relationships: []
       }
@@ -195,7 +255,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   },
   realtime: {
     params: {
-      eventsPerSecond: 10
+      eventsPerSecond: 50
     }
   }
 })
@@ -205,6 +265,34 @@ export type Profile = Database['public']['Tables']['profiles']['Row']
 export type ChatRoom = Database['public']['Tables']['chat_rooms']['Row']
 export type MessageCache = Database['public']['Tables']['message_cache']['Row']
 export type MessageType = Database['public']['Enums']['message_type_enum']
+
+// 데이터베이스 타입 정의
+export interface MessageCacheRow {
+  signature: string;
+  token_address: string;
+  sender_wallet: string;
+  message_type: 'BUY' | 'SELL' | 'CHAT';
+  content: string;
+  quantity?: number | null;
+  price?: number | null;
+  block_time: string;
+  processed_at?: string | null;
+}
+
+export interface ChatRoomRow {
+  token_address: string;
+  room_name: string;
+  creator_wallet: string;
+  creation_tx_signature: string;
+  created_at?: string;
+}
+
+export interface ProfileRow {
+  wallet_address: string;
+  nickname: string;
+  created_at?: string;
+  updated_at?: string;
+}
 
 // 타입이 적용된 Supabase 클라이언트 (기본 export)
 export default supabase 

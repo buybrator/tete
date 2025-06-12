@@ -1,23 +1,15 @@
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { ChatMessage } from '@/types';
 
 type Props = {
-  side: 'buy' | 'sell';
-  avatar?: string;
-  amount: string;
-  message: string;
-  userAddress?: string;
-  timestamp?: Date;
+  message: ChatMessage;
 };
 
-export default function ChatBubble({ 
-  side, 
-  avatar, 
-  amount, 
-  message, 
-  userAddress,
-  timestamp 
-}: Props) {
+export default function ChatBubble({ message }: Props) {
+  const { tradeType: side, avatar, tradeAmount, content, userAddress, timestamp } = message;
+  const amount = tradeAmount || '0';
+  
   const bubbleClass = `max-w-fit px-4 py-3 rounded-xl border-2 transition-all duration-200 ${
     side === 'buy' 
       ? 'bg-green-50 border-green-200 text-green-900' 
@@ -53,7 +45,7 @@ export default function ChatBubble({
               </span>
             )}
           </div>
-          <p className="text-sm break-words max-w-xs leading-relaxed">{message}</p>
+          <p className="text-sm break-words max-w-xs leading-relaxed">{content}</p>
         </div>
 
       </div>

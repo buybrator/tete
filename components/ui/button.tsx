@@ -6,17 +6,17 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-base text-sm font-base ring-offset-white transition-all gap-2 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-none text-sm font-bold transition-all gap-2 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black disabled:pointer-events-none disabled:opacity-50 neobrutalism-button",
   {
     variants: {
       variant: {
         default:
-          "text-main-foreground bg-main border-2 border-border shadow-shadow hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none",
-        noShadow: "text-main-foreground bg-main border-2 border-border",
+          "text-black bg-orange-400 border-2 border-black hover:translate-x-1 hover:translate-y-1 active:translate-x-1 active:translate-y-1",
+        noShadow: "text-black bg-orange-400 border-2 border-black",
         neutral:
-          "bg-secondary-background text-foreground border-2 border-border shadow-shadow hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none",
+          "bg-white text-black border-2 border-black hover:translate-x-1 hover:translate-y-1 active:translate-x-1 active:translate-y-1",
         reverse:
-          "text-main-foreground bg-main border-2 border-border hover:translate-x-reverseBoxShadowX hover:translate-y-reverseBoxShadowY hover:shadow-shadow",
+          "text-black bg-orange-400 border-2 border-black hover:-translate-x-1 hover:-translate-y-1",
       },
       size: {
         default: "h-10 px-4 py-2",

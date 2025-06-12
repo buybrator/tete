@@ -9,8 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Compass, Search, User, X, Upload } from 'lucide-react';
 import { useWallet } from '@/hooks/useWallet';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import TokenAvatar from '@/components/ui/TokenAvatar';
+import CreateChatRoomDialog from './CreateChatRoomDialog';
 
-// Mock 채팅방 데이터 (Navbar와 동일)
+// Mock 채팅방 데이터 (fallback용)
 const mockRooms = [
   { id: 'sol-usdc', name: 'SOL/USDC', image: '💰', description: 'Solana USDC 거래' },
   { id: 'bonk', name: 'BONK', image: '🐕', description: 'BONK 밈코인 거래' },
@@ -19,6 +21,26 @@ const mockRooms = [
   { id: 'ray', name: 'RAY', image: '⚡', description: 'Raydium 거래' },
   { id: 'samo', name: 'SAMO', image: '🐕‍🦺', description: 'Samoyed 거래' },
 ];
+
+// API에서 받아오는 채팅방 타입
+interface ApiChatRoom {
+  id: string;
+  name: string;
+  contractAddress: string;
+  creatorAddress: string;
+  transactionSignature: string;
+  createdAt: string;
+  isActive: boolean;
+  image?: string; // 토큰 메타데이터에서 가져온 이미지 URL
+}
+
+// UI용 채팅방 타입
+interface ChatRoom {
+  id: string;
+  name: string;
+  image: string;
+  description: string;
+}
 
 // 모바일용 지갑 프로필 컴포넌트
 function MobileWalletProfile() {
@@ -240,6 +262,9 @@ function MobileWalletProfile() {
 export default function MobilePutter() {
   const [showSearchSidebar, setShowSearchSidebar] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [apiRooms, setApiRooms] = useState<ChatRoom[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   // 사이드바 열림/닫힘 시 스크롤 위치 고정
   useEffect(() => {
@@ -283,19 +308,61 @@ export default function MobilePutter() {
     }
   }, [showSearchSidebar]);
 
-  // 검색된 채팅방 목록
+  // 실제 채팅방 데이터 로드
+  const loadChatrooms = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/chatrooms');
+      const data = await response.json();
+      
+      if (data.success) {
+        // API 데이터를 UI 형식으로 변환
+        const formattedRooms = data.chatrooms.map((room: ApiChatRoom) => ({
+          id: room.contractAddress,
+          name: room.name,
+          image: room.image || '🪙', // 토큰 이미지 URL 또는 기본 이모지
+          description: `CA: ${room.contractAddress.slice(0, 8)}...`
+        }));
+        setApiRooms(formattedRooms);
+      }
+    } catch (error) {
+      console.error('채팅방 로드 오류:', error);
+      // 오류 시 목 데이터 유지
+      setApiRooms(mockRooms);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // 컴포넌트 마운트 시 데이터 로드
+  useEffect(() => {
+    loadChatrooms();
+  }, [loadChatrooms]);
+
+  // 채팅방 생성 이벤트 리스너
+  useEffect(() => {
+    const handleChatroomCreated = () => {
+      loadChatrooms(); // 새 채팅방 생성 시 목록 새로고침
+    };
+
+    window.addEventListener('chatroomCreated', handleChatroomCreated);
+    return () => window.removeEventListener('chatroomCreated', handleChatroomCreated);
+  }, [loadChatrooms]);
+
+  // 검색된 채팅방 목록 (API 데이터 우선, 없으면 목 데이터)
+  const allRooms = apiRooms.length > 0 ? apiRooms : mockRooms;
   const filteredRooms = useMemo(() => {
-    if (!searchQuery.trim()) return mockRooms;
+    if (!searchQuery.trim()) return allRooms;
     
     const query = searchQuery.toLowerCase();
-    return mockRooms.filter(room => 
+    return allRooms.filter(room => 
       room.name.toLowerCase().includes(query) ||
       room.description.toLowerCase().includes(query)
     );
-  }, [searchQuery]);
+  }, [searchQuery, allRooms]);
 
   // 채팅방 선택 핸들러
-  const handleRoomSelect = useCallback((room: typeof mockRooms[0]) => {
+  const handleRoomSelect = useCallback((room: ChatRoom) => {
     // 채팅 영역으로 메시지 전송하여 선택된 방으로 변경
     window.dispatchEvent(new CustomEvent('roomSelected', { 
       detail: { roomId: room.id } 
@@ -306,6 +373,19 @@ export default function MobilePutter() {
     setSearchQuery('');
     
     console.log('MobilePutter: 채팅방 선택 ->', room.id);
+  }, []);
+
+  // Create room 핸들러
+  const handleCreateRoom = useCallback(() => {
+    // 채팅방 생성 dialog 열기
+    console.log('모바일: 새 채팅방 생성 요청');
+    
+    // 사이드바 닫기
+    setShowSearchSidebar(false);
+    setSearchQuery('');
+    
+    // dialog 열기
+    setIsCreateDialogOpen(true);
   }, []);
 
   // 검색 사이드바 열기
@@ -384,9 +464,16 @@ export default function MobilePutter() {
               </div>
             </div>
 
-            {/* 검색 결과 목록 */}
-            <div className="flex-1 overflow-y-auto p-4 search-sidebar-content">
-              {filteredRooms.length > 0 ? (
+            {/* 검색 결과 목록 영역 (스크롤 가능) */}
+            <div className="flex-1 p-4 search-sidebar-content">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-32 text-muted-foreground">
+                  <div className="text-center">
+                    <Search className="h-8 w-8 mx-auto mb-2 opacity-50 animate-spin" />
+                    <p className="text-sm">채팅방 로딩 중...</p>
+                  </div>
+                </div>
+              ) : filteredRooms.length > 0 ? (
                 <div className="space-y-2">
                   {filteredRooms.map((room) => (
                     <button
@@ -394,10 +481,15 @@ export default function MobilePutter() {
                       onClick={() => handleRoomSelect(room)}
                       className="w-full p-3 text-left bg-secondary-background hover:bg-main/10 transition-colors border-2 border-border rounded-base flex items-center gap-3"
                     >
-                      <span className="text-xl">{room.image}</span>
+                      <TokenAvatar 
+                        tokenAddress={room.id}
+                        tokenName={room.name}
+                        size="md"
+                        imageUrl={room.image}
+                      />
                       <div className="flex-1">
                         <div className="font-semibold text-foreground">{room.name}</div>
-                        <div className="text-sm text-muted-foreground">{room.description}</div>
+                        <div className="text-sm text-muted-foreground">CA: {room.id.slice(0, 8)}...</div>
                       </div>
                     </button>
                   ))}
@@ -417,15 +509,33 @@ export default function MobilePutter() {
               )}
             </div>
 
-            {/* 사이드바 푸터 */}
-            <div className="p-4 border-t border-border bg-secondary-background/50">
-              <p className="text-xs text-muted-foreground text-center">
+            {/* Create chat room 고정 영역 */}
+            <div className="p-4 border-t-2 border-border bg-secondary-background/50">
+              <button
+                onClick={handleCreateRoom}
+                className="w-full p-3 text-left bg-blue-50 hover:bg-blue-100 transition-colors border-2 border-blue-200 rounded-base flex items-center gap-3 text-blue-600 font-medium"
+              >
+                <span className="text-xl">➕</span>
+                <div className="flex-1">
+                  <div className="font-semibold">Create chat room</div>
+                  <div className="text-xs text-blue-500">새로운 채팅방 만들기</div>
+                </div>
+              </button>
+              
+              {/* 총 채팅방 개수 */}
+              <p className="text-xs text-muted-foreground text-center mt-2">
                 총 {filteredRooms.length}개의 채팅방
               </p>
             </div>
           </div>
         </>
       )}
+
+      {/* 채팅방 생성 Dialog */}
+      <CreateChatRoomDialog 
+        open={isCreateDialogOpen} 
+        onOpenChange={setIsCreateDialogOpen} 
+      />
     </>
   );
 } 

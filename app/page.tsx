@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Navbar from '@/components/layout/Navbar';
+import PCNavbar from '@/components/layout/PCNavbar';
 import ChatArea from '@/components/layout/ChatArea';
 import TradeSettingsPanel from '@/components/layout/TradeSettingsPanel';
 import MobilePutter from '@/components/layout/MobilePutter';
+
 
 export default function Home() {
   const [isPopupMode, setIsPopupMode] = useState(false);
@@ -23,6 +25,9 @@ export default function Home() {
 
   return (
     <>
+      {/* PC Navbar - 독립적인 상단 70px 영역 */}
+      <PCNavbar />
+      
       {/* Desktop Layout (≥1024px) */}
       <div className="desktop-layout">
         <Navbar />

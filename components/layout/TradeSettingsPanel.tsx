@@ -1,17 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Check, TrendingDown, Fuel, DollarSign } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
-import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { useTradeSettings } from '@/contexts/TradeSettingsContext';
+import TokenChart from '@/components/chart/TokenChart';
 
 type Props = {
   mobile?: boolean;
 };
+
+
 
 export default function TradeSettingsPanel({ mobile = false }: Props) {
   const { settings, updateSettings } = useTradeSettings();
@@ -27,13 +29,46 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
   // PC 버전 프리셋 설정
   const [selectedPreset, setSelectedPreset] = useState(1);
   const [settingsMode, setSettingsMode] = useState<'buy' | 'sell'>('buy');
-  const [presetSlippage, setPresetSlippage] = useState('50');
-  const [presetPriority, setPresetPriority] = useState('105');
+  const [presetSlippage, setPresetSlippage] = useState('30');
+  const [presetPriority, setPresetPriority] = useState('0.0001');
   const [presetBribe, setPresetBribe] = useState('0.001');
-  
-  // 차트 시간 필터 상태
-  const [selectedPeriod, setSelectedPeriod] = useState('1D');
-  
+
+  // 현재 토큰 주소 상태 (채팅방별 토큰)
+  const [currentTokenAddress, setCurrentTokenAddress] = useState<string>('So11111111111111111111111111111111111111112'); // SOL 기본값
+  const [currentTokenName, setCurrentTokenName] = useState<string>('SOL');
+
+
+
+  // 채팅방 토큰 변경 이벤트 처리
+  useEffect(() => {
+    const handleTokenPairChanged = (event: CustomEvent) => {
+      const { contractAddress, tokenName } = event.detail;
+      if (contractAddress && contractAddress !== currentTokenAddress) {
+        setCurrentTokenAddress(contractAddress);
+        setCurrentTokenName(tokenName || '토큰');
+        console.log('트레이드 패널: 토큰 변경됨', { contractAddress, tokenName });
+      }
+    };
+
+    window.addEventListener('tokenPairChanged', handleTokenPairChanged as EventListener);
+    return () => window.removeEventListener('tokenPairChanged', handleTokenPairChanged as EventListener);
+  }, [currentTokenAddress]);
+
+  // PC 버전 프리셋 설정값들을 TradeSettingsContext에 동기화
+  useEffect(() => {
+    console.log('PC 프리셋 설정값 Context 업데이트:', {
+      slippage: presetSlippage,
+      priorityFee: presetPriority,
+      maxFee: presetBribe
+    });
+    
+    updateSettings({
+      slippage: presetSlippage,
+      priorityFee: presetPriority,
+      maxFee: presetBribe
+    });
+  }, [presetSlippage, presetPriority, presetBribe]); // updateSettings 제거
+
   const presets = settings.mode === 'buy' ? buyPresets : sellPresets;
   const setPresets = settings.mode === 'buy' ? setBuyPresets : setSellPresets;
 
@@ -60,26 +95,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
     updateSettings({ maxFee });
   };
 
-  // 차트 데이터 생성 (가격 변동 시뮬레이션)
-  const generateChartData = () => {
-    const data = [];
-    let price = 45; // 시작 가격
-    
-    for (let i = 0; i < 50; i++) {
-      // 랜덤한 가격 변동 (-2% ~ +2%)
-      const change = (Math.random() - 0.5) * 0.04;
-      price = price * (1 + change);
-      
-      data.push({
-        index: i,
-        price: price
-      });
-    }
-    
-    return data;
-  };
 
-  const chartData = generateChartData();
 
   const PanelBody = mobile ? (
     // 모바일 버전
@@ -185,7 +201,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                   }`}
                   onClick={() => handleQuantityChange(preset)}
                 >
-                  {preset}
+                  {settings.mode === 'sell' ? `${preset}%` : preset}
                 </Badge>
               ))}
             </div>
@@ -193,9 +209,9 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
         </div>
 
         {/* 수량 입력 */}
-        <div className="w-full">
+        <div className="w-full space-y-1">
           <Input 
-            placeholder={settings.mode === 'buy' ? 'Enter SOL amount' : 'Enter percentage'}
+            placeholder={settings.mode === 'buy' ? 'Enter SOL amount' : 'Enter percentage (%)'}
             value={settings.quantity}
             onChange={(e) => handleQuantityChange(e.target.value)}
             className="w-full h-8 text-base font-medium border-2"
@@ -204,6 +220,9 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
               outline: 'none'
             }}
           />
+          <div className="text-xs text-gray-500 text-center">
+            + 0.69% 플랫폼 수수료
+          </div>
         </div>
 
         {/* 고급 설정 */}
@@ -312,12 +331,15 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
             <Input 
               value={settings.quantity}
               onChange={(e) => handleQuantityChange(e.target.value)}
-              placeholder={settings.mode === 'buy' ? 'Enter SOL amount' : 'Enter percentage'}
+              placeholder={settings.mode === 'buy' ? 'Enter SOL amount' : 'Enter percentage (%)'}
               className="flex-1 h-12 text-lg font-medium border-2 focus:ring-2 focus:ring-blue-500"
             />
             <Button variant="neutral" className="h-12 w-12 p-0 border-2">
               <span className="text-lg">⚙️</span>
             </Button>
+          </div>
+          <div className="text-xs text-gray-500 text-center">
+            + 0.69% 플랫폼 수수료가 자동으로 추가됩니다
           </div>
         </div>
 
@@ -393,7 +415,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                   }`}
                   onClick={() => handleQuantityChange(preset)}
                 >
-                  {preset}
+                  {settings.mode === 'sell' ? `${preset}%` : preset}
                 </Button>
               ))
             )}
@@ -405,50 +427,33 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
           <div className="flex items-center justify-between text-xs gap-1">
             <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
               <TrendingDown className="h-3 w-3 text-blue-500 flex-shrink-0" />
-              <span className="font-medium text-xs truncate">{settings.slippage}%</span>
+              <span className="font-medium text-xs truncate">{presetSlippage}%</span>
             </div>
             <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
               <Fuel className="h-3 w-3 text-orange-500 flex-shrink-0" />
-              <span className="font-medium text-xs truncate">{settings.priorityFee}</span>
+              <span className="font-medium text-xs truncate">{presetPriority}</span>
             </div>
             <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
               <DollarSign className="h-3 w-3 text-green-500 flex-shrink-0" />
-              <span className="font-medium text-xs truncate">{settings.maxFee}</span>
+              <span className="font-medium text-xs truncate">{presetBribe}</span>
             </div>
           </div>
         </div>
 
-        {/* 차트 영역 */}
-        <div className="bg-white border-2 border-gray-200 rounded-[15px] p-4 h-48">
-          <ResponsiveContainer width="100%" height="75%">
-            <LineChart data={chartData}>
-              <Line 
-                type="monotone" 
-                dataKey="price" 
-                stroke="#22c55e" 
-                strokeWidth={2}
-                dot={false}
-                activeDot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-          <div className="flex justify-center mt-2">
-            <div className="flex gap-1 bg-gray-100 rounded-[15px] p-1">
-              {['1H', '1D', '1W', '1M', 'All'].map((period) => (
-                <button
-                  key={period}
-                  onClick={() => setSelectedPeriod(period)}
-                  className={`px-3 py-1 text-xs font-medium rounded-[15px] transition-colors ${
-                    selectedPeriod === period
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-transparent text-gray-600 hover:bg-green-100 hover:text-green-600'
-                  }`}
-                  style={{ boxShadow: 'none' }}
-                >
-                  {period}
-                </button>
-              ))}
+        {/* 채팅방별 토큰 가격 차트 */}
+        <div className="">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-gray-600">
+                {currentTokenName} ({currentTokenAddress ? `${currentTokenAddress.slice(0, 4)}...${currentTokenAddress.slice(-4)}` : 'N/A'})
+              </span>
             </div>
+          </div>
+          <div className="h-20 w-full">
+            <TokenChart 
+              tokenAddress={currentTokenAddress}
+              className="w-full h-full"
+            />
           </div>
         </div>
       </div>

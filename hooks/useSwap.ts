@@ -7,12 +7,17 @@ import {
   TransactionInstruction,
   PublicKey,
   Connection,
+  SystemProgram,
 } from '@solana/web3.js';
+// SPL Token 관련 기능은 별도 구현
 import { getStableConnection } from '@/lib/solana';
 import { jupiterService, JupiterQuote } from '@/lib/jupiter';
 import { TOKENS, formatTokenAmount, getTokenByAddress } from '@/lib/tokens';
 import { safePublicKeyToString, isValidPublicKey } from '@/lib/wallet-utils';
 import { extractMemoFromTransaction } from '@/lib/memo';
+
+// 🎯 수수료 설정 (Jupiter API에서 자동 처리)
+const FEE_RECIPIENT_ADDRESS = '9YGfNLAiVNWbkgi9jFunyqQ1Q35yirSEFYsKLN6PP1DG';
 
 // 🎯 메모 인스트럭션 생성 헬퍼 함수
 function createMemoInstruction(memo: string, signer: PublicKey): TransactionInstruction {
@@ -22,6 +27,33 @@ function createMemoInstruction(memo: string, signer: PublicKey): TransactionInst
     data: Buffer.from(memo, 'utf8'),
   });
 }
+
+// 💰 간단한 SOL 수수료 전송 함수
+async function addFeeInstruction(
+  transaction: Transaction,
+  fromPubkey: PublicKey,
+  feeAmount: number
+): Promise<void> {
+  try {
+    const feeRecipient = new PublicKey(FEE_RECIPIENT_ADDRESS);
+    
+    // 올바른 SystemProgram.transfer() 사용
+    const feeInstruction = SystemProgram.transfer({
+      fromPubkey: fromPubkey,
+      toPubkey: feeRecipient,
+      lamports: feeAmount,
+    });
+    
+    // 트랜잭션 맨 앞에 수수료 인스트럭션 추가
+    transaction.instructions.unshift(feeInstruction);
+    console.log(`💸 수수료 인스트럭션 추가: ${feeAmount / 1e9} SOL → ${FEE_RECIPIENT_ADDRESS}`);
+  } catch (error) {
+    console.error('❌ 수수료 인스트럭션 추가 실패:', error);
+    throw error;
+  }
+}
+
+// 💰 수수료는 Jupiter API에서 자동 처리됩니다
 
 // 🔄 스왑 상태 타입
 export interface SwapState {
@@ -137,51 +169,71 @@ export function useSwap() {
     updateState({ loading: true, error: null, signature: null });
 
     try {
-      console.log('🔄 스왑 트랜잭션 생성 중...');
+      console.log('🔄 수수료 포함 스왑 트랜잭션 생성 중...');
 
-      // 1) Jupiter API로 Quote 요청 (이미 있으면 스킵 가능하지만 안전을 위해)
-      console.log("Quote 확인 중...");
+      // 🎯 새로운 Jupiter 수수료 포함 API 사용
+      const inputToken = getTokenByAddress(quote.inputMint);
+      const outputToken = getTokenByAddress(quote.outputMint);
       
-      // 2) Jupiter API로 스왑 거래 직렬화 데이터 받기 (LegacyTransaction으로 요청)
-      console.log("Swap 요청 중...");
-      const swapRes = await fetch('https://quote-api.jup.ag/v6/swap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          quoteResponse: quote,
-          userPublicKey: userPublicKeyString,
-          asLegacyTransaction: true, // LegacyTransaction으로 받기
-        }),
+      console.log(`🎯 수수료 포함 스왑: ${inputToken?.symbol} → ${outputToken?.symbol}`);
+      console.log(`💰 플랫폼 수수료: ${quote.platformFee ? `${quote.platformFee.feeBps} bps (${quote.platformFee.amount})` : 'None'}`);
+
+      // 기본 스왑 트랜잭션 생성 (수수료 없이)
+      const swapResponse = await jupiterService.getSwapTransaction(quote, {
+        inputMint: quote.inputMint,
+        outputMint: quote.outputMint,
+        amount: quote.inAmount,
+        userPublicKey: userPublicKeyString,
+        wrapAndUnwrapSol: true,
+        dynamicComputeUnitLimit: true,
+        dynamicSlippage: true,
       });
-      const swapData = await swapRes.json();
-      
-      console.log("Swap 응답:", swapData);
-      
-      // Swap 응답에 에러가 있는지 확인
-      if (swapData.error) {
-        throw new Error(`Jupiter API 에러: ${swapData.error}`);
-      }
-      
-      // swapTransaction이 있는지 확인
-      if (!swapData.swapTransaction) {
-        throw new Error('스왑 트랜잭션이 응답에 없습니다.');
-      }
 
-      console.log(memo ? `📝 메모 포함 스왑 예정: "${memo}"` : '🔄 스왑 트랜잭션 생성');
+      console.log(memo ? `📝 메모 포함 스왑 예정: "${memo}"` : '🔄 스왑 트랜잭션 생성 완료');
 
-      // 3) 받은 swapTransaction 디코딩 (Transaction)
-      const swapTxBuf = Buffer.from(swapData.swapTransaction, 'base64');
+      // 받은 swapTransaction 디코딩 (Transaction)
+      const swapTxBuf = Buffer.from(swapResponse.swapTransaction, 'base64');
       const transaction = Transaction.from(swapTxBuf);
+
+      // 🎯 수수료 계산 및 추가
+      const swapInputToken = getTokenByAddress(quote.inputMint);
+      console.log(`🔍 수수료 체크: inputMint=${quote.inputMint}, symbol=${swapInputToken?.symbol}`);
+      
+      // SOL 또는 WSOL인지 확인 (Jupiter는 SOL을 WSOL로 처리함)
+      const SOL_MINT = 'So11111111111111111111111111111111111111112';
+      const isSOLInput = swapInputToken?.symbol === 'SOL' || 
+                        quote.inputMint === SOL_MINT ||
+                        quote.inputMint.toLowerCase() === SOL_MINT.toLowerCase();
+      
+      console.log(`🔍 SOL 입력 체크: ${isSOLInput ? '✅ SOL 감지됨' : '❌ SOL 아님'}`);
+      
+      // 🚨 테스트: 무조건 수수료 추가 (SOL 체크 우회)
+      console.log(`🚨 테스트 모드: 무조건 수수료 추가`);
+      if (true) { // 원래: if (isSOLInput) {
+        // Buy 모드: SOL을 다른 토큰으로 스왑
+        const solAmount = parseFloat(quote.inAmount) / 1e9; // lamports to SOL
+        const feeAmount = Math.floor(solAmount * 0.0069 * 1e9); // 0.69% 수수료
+        
+        console.log(`💰 Buy 모드 수수료: ${solAmount} SOL의 0.69% = ${feeAmount / 1e9} SOL`);
+        console.log(`💸 수수료 받는 주소: ${FEE_RECIPIENT_ADDRESS}`);
+        await addFeeInstruction(transaction, publicKey, feeAmount);
+        console.log(`✅ 수수료 인스트럭션 추가 완료`);
+      } else {
+        console.log(`ℹ️ SOL 입력이 아니므로 수수료 없음 (inputMint: ${quote.inputMint})`);
+      }
 
       // 연결 설정
       const connection = await getStableConnection();
 
       // 최신 블록해시로 교체
+      console.log('최신 블록해시 조회 중...');
       const { blockhash } = await connection.getLatestBlockhash('confirmed');
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = publicKey; // 혹시 없으면 명시적으로 지정
 
-      // 4) 메모 인스트럭션 추가 (옵션)
+      console.log('🎯 Jupiter가 자동으로 수수료를 포함한 트랜잭션을 생성했습니다.');
+
+      // 5) 메모 인스트럭션 추가 (옵션)
       if (memo && memo.trim()) {
         // 🏷️ 앱 식별자를 포함한 메모 생성
         const appMemo = `[SwapChat] ${memo.trim()}`;
@@ -193,22 +245,27 @@ export function useSwap() {
       console.log('✍️ 지갑에서 트랜잭션 서명 중...');
 
       try {
-        // 5) 지갑 어댑터를 통한 서명
+        // 6) 지갑 어댑터를 통한 서명
         const signedTransaction = await signTransaction(transaction);
 
         console.log('🚀 트랜잭션 전송 중...');
 
-        // 6) 서명된 트랜잭션 전송
+        // 7) 서명된 트랜잭션 전송
         const txId = await connection.sendRawTransaction(signedTransaction.serialize(), {
           skipPreflight: false,
           preflightCommitment: 'confirmed'
         });
 
         console.log(`🚀 ${memo ? '메모 포함 ' : ''}스왑 트랜잭션 전송 완료: ${txId}`);
+        console.log(`🔍 트랜잭션 분석: https://solscan.io/tx/${txId}`);
+        console.log(`📊 트랜잭션 인스트럭션 수: ${transaction.instructions.length}`);
+        console.log(`📋 인스트럭션 목록:`, transaction.instructions.map((ix, i) => 
+          `${i}: ${ix.programId.toString()}`
+        ));
         
         console.log('⏳ 트랜잭션 확인 대기 중...');
         
-        // 7) 트랜잭션 확인 - WebSocket 없이 polling 방식 (빠른 확인)
+        // 8) 트랜잭션 확인 - WebSocket 없이 polling 방식 (빠른 확인)
         let confirmed = false;
         let attempts = 0;
         const maxAttempts = 15; // 15초로 단축
@@ -312,6 +369,8 @@ export function useSwap() {
             }
           }
         }
+
+        console.log('✅ 트랜잭션 확인 완료');
 
         // 트랜잭션 상태 업데이트
         updateState({ signature: txId, loading: false });

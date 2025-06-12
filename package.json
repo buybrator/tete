@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@metaplex-foundation/umi": "^1.2.0",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.2.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -31,6 +34,7 @@
     "@radix-ui/react-switch": "^1.2.5",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-tooltip": "^1.2.7",
+    "@solana/spl-token": "^0.4.13",
     "@solana/wallet-adapter-phantom": "^0.9.27",
     "@solana/wallet-adapter-react": "^0.15.38",
     "@solana/wallet-adapter-react-ui": "^0.9.38",

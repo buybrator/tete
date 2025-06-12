@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Upload } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { useWallet } from '@/hooks/useWallet';
-import SolanaStatus from '@/components/SolanaStatus';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import TokenAvatar from '@/components/ui/TokenAvatar';
+import CreateChatRoomDialog from './CreateChatRoomDialog';
 
 // Mock 채팅방 데이터 (실제로는 API에서 가져옴)
 const mockRooms = [
@@ -21,33 +22,106 @@ const mockRooms = [
   { id: 'samo', name: 'SAMO', image: '🐕‍🦺', description: 'Samoyed 거래' },
 ];
 
-interface ChatRoomSearchProps {
-  onRoomSelect?: (roomId: string) => void;
+interface ChatRoom {
+  id: string;
+  name: string;
+  image: string;
+  description: string;
 }
 
-function ChatRoomSearch({ onRoomSelect }: ChatRoomSearchProps) {
+// API에서 받아오는 채팅방 타입
+interface ApiChatRoom {
+  id: string;
+  contractAddress: string;
+  name: string;
+  creatorAddress: string;
+  transactionSignature: string;
+  createdAt: string;
+  isActive: boolean;
+  image?: string; // 토큰 메타데이터에서 가져온 이미지 URL
+}
+
+interface ChatRoomSearchProps {
+  onRoomSelect?: (roomId: string) => void;
+  onCreateRoom?: () => void;
+}
+
+function ChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
+  const [apiRooms, setApiRooms] = useState<ChatRoom[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // 검색된 채팅방 목록
+  // 실제 채팅방 데이터 로드
+  const loadChatrooms = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      console.log('🔄 채팅방 목록 로딩 시작...');
+      const response = await fetch('/api/chatrooms');
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('✅ 채팅방 목록 로딩 성공:', data.chatrooms);
+        // API 데이터를 UI 형식으로 변환
+        const formattedRooms = data.chatrooms.map((room: ApiChatRoom) => ({
+          id: room.contractAddress,
+          name: room.name,
+          image: room.image || '🪙', // 토큰 이미지 URL 또는 기본 이모지
+          description: `CA: ${room.contractAddress.slice(0, 8)}...`
+        }));
+        setApiRooms(formattedRooms);
+        console.log('🎯 포맷된 채팅방 목록:', formattedRooms);
+      }
+    } catch (error) {
+      console.error('❌ 채팅방 로드 오류:', error);
+      // 오류 시 목 데이터 유지
+      setApiRooms(mockRooms);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // 컴포넌트 마운트 시 데이터 로드
+  useEffect(() => {
+    loadChatrooms();
+  }, [loadChatrooms]);
+
+  // 채팅방 생성 이벤트 리스너
+  useEffect(() => {
+    const handleChatroomCreated = () => {
+      loadChatrooms(); // 새 채팅방 생성 시 목록 새로고침
+    };
+
+    window.addEventListener('chatroomCreated', handleChatroomCreated);
+    return () => window.removeEventListener('chatroomCreated', handleChatroomCreated);
+  }, [loadChatrooms]);
+
+  // 검색된 채팅방 목록 (API 데이터 우선, 없으면 목 데이터)
+  const allRooms = apiRooms.length > 0 ? apiRooms : mockRooms;
   const filteredRooms = useMemo(() => {
-    if (!searchQuery.trim()) return mockRooms;
+    if (!searchQuery.trim()) return allRooms.slice(0, 5);
     
     const query = searchQuery.toLowerCase();
-    return mockRooms.filter(room => 
-      room.name.toLowerCase().includes(query) ||
-      room.description.toLowerCase().includes(query)
-    );
-  }, [searchQuery]);
+    return allRooms
+      .filter(room => 
+        room.name.toLowerCase().includes(query) ||
+        room.description.toLowerCase().includes(query)
+      )
+      .slice(0, 5);
+  }, [searchQuery, allRooms]);
 
   // 채팅방 선택 핸들러
   const handleRoomSelect = useCallback((room: typeof mockRooms[0]) => {
-    setSearchQuery(room.name); // 선택된 방 이름을 입력창에 표시
     setShowResults(false); // 결과 목록 숨기기
     onRoomSelect?.(room.id);
-    
     console.log('선택된 채팅방:', room.id);
   }, [onRoomSelect]);
+
+  // Create room 핸들러
+  const handleCreateRoom = useCallback(() => {
+    setShowResults(false); // 결과 목록 숨기기
+    onCreateRoom?.();
+  }, [onCreateRoom]);
 
   // 검색 입력 핸들러
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,32 +166,63 @@ function ChatRoomSearch({ onRoomSelect }: ChatRoomSearchProps) {
       {showResults && (
         <div className="absolute top-full left-0 right-0 mt-1 z-50">
           <div 
-            className="w-full max-h-60 overflow-y-auto text-popover-foreground border rounded-md shadow-[var(--shadow)]"
+            className="w-full text-popover-foreground border rounded-md shadow-[var(--shadow)] flex flex-col"
             style={{ backgroundColor: 'oklch(72.27% 0.1894 50.19)' }}
           >
+            {/* 헤더 */}
             <div className="px-2 py-1.5 text-sm font-semibold">채팅방 목록</div>
             <div className="h-px bg-border mx-1"></div>
-            {filteredRooms.length > 0 ? (
-              filteredRooms.map((room) => (
-                <div
-                  key={room.id}
-                  onClick={() => handleRoomSelect(room)}
-                  className="relative flex cursor-pointer select-none items-center rounded-[5px] px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground hover:border-2 hover:border-black data-[disabled]:pointer-events-none data-[disabled]:opacity-50 gap-3 border-2 border-transparent"
-                >
-                  <span className="text-lg">{room.image}</span>
-                  <div className="flex-1">
-                    <div className="font-semibold">{room.name}</div>
-                    <div className="text-sm text-muted-foreground">{room.description}</div>
-                  </div>
+            
+            {/* 채팅방 목록 영역 (5개까지, 스크롤 가능) */}
+            <div className="max-h-[240px] overflow-y-auto">
+              {isLoading ? (
+                <div className="relative flex select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none">
+                  <span className="text-sm text-muted-foreground">
+                    채팅방 로딩 중...
+                  </span>
                 </div>
-              ))
-            ) : (
-              <div className="relative flex select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
-                <span className="text-sm text-muted-foreground">
-                  &apos;{searchQuery}&apos;와 일치하는 채팅방이 없습니다.
-                </span>
+              ) : filteredRooms.length > 0 ? (
+                filteredRooms.map((room) => (
+                  <div
+                    key={room.id}
+                    onClick={() => handleRoomSelect(room)}
+                    className="relative flex cursor-pointer select-none items-center rounded-[5px] px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground hover:border-2 hover:border-black data-[disabled]:pointer-events-none data-[disabled]:opacity-50 gap-3 border-2 border-transparent"
+                  >
+                    <TokenAvatar 
+                      tokenAddress={room.id}
+                      tokenName={room.name}
+                      size="sm"
+                      imageUrl={room.image}
+                    />
+                    <div className="flex-1">
+                      <div className="font-semibold">{room.name}</div>
+                      <div className="text-sm text-muted-foreground">CA: {room.id.slice(0, 8)}...</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="relative flex select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                  <span className="text-sm text-muted-foreground">
+                    &apos;{searchQuery}&apos;와 일치하는 채팅방이 없습니다.
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* 구분선 */}
+            <div className="h-px bg-border mx-1"></div>
+            
+            {/* Create chat room 옵션 (항상 고정) */}
+            <div
+              onClick={handleCreateRoom}
+              className="relative flex cursor-pointer select-none items-center rounded-[5px] px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground hover:border-2 hover:border-black data-[disabled]:pointer-events-none data-[disabled]:opacity-50 gap-3 border-2 border-transparent text-blue-600 font-medium"
+            >
+              <span className="text-lg">➕</span>
+              <div className="flex-1">
+                <div className="font-semibold">Create chat room</div>
+                <div className="text-xs text-muted-foreground">새로운 채팅방 만들기</div>
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}
@@ -321,15 +426,21 @@ function WalletProfile() {
 }
 
 export default function Navbar() {
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
   const handleRoomSelect = useCallback((roomId: string) => {
     // 채팅방 선택 시 처리 로직
-    // 실제로는 전역 상태나 URL 변경을 통해 채팅 영역을 업데이트
     console.log('네비게이션에서 채팅방 선택:', roomId);
     
-    // 예: 채팅 영역으로 메시지 전송하여 선택된 방으로 변경
+    // ChatArea로 메시지 전송하여 선택된 방으로 변경
     window.dispatchEvent(new CustomEvent('roomSelected', { 
       detail: { roomId } 
     }));
+  }, []);
+
+  const handleCreateRoom = useCallback(() => {
+    // 채팅방 생성 dialog 열기
+    setIsCreateDialogOpen(true);
   }, []);
 
   const navContent = (
@@ -341,29 +452,28 @@ export default function Navbar() {
 
       {/* 채팅방 검색 (Desktop 중앙) */}
       <div className="navbar-center hidden lg:flex">
-        <ChatRoomSearch onRoomSelect={handleRoomSelect} />
+        <ChatRoomSearch 
+          onRoomSelect={handleRoomSelect} 
+          onCreateRoom={handleCreateRoom}
+        />
       </div>
 
       {/* 우측 컨트롤 영역 */}
       <div className="navbar-right hidden lg:flex items-center space-x-3">
-        {/* Solana 연결 상태 */}
-        <SolanaStatus />
-        
         {/* 지갑 연결 */}
         <WalletProfile />
       </div>
 
-      {/* 모바일용 UI 요소 (예: 햄버거 메뉴 트리거 등)는 여기에 추가할 수 있습니다. */}
-      {/* 현재는 데스크톱의 navbar-center와 navbar-right가 모바일에서 hidden 처리되므로, */}
-      {/* 모바일에서는 로고만 보이게 됩니다. 필요시 모바일 전용 UI 요소를 추가하세요. */}
+      {/* 채팅방 생성 Dialog */}
+      <CreateChatRoomDialog 
+        open={isCreateDialogOpen} 
+        onOpenChange={setIsCreateDialogOpen} 
+      />
     </>
   );
 
   return (
     <>
-      <nav className="desktop-navbar hidden lg:flex">
-        {navContent}
-      </nav>
       <nav className="mobile-navbar flex lg:hidden">
         {navContent}
       </nav>

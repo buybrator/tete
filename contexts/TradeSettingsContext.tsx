@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 export type TradeMode = 'buy' | 'sell';
 
@@ -10,12 +10,18 @@ export interface TradeSettings {
   slippage: string;
   priorityFee: string;
   maxFee: string;
+  selectedToken: {
+    contractAddress: string;
+    name: string;
+    symbol?: string;
+  } | null;
 }
 
 interface TradeSettingsContextType {
   settings: TradeSettings;
   updateSettings: (updates: Partial<TradeSettings>) => void;
   resetSettings: () => void;
+  setTokenPair: (contractAddress: string, tokenName: string, symbol?: string) => void;
 }
 
 const defaultSettings: TradeSettings = {
@@ -24,6 +30,7 @@ const defaultSettings: TradeSettings = {
   slippage: '1',
   priorityFee: '0.001',
   maxFee: '0.005',
+  selectedToken: null,
 };
 
 const TradeSettingsContext = createContext<TradeSettingsContextType | undefined>(undefined);
@@ -39,8 +46,32 @@ export function TradeSettingsProvider({ children }: { children: ReactNode }) {
     setSettings(defaultSettings);
   };
 
+  const setTokenPair = (contractAddress: string, tokenName: string, symbol?: string) => {
+    setSettings(prev => ({
+      ...prev,
+      selectedToken: {
+        contractAddress,
+        name: tokenName,
+        symbol: symbol || tokenName
+      }
+    }));
+    console.log('✅ 토큰 쌍 업데이트:', { contractAddress, tokenName, symbol });
+  };
+
+  useEffect(() => {
+    const handleTokenPairChanged = (event: CustomEvent) => {
+      const { contractAddress, tokenName, symbol } = event.detail;
+      if (contractAddress && tokenName) {
+        setTokenPair(contractAddress, tokenName, symbol);
+      }
+    };
+
+    window.addEventListener('tokenPairChanged', handleTokenPairChanged as EventListener);
+    return () => window.removeEventListener('tokenPairChanged', handleTokenPairChanged as EventListener);
+  }, []);
+
   return (
-    <TradeSettingsContext.Provider value={{ settings, updateSettings, resetSettings }}>
+    <TradeSettingsContext.Provider value={{ settings, updateSettings, resetSettings, setTokenPair }}>
       {children}
     </TradeSettingsContext.Provider>
   );

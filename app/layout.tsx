@@ -24,7 +24,7 @@ export const viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ko" className={inter.className}>
-      <body className="min-h-screen bg-background text-foreground antialiased">
+      <body className="min-h-screen bg-[#f5f5dc] text-black antialiased">
         <ErrorSuppressor />
         <WalletProviderWrapper>
           <TradeSettingsProvider>
@@ -38,10 +38,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           toastOptions={{
             style: {
               background: 'white',
-              border: '2px solid #e5e7eb',
+              border: '2px solid black',
               borderRadius: '12px',
               fontSize: '14px',
-              fontWeight: '500',
+              fontWeight: '600',
+              boxShadow: '4px 4px 0px 0px black',
+              color: 'black',
             },
           }}
         />

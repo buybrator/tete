@@ -3,14 +3,22 @@ import { Connection, PublicKey, LAMPORTS_PER_SOL, Commitment } from '@solana/web
 // 솔라나 네트워크 타입 정의
 export type SolanaNetwork = 'mainnet' | 'devnet' | 'testnet';
 
-// ⚡ 더 많은 안정적인 무료 RPC 엔드포인트 (403 오류 해결을 위해 확대)
-const MAINNET_RPC_ENDPOINTS = [
-  'https://api.mainnet-beta.solana.com', // 공식 RPC (진짜 무료)
-  'https://solana-api.projectserum.com', // Project Serum (무료)
-  'https://api.metaplex.solana.com', // Metaplex (무료)
-  'https://rpc.public.solana.com', // 공개 RPC
-  'https://solana-mainnet.core.chainstack.com', // Chainstack 무료 티어
-];
+// ⚡ 사용자 지정 RPC URL을 우선 사용하고, 백업으로 무료 RPC 엔드포인트 사용
+const getMainnetRpcEndpoints = () => {
+  const customRpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
+  const baseEndpoints = [
+    'https://api.mainnet-beta.solana.com', // 공식 RPC (진짜 무료)
+    'https://solana-api.projectserum.com', // Project Serum (무료)
+    'https://api.metaplex.solana.com', // Metaplex (무료)
+    'https://rpc.public.solana.com', // 공개 RPC
+    'https://solana-mainnet.core.chainstack.com', // Chainstack 무료 티어
+  ];
+  
+  // 사용자 지정 RPC URL이 있으면 가장 앞에 배치
+  return customRpcUrl ? [customRpcUrl, ...baseEndpoints] : baseEndpoints;
+};
+
+const MAINNET_RPC_ENDPOINTS = getMainnetRpcEndpoints();
 
 const DEVNET_RPC_ENDPOINTS = [
   'https://api.devnet.solana.com', // 공식 Devnet RPC (무료)

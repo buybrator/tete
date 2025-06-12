@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ExternalLink } from 'lucide-react';
 import ChatBubble from '@/components/layout/ChatBubble';
 import ChatInput from '@/components/layout/ChatInput';
+import TokenAvatar from '@/components/ui/TokenAvatar';
 import { useChatMessages } from '@/hooks/useChatMessages';
 
 // 채팅방 데이터 타입 정의 (백엔드 연동 고려)
@@ -11,378 +12,273 @@ interface ChatRoom {
   id: string;
   name: string;
   image: string;
+  contractAddress: string;
   lastMessage?: string;
   unreadCount?: number;
 }
 
-// Mock 채팅방 데이터
-const mockRooms: ChatRoom[] = [
-  { id: 'sol-usdc', name: 'SOL/USDC', image: '💰' },
-  { id: 'bonk', name: 'BONK', image: '🐕' },
-  { id: 'wif', name: 'WIF', image: '🧢' },
-];
+// API에서 받아오는 채팅방 타입
+interface ApiChatRoom {
+  id: string;
+  name: string;
+  contractAddress: string;
+  creatorAddress: string;
+  transactionSignature: string;
+  createdAt: string;
+  isActive: boolean;
+  image?: string; // 토큰 메타데이터에서 가져온 이미지 URL
+}
 
 export default function ChatArea() {
   const [isPopupMode, setIsPopupMode] = useState(false);
-  const [selectedRoom, setSelectedRoom] = useState(mockRooms[0].id);
-  const [isClient, setIsClient] = useState(false);
-  const { messages: roomMessages } = useChatMessages(selectedRoom);
-  const desktopChatMessagesRef = useRef<HTMLDivElement>(null);
-  const mobileChatMessagesRef = useRef<HTMLDivElement>(null);
+  const [selectedRoom, setSelectedRoom] = useState('');
+  const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
+  const [mobile, setMobile] = useState(false);
 
-  // 스크롤을 맨 아래로 이동하는 함수 (디버깅 포함)
-  const scrollToBottom = () => {
-    // 현재 화면 크기에 따라 적절한 ref 선택
-    const isDesktop = window.innerWidth >= 1024;
-    const element = isDesktop ? desktopChatMessagesRef.current : mobileChatMessagesRef.current;
-    
-    if (element) {
-      console.log(`스크롤 전 (${isDesktop ? '데스크톱' : '모바일'}):`, {
-        scrollTop: element.scrollTop,
-        scrollHeight: element.scrollHeight,
-        clientHeight: element.clientHeight
-      });
-      
-      // 강제로 스크롤을 맨 아래로
-      element.scrollTo({
-        top: element.scrollHeight,
-        behavior: 'instant'
-      });
-      
-      console.log(`스크롤 후 (${isDesktop ? '데스크톱' : '모바일'}):`, {
-        scrollTop: element.scrollTop,
-        scrollHeight: element.scrollHeight,
-        clientHeight: element.clientHeight
-      });
-    } else {
-      console.error('chatMessagesRef.current가 null입니다!');
-    }
-  };
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  
+  // 채팅 메시지 hooks
+  const { messages } = useChatMessages(selectedRoom);
 
-  // 새 메시지가 추가될 때마다 무조건 맨 아래로 스크롤
+  // 화면 크기 체크
   useEffect(() => {
-    if (roomMessages.length > 0) {
-      // 여러 타이밍에 스크롤 시도
-      scrollToBottom();
-      setTimeout(scrollToBottom, 100);
-      setTimeout(scrollToBottom, 300);
-    }
-  }, [roomMessages]);
+    const checkMobile = () => {
+      setMobile(window.innerWidth < 1024);
+    };
 
-  // 채팅방 변경 시 스크롤
-  useEffect(() => {
-    if (isClient) {
-      scrollToBottom();
-      setTimeout(scrollToBottom, 100);
-      setTimeout(scrollToBottom, 500);
-    }
-  }, [selectedRoom, isClient]);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
-  // 컴포넌트 마운트 시 맨 아래로 스크롤 - 의존성 배열 수정
+  // URL 파라미터로 팝업 모드인지 확인
   useEffect(() => {
-    if (isClient && roomMessages.length > 0) {
-      setTimeout(() => {
-        scrollToBottom();
-      }, 300);
-    }
-  }, [isClient, roomMessages.length]);
-
-  // 클라이언트 사이드에서만 실행되는 초기화
-  useEffect(() => {
-    setIsClient(true);
-    
-    // URL 파라미터 확인
     const urlParams = new URLSearchParams(window.location.search);
     const popup = urlParams.get('popup') === 'true';
-    const room = urlParams.get('room');
-    
     setIsPopupMode(popup);
-    
-    if (room) {
-      setSelectedRoom(room);
-    }
+  }, []);
 
-    // Navbar에서 채팅방 선택 이벤트 리스너
+  // 실제 채팅방 데이터 로드
+  const loadChatrooms = useCallback(async () => {
+    try {
+      console.log('🏠 채팅방 목록 로딩 시작 (ChatArea)...');
+      const response = await fetch('/api/chatrooms');
+      const data = await response.json();
+      
+      console.log('🏠 ChatArea API 응답:', data);
+      
+      if (data.success && data.chatrooms) {
+        // API 데이터를 UI 형식으로 변환
+        const formattedRooms: ChatRoom[] = data.chatrooms.map((room: ApiChatRoom) => ({
+          id: room.contractAddress,
+          name: room.name,
+          image: room.image || '🪙', // 토큰 이미지 URL 또는 기본 이모지
+          contractAddress: room.contractAddress
+        }));
+        
+        console.log('🏠 ChatArea 포맷된 채팅방:', formattedRooms);
+        setChatRooms(formattedRooms);
+        
+        // 기본 선택 채팅방 설정 (첫 번째 방)
+        if (formattedRooms.length > 0 && !selectedRoom) {
+          const firstRoom = formattedRooms[0];
+          setSelectedRoom(firstRoom.id);
+          
+          // 토큰 쌍 변경 이벤트
+          window.dispatchEvent(new CustomEvent('tokenPairChanged', {
+            detail: { 
+              contractAddress: firstRoom.contractAddress,
+              tokenName: firstRoom.name 
+            }
+          }));
+        }
+      } else {
+        setChatRooms([]);
+      }
+    } catch (error) {
+      console.error('❌ ChatArea 채팅방 로드 오류:', error);
+      setChatRooms([]);
+    }
+  }, [selectedRoom]);
+
+  // 컴포넌트 마운트 시 데이터 로드
+  useEffect(() => {
+    loadChatrooms();
+  }, [loadChatrooms]);
+
+  // 새 채팅방 생성 이벤트 리스너
+  useEffect(() => {
+    const handleChatroomCreated = (event: CustomEvent) => {
+      loadChatrooms(); // 새 채팅방 생성 시 목록 새로고침
+      
+      // 새로 생성된 채팅방으로 자동 전환
+      if (event.detail?.chatroom?.contractAddress) {
+        setSelectedRoom(event.detail.chatroom.contractAddress);
+        window.dispatchEvent(new CustomEvent('tokenPairChanged', {
+          detail: { 
+            contractAddress: event.detail.chatroom.contractAddress,
+            tokenName: event.detail.chatroom.name 
+          }
+        }));
+      }
+    };
+
+    window.addEventListener('chatroomCreated', handleChatroomCreated as EventListener);
+    return () => window.removeEventListener('chatroomCreated', handleChatroomCreated as EventListener);
+  }, [loadChatrooms]);
+
+  // 외부에서 채팅방 선택 이벤트 처리
+  useEffect(() => {
     const handleRoomSelected = (event: CustomEvent) => {
       const { roomId } = event.detail;
-      if (roomId && mockRooms.find(r => r.id === roomId)) {
+      if (roomId && roomId !== selectedRoom) {
         setSelectedRoom(roomId);
-        console.log('ChatArea: 채팅방 전환됨 ->', roomId);
-      }
-    };
-
-    // 이벤트 리스너 등록
-    window.addEventListener('roomSelected', handleRoomSelected as EventListener);
-
-    // 정리
-    return () => {
-      window.removeEventListener('roomSelected', handleRoomSelected as EventListener);
-    };
-  }, []);
-
-  // 디버깅을 위한 전역 함수 추가
-  useEffect(() => {
-    // 전역 window 객체에 테스트 함수 추가
-    const windowWithDebug = window as Window & {
-      testScroll?: () => void;
-      checkChatArea?: () => void;
-    };
-    
-    windowWithDebug.testScroll = () => {
-      console.log('테스트 스크롤 실행');
-      scrollToBottom();
-    };
-    
-    windowWithDebug.checkChatArea = () => {
-      const element = desktopChatMessagesRef.current || mobileChatMessagesRef.current;
-      if (element) {
-        // DOM 요소의 실제 클래스와 부모 요소 확인
-        console.log('ChatArea DOM 정보:', {
-          ref요소: element,
-          클래스명: element.className,
-          부모요소: element.parentElement,
-          자식개수: element.children.length,
-          실제높이: element.offsetHeight,
-          스크롤높이: element.scrollHeight,
-          계산된높이: window.getComputedStyle(element).height,
-          overflow: window.getComputedStyle(element).overflow,
-          overflowY: window.getComputedStyle(element).overflowY,
-          display: window.getComputedStyle(element).display
-        });
         
-        // 모든 chat-messages 클래스를 가진 요소 찾기
-        const allChatMessages = document.querySelectorAll('.chat-messages');
-        console.log('모든 chat-messages 요소:', allChatMessages.length, allChatMessages);
-      } else {
-        console.error('chatMessagesRef가 null입니다!');
+        // 토큰 쌍 변경 이벤트
+        const room = chatRooms.find(r => r.id === roomId);
+        if (room) {
+          window.dispatchEvent(new CustomEvent('tokenPairChanged', {
+            detail: { 
+              contractAddress: room.contractAddress,
+              tokenName: room.name 
+            }
+          }));
+        }
       }
     };
-    
-    return () => {
-      delete windowWithDebug.testScroll;
-      delete windowWithDebug.checkChatArea;
-    };
-  }, []);
 
-  // 새 브라우저 창에서 팝업 모드로 열기
-  const openBrowserPopup = (roomId: string) => {
-    const room = mockRooms.find(r => r.id === roomId);
-    if (!room) return;
+    window.addEventListener('roomSelected', handleRoomSelected as EventListener);
+    return () => window.removeEventListener('roomSelected', handleRoomSelected as EventListener);
+  }, [selectedRoom, chatRooms]);
 
-    console.log('브라우저 팝업 열기:', roomId, room.name);
-    
-    // 새 브라우저 창 열기
-    const popupWindow = window.open(
-      `${window.location.origin}?popup=true&room=${roomId}`,
-      `chat-popup-${roomId}`,
-      'width=400,height=600,resizable=yes,scrollbars=yes,status=no,menubar=no,toolbar=no,location=no'
-    );
-
-    if (popupWindow) {
-      console.log('팝업 창이 성공적으로 열렸습니다');
-      // 팝업 창에 포커스
-      popupWindow.focus();
-    } else {
-      console.error('팝업 차단으로 인해 창을 열 수 없습니다');
-      alert('팝업이 차단되었습니다. 브라우저 설정에서 팝업을 허용해주세요.');
+  // 메시지 스크롤 관리
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
+  }, [messages]);
+
+  // 메시지 전송은 ChatInput에서 직접 처리하므로 제거
+
+  // 채팅방 정보 렌더링
+  const renderChatRoomInfo = () => {
+    const currentRoom = chatRooms.find(room => room.id === selectedRoom);
+    
+    if (!currentRoom) return null;
+
+    return (
+      <div className="flex items-center justify-between p-3 bg-gray-50 border-b-2 border-black">
+        <div className="flex items-center space-x-3">
+          <TokenAvatar 
+            tokenAddress={currentRoom.contractAddress}
+            tokenName={currentRoom.name}
+            size="md"
+            imageUrl={currentRoom.image}
+          />
+          <span className="text-xs text-gray-500">({currentRoom.contractAddress.slice(0, 4)}...{currentRoom.contractAddress.slice(-4)})</span>
+          <div>
+            <h3 className="font-bold text-sm">{currentRoom.name}</h3>
+            <p className="text-xs text-gray-600">CA: {currentRoom.contractAddress.slice(0, 8)}...</p>
+          </div>
+        </div>
+        <button 
+          onClick={() => window.open(`https://solscan.io/token/${currentRoom.contractAddress}`, '_blank')}
+          className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+          title="Solscan에서 보기"
+        >
+          <ExternalLink size={16} />
+        </button>
+      </div>
+    );
   };
 
-  // 클라이언트 로딩 중에는 기본 레이아웃만 렌더링
-  if (!isClient) {
+  // 채팅 메시지 영역 렌더링
+  const renderChatMessages = () => {
+    if (!selectedRoom) {
+      return (
+        <div className="flex-1 flex items-center justify-center text-gray-500">
+          <span>채팅방을 선택해주세요</span>
+        </div>
+      );
+    }
+
     return (
-      <div className="desktop-chat-area lg:flex hidden">
-        {/* Chat Room Tabs */}
-        <div className="chat-tabs">
-          <div className="grid grid-cols-3 w-full">
-            {mockRooms.map((room) => (
-              <div key={room.id} className="relative">
-                <button
-                  onClick={() => setSelectedRoom(room.id)}
-                  className={`flex items-center justify-center gap-2 px-3 py-3 text-sm w-full h-full transition-all duration-200 font-semibold ${
-                    selectedRoom === room.id 
-                      ? 'text-white bg-blue-500 hover:bg-blue-600' 
-                      : 'text-gray-600 bg-transparent hover:bg-gray-100'
-                  }`}
-                  style={{ boxShadow: 'none', outline: 'none', border: 'none' }}
-                >
-                  <span className="text-base">{room.image}</span>
-                  <span className="font-semibold text-xs">{room.name}</span>
-                </button>
-                
-                {/* 팝업 모드 버튼 */}
-                <div className="flex absolute top-1 right-1">
-                  <button 
-                    className="p-1 hover:bg-gray-200 rounded transition-colors opacity-50 hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openBrowserPopup(room.id);
-                    }}
-                    title="새 창에서 채팅 열기"
-                    style={{ boxShadow: 'none' }}
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </button>
-                </div>
-              </div>
-            ))}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3" ref={chatContainerRef}>
+        {messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            <span>아직 메시지가 없습니다. 첫 메시지를 보내보세요!</span>
           </div>
-        </div>
-        <div className="chat-messages">
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            <p>로딩 중...</p>
-          </div>
-        </div>
-        <div className="chat-input-area">
-          <ChatInput roomId={selectedRoom} />
-        </div>
-      </div>
-    );
-  }
-
-  // 팝업 모드일 때는 채팅 영역과 인풋만 렌더링
-  if (isPopupMode) {
-    const currentRoom = mockRooms.find(r => r.id === selectedRoom);
-    
-    return (
-      <div className="h-screen flex flex-col bg-background">
-        {/* 팝업 헤더 */}
-        <div className="flex items-center gap-2 p-3 border-b-2 border-border bg-main text-main-foreground">
-          <span className="text-lg">{currentRoom?.image}</span>
-          <span className="font-bold">{currentRoom?.name}</span>
-        </div>
-
-        {/* 메시지 영역 */}
-        <div 
-          ref={mobileChatMessagesRef}
-          className="flex-1 p-3 overflow-y-auto bg-white"
-          style={{
-            background: `
-              linear-gradient(90deg, #E5E5E5 1px, transparent 1px),
-              linear-gradient(180deg, #E5E5E5 1px, transparent 1px),
-              oklch(95.38% 0.0357 72.89)
-            `,
-            backgroundSize: '90px 90px',
-            display: 'block',
-            minHeight: 0,
-            overflowAnchor: 'none'
-          }}
-        >
-          {roomMessages.length > 0 ? (
-            roomMessages.map((message, index) => (
-              <div key={message.id} style={{ marginBottom: index === roomMessages.length - 1 ? 0 : '0.75rem' }}>
-                <ChatBubble
-                  side={message.tradeType}
-                  avatar={message.avatar}
-                  amount={message.tradeAmount || 0}
-                  message={message.content || ''}
-                  userAddress={message.userAddress}
-                  timestamp={message.timestamp}
-                />
-              </div>
-            ))
-          ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              <p>채팅방에 메시지가 없습니다. 첫 메시지를 작성해보세요!</p>
-            </div>
-          )}
-        </div>
-
-        {/* 입력 영역 */}
-        <div className="p-4 border-t-2 border-border bg-background">
-          <ChatInput roomId={selectedRoom} />
-        </div>
-      </div>
-    );
-  }
-
-  const chatAreaContent = (messagesRef: React.RefObject<HTMLDivElement | null>) => (
-    <>
-      {/* Chat Room Tabs */}
-      <div className="chat-tabs">
-        <div className="grid grid-cols-3 w-full">
-          {mockRooms.map((room) => (
-            <div key={room.id} className="relative">
-              <button
-                onClick={() => setSelectedRoom(room.id)}
-                className={`flex items-center justify-center gap-2 px-3 py-3 text-sm w-full h-full transition-all duration-200 font-semibold ${
-                  selectedRoom === room.id 
-                    ? 'text-white bg-blue-500 hover:bg-blue-600' 
-                    : 'text-gray-600 bg-transparent hover:bg-gray-100'
-                }`}
-                style={{ boxShadow: 'none', outline: 'none', border: 'none' }}
-              >
-                <span className="text-base">{room.image}</span>
-                <span className="font-semibold text-xs">{room.name}</span>
-              </button>
-              
-              {/* 팝업 모드 버튼 */}
-              <div className="flex absolute top-1 right-1">
-                <button 
-                  className="p-1 hover:bg-gray-200 rounded transition-colors opacity-50 hover:opacity-100"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openBrowserPopup(room.id);
-                  }}
-                  title="새 창에서 채팅 열기"
-                  style={{ boxShadow: 'none' }}
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Messages Area */}
-      <div 
-        ref={messagesRef}
-        className="chat-messages"
-        style={{
-          background: `
-            linear-gradient(90deg, #E5E5E5 1px, transparent 1px),
-            linear-gradient(180deg, #E5E5E5 1px, transparent 1px),
-            oklch(95.38% 0.0357 72.89)
-          `,
-          backgroundSize: '90px 90px'
-        }}
-      >
-        {roomMessages.length > 0 ? (
-          roomMessages.map((message, index) => (
-            <div key={message.id} style={{ marginBottom: index === roomMessages.length - 1 ? 0 : '0.75rem' }}>
-              <ChatBubble
-                side={message.tradeType}
-                avatar={message.avatar}
-                amount={message.tradeAmount || 0}
-                message={message.content || ''}
-                userAddress={message.userAddress}
-                timestamp={message.timestamp}
-              />
-            </div>
-          ))
         ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            <p>채팅방에 메시지가 없습니다. 첫 메시지를 작성해보세요!</p>
-          </div>
+          messages.map((message) => (
+            <ChatBubble key={message.id} message={message} />
+          ))
         )}
+        <div ref={messagesEndRef} />
       </div>
+    );
+  };
 
-      {/* Input Area */}
-      <div className="chat-input-area">
-        <ChatInput roomId={selectedRoom} />
+  // 채팅 입력 영역
+  const renderChatInput = () => {
+    return (
+      <div className="border-t-2 border-black bg-white">
+                 <ChatInput 
+           roomId={selectedRoom || ''}
+         />
       </div>
-    </>
+    );
+  };
+
+  // 전체 채팅 영역 컴포넌트
+  const ChatAreaBody = (
+    <div className="flex flex-col h-full bg-white border-2 border-black rounded-base shadow-base overflow-hidden">
+      {/* 채팅방 정보 */}
+      {renderChatRoomInfo()}
+      
+      {/* 채팅 메시지 */}
+      {renderChatMessages()}
+      
+      {/* 채팅 입력 */}
+      {renderChatInput()}
+    </div>
   );
 
-  return (
-    <>
-      <div className="desktop-chat-area hidden lg:flex">
-        {chatAreaContent(desktopChatMessagesRef)}
+  // 팝업 모드일 때
+  if (isPopupMode) {
+    return (
+      <div className="h-screen w-screen bg-[#f5f5dc] p-4">
+        {ChatAreaBody}
       </div>
-      <div className="mobile-chat-area flex lg:hidden">
-        {chatAreaContent(mobileChatMessagesRef)}
+    );
+  }
+
+  // 일반 모드 - 중복 스타일 제거
+  return mobile ? (
+    <div className="mobile-chat-area">
+      <div className="flex flex-col h-full bg-white border-2 border-black rounded-base shadow-base overflow-hidden">
+        {/* 채팅방 정보 */}
+        {renderChatRoomInfo()}
+        
+        {/* 채팅 메시지 */}
+        {renderChatMessages()}
+        
+        {/* 채팅 입력 */}
+        {renderChatInput()}
       </div>
-    </>
+    </div>
+  ) : (
+    <div className="desktop-chat-area">
+      <div className="flex flex-col h-full bg-white border-2 border-black rounded-base shadow-base overflow-hidden">
+        {/* 채팅방 정보 */}
+        {renderChatRoomInfo()}
+        
+        {/* 채팅 메시지 */}
+        {renderChatMessages()}
+        
+        {/* 채팅 입력 */}
+        {renderChatInput()}
+      </div>
+    </div>
   );
 } 
