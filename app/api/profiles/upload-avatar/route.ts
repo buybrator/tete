@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+interface StorageFile {
+  name: string;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     // 기존 아바타 파일 삭제 (선택적)
     try {
-      const { data: existingFiles } = await supabase.storage
+      const { data: existingFiles } = await supabaseAdmin.storage
         .from('avatars')
         .list('', {
           search: walletAddress
@@ -72,11 +71,11 @@ export async function POST(request: NextRequest) {
       if (existingFiles && existingFiles.length > 0) {
         // 기존 파일들 삭제
         const filesToDelete = existingFiles
-          .filter(f => f.name.startsWith(walletAddress))
-          .map(f => `avatars/${f.name}`);
+          .filter((f: StorageFile) => f.name.startsWith(walletAddress))
+          .map((f: StorageFile) => `avatars/${f.name}`);
         
         if (filesToDelete.length > 0) {
-          await supabase.storage.from('avatars').remove(filesToDelete);
+          await supabaseAdmin.storage.from('avatars').remove(filesToDelete);
         }
       }
     } catch (cleanupError) {
@@ -85,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Supabase Storage에 파일 업로드
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabaseAdmin.storage
       .from('avatars')
       .upload(filePath, fileBuffer, {
         contentType: fileType,
@@ -101,7 +100,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 공개 URL 생성
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = supabaseAdmin.storage
       .from('avatars')
       .getPublicUrl(filePath);
 
