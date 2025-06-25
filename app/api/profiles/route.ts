@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { verifyJWT } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
-
-const supabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 
 // 토큰에서 지갑 주소 추출 유틸리티
 function extractTokenFromHeader(request: NextRequest): string | null {
@@ -36,7 +30,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 사용자 프로필 조회
-    const { data: profile, error } = await supabaseClient
+    const { data: profile, error } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('wallet_address', wallet_address)
@@ -99,7 +93,7 @@ export async function POST(request: NextRequest) {
     console.log('💾 저장할 프로필 데이터:', profileData);
 
     // UPSERT (insert or update)
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabaseAdmin
       .from('profiles')
       .upsert(
         profileData,
