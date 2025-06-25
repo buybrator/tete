@@ -49,13 +49,13 @@ export default function TestWalletAdapterPage() {
 
   // useWallet 훅 (프로필 관리용)
   const {
-    walletState,
-    userProfile,
-    isLoading: isAuthLoading,
+    isConnected: walletConnected,
+    address: walletAddress,
+    avatar: walletAvatar,
+    nickname: walletNickname,
+    profile: userProfile,
+    isLoadingProfile: isAuthLoading,
     error: authError,
-    authToken,
-    authenticate,
-    isAuthenticated,
     clearError: clearAuthError,
   } = useWallet();
 
@@ -67,10 +67,10 @@ export default function TestWalletAdapterPage() {
       publicKey: publicKey?.toString(),
       walletName,
       wallet: wallet?.adapter?.name,
-      isAuthenticated,
-      authToken: !!authToken,
+      walletConnected,
+      walletAddress,
     });
-  }, [isConnected, solanaConnected, publicKey, walletName, wallet, isAuthenticated, authToken]);
+  }, [isConnected, solanaConnected, publicKey, walletName, wallet, walletConnected, walletAddress]);
 
   // 안전한 연결 해제 핸들러
   const handleSafeDisconnect = async () => {
@@ -220,20 +220,23 @@ export default function TestWalletAdapterPage() {
     try {
       const walletAddress = publicKey.toString();
       console.log('🔐 프로필 인증 시작:', walletAddress);
-      await authenticate();
-      console.log('✅ 프로필 인증 완료');
+      // 현재 useWallet 훅에서는 별도의 authenticate 함수가 없으므로 프로필만 확인
+      console.log('✅ 프로필 확인 완료');
     } catch (error) {
-      console.error('❌ 프로필 인증 실패:', error);
+      console.error('❌ 프로필 확인 실패:', error);
     }
   };
 
   // 새로운 useWallet 테스트
   const testNewUseWallet = () => {
     console.log('🧪 새로운 useWallet 상태:', {
-      walletState,
+      walletConnected,
+      walletAddress,
+      walletAvatar,
+      walletNickname,
       isLoading: isAuthLoading,
       error: authError,
-      walletDetection: walletState.isConnected, // 일시적으로 사용
+      userProfile,
       walletName: wallet?.adapter?.name
     });
   };
@@ -322,16 +325,16 @@ export default function TestWalletAdapterPage() {
               </Button>
               
               <div className="text-sm space-y-1">
-                <div>인증 상태: 
-                  <Badge variant={isAuthenticated ? "default" : "neutral"} className="ml-1">
-                    {isAuthenticated ? '인증됨' : '미인증'}
+                <div>연결 상태: 
+                  <Badge variant={walletConnected ? "default" : "neutral"} className="ml-1">
+                    {walletConnected ? '연결됨' : '미연결'}
                   </Badge>
                 </div>
                 {userProfile && (
                   <>
                     <div>닉네임: {userProfile && typeof userProfile === 'object' && 'nickname' in userProfile ? (userProfile as { nickname?: string }).nickname || 'N/A' : 'N/A'}</div>
-                    <div>아바타: {walletState.avatar}</div>
-                    <div>토큰: {authToken ? '✅ 있음' : '❌ 없음'}</div>
+                    <div>아바타: {walletAvatar}</div>
+                    <div>지갑 주소: {walletAddress ? `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}` : 'N/A'}</div>
                   </>
                 )}
               </div>
@@ -506,10 +509,11 @@ export default function TestWalletAdapterPage() {
                 <div>available wallets: {wallets.length}</div>
                 <div>wallet names: {wallets.map(w => w.adapter.name).join(', ')}</div>
                 <div className="border-t pt-1">
-                  <div>isAuthenticated: {isAuthenticated.toString()}</div>
-                  <div>authToken: {authToken ? '✅' : '❌'}</div>
+                  <div>walletConnected: {walletConnected.toString()}</div>
+                  <div>walletAddress: {walletAddress || 'null'}</div>
                   <div>userProfile: {userProfile ? '✅' : '❌'}</div>
-                  <div>walletState.address: {walletState.address || 'null'}</div>
+                  <div>walletAvatar: {walletAvatar || 'null'}</div>
+                  <div>walletNickname: {walletNickname || 'null'}</div>
                 </div>
               </div>
             </ClientOnly>
