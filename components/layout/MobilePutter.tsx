@@ -6,9 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Label } from '@/components/ui/label';
-import { Compass, Search, User, X, Upload } from 'lucide-react';
+import { Compass, Search, User, X, Upload, RefreshCw } from 'lucide-react';
 import { useWallet } from '@/hooks/useWallet';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import TokenAvatar from '@/components/ui/TokenAvatar';
 import CreateChatRoomDialog from './CreateChatRoomDialog';
 
@@ -44,24 +43,42 @@ interface ChatRoom {
 
 // 모바일용 지갑 프로필 컴포넌트
 function MobileWalletProfile() {
-  const { walletState, disconnectWallet, updateNickname, updateAvatar, DEFAULT_AVATARS } = useWallet();
-  const { setVisible } = useWalletModal();
+  const { 
+    isConnected,
+    isConnecting,
+    address,
+    nickname,
+    avatar,
+    balance,
+    isLoadingBalance,
+    error,
+    connectWallet, 
+    disconnectWallet, 
+    updateProfile,
+    fetchBalance,
+    clearError
+  } = useWallet();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [tempNickname, setTempNickname] = useState('');
   const [tempAvatar, setTempAvatar] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 기본 아바타 배열
+  const DEFAULT_AVATARS = ['👤', '🧑', '👩', '🤵', '👩‍💼', '🧑‍💼', '👨‍💼', '🧙‍♂️', '🧙‍♀️', '🥷'];
+
   // Dialog가 열릴 때 현재 값들로 초기화
   const handleDialogOpen = () => {
-    setTempNickname(walletState.nickname || '');
-    setTempAvatar(walletState.avatar || DEFAULT_AVATARS[0]);
+    setTempNickname(nickname || '');
+    setTempAvatar(avatar || DEFAULT_AVATARS[0]);
     setIsDialogOpen(true);
   };
 
   // 변경사항 저장
   const handleSave = () => {
-    updateNickname(tempNickname);
-    updateAvatar(tempAvatar);
+    updateProfile({
+      nickname: tempNickname,
+      avatar: tempAvatar
+    });
     setIsDialogOpen(false);
   };
 
@@ -93,17 +110,45 @@ function MobileWalletProfile() {
     fileInputRef.current?.click();
   };
 
+  const handleConnectWallet = async () => {
+    clearError();
+    await connectWallet();
+  };
+
+  const handleDisconnectWallet = async () => {
+    clearError();
+    await disconnectWallet();
+    setIsDialogOpen(false);
+  };
+
+  const handleRefreshBalance = async () => {
+    await fetchBalance();
+  };
+
+  const formatBalance = (balance: number | null) => {
+    if (balance === null) return 'N/A';
+    return `${balance.toFixed(4)} SOL`;
+  };
+
   // 지갑이 연결되지 않은 경우
-  if (!walletState.isConnected) {
+  if (!isConnected) {
     return (
-      <button 
-        className="group relative flex flex-col items-center justify-center gap-1 bg-transparent hover:bg-blue-400 text-black transition-colors duration-150 font-bold h-full px-3 py-2 border-none outline-none"
-        style={{ boxShadow: 'none', border: 'none', background: 'transparent' }}
-        onClick={() => setVisible(true)}
-      >
-        <User className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
-        <span className="text-xs uppercase tracking-wide leading-none">account</span>
-      </button>
+      <div className="flex flex-col items-center">
+        <button 
+          className="group relative flex flex-col items-center justify-center gap-1 bg-transparent hover:bg-blue-400 text-black transition-colors duration-150 font-bold h-full px-3 py-2 border-none outline-none"
+          style={{ boxShadow: 'none', border: 'none', background: 'transparent' }}
+          onClick={handleConnectWallet}
+          disabled={isConnecting}
+        >
+          <User className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
+          <span className="text-xs uppercase tracking-wide leading-none">
+            {isConnecting ? 'connecting' : 'account'}
+          </span>
+        </button>
+        {error && (
+          <span className="text-xs text-red-500 mt-1 text-center px-2">{error}</span>
+        )}
+      </div>
     );
   }
 
@@ -115,29 +160,31 @@ function MobileWalletProfile() {
           className="group relative flex flex-col items-center justify-center gap-1 bg-transparent hover:bg-green-400 text-black transition-colors duration-150 font-bold h-full px-3 py-2 border-none outline-none"
           style={{ boxShadow: 'none', border: 'none', background: 'transparent' }}
           onClick={handleDialogOpen}
+          disabled={isConnecting}
         >
           <div className="relative group-hover:scale-110 transition-transform duration-200">
-            <Avatar className="h-5 w-5">
-              {walletState.avatar?.startsWith('data:') ? (
+            <Avatar className="w-8 h-8" style={{ minWidth: '32px', minHeight: '32px', maxWidth: '32px', maxHeight: '32px', width: '32px', height: '32px', borderTopWidth: '0px', borderRightWidth: '0px', borderBottomWidth: '0px', borderLeftWidth: '0px', marginLeft: '0px' }}>
+              {avatar?.startsWith('data:') ? (
                 <img 
-                  src={walletState.avatar} 
+                  src={avatar} 
                   alt="아바타" 
-                  className="w-full h-full object-cover rounded-full"
+                  className="w-full h-full object-cover"
+                  style={{ borderRadius: '0px' }}
                 />
               ) : (
                 <AvatarFallback className="text-xs bg-white text-black">
-                  {walletState.avatar}
+                  {avatar}
                 </AvatarFallback>
               )}
             </Avatar>
           </div>
-          {walletState.nickname ? (
+          {nickname ? (
             <span className="text-xs uppercase tracking-wide leading-none">
-              {walletState.nickname}
+              {nickname}
             </span>
           ) : (
             <span className="text-xs tracking-wide leading-none">
-              {`${walletState.address?.slice(0, 4)}...${walletState.address?.slice(-4)}`}
+              {`${address?.slice(0, 4)}...${address?.slice(-4)}`}
             </span>
           )}
         </button>
@@ -147,6 +194,12 @@ function MobileWalletProfile() {
         <DialogHeader>
           <DialogTitle className="text-center">프로필 편집</DialogTitle>
         </DialogHeader>
+        
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-base p-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
         
         <div className="space-y-3">
           {/* 아바타 선택 */}
@@ -159,7 +212,7 @@ function MobileWalletProfile() {
                 className="relative group cursor-pointer"
                 onClick={triggerFileUpload}
               >
-                <div className="w-12 h-12 rounded-full border-2 border-border bg-gray-100 flex items-center justify-center overflow-hidden">
+                <div className="w-12 h-12 border-2 border-border bg-gray-100 flex items-center justify-center overflow-hidden">
                   {tempAvatar.startsWith('data:') ? (
                     <img 
                       src={tempAvatar} 
@@ -170,7 +223,7 @@ function MobileWalletProfile() {
                     <span className="text-lg">{tempAvatar}</span>
                   )}
                 </div>
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-full transition-all duration-200 flex items-center justify-center">
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
                   <Upload className="h-3 w-3 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
@@ -214,7 +267,7 @@ function MobileWalletProfile() {
               id="nickname"
               value={tempNickname}
               onChange={(e) => setTempNickname(e.target.value)}
-              placeholder={walletState.address ? `기본값: ${walletState.address.slice(0, 4)}...${walletState.address.slice(-4)}` : '닉네임을 입력하세요'}
+              placeholder={address ? `기본값: ${address.slice(0, 4)}...${address.slice(-4)}` : '닉네임을 입력하세요'}
               className="neobrutalism-input text-sm"
             />
           </div>
@@ -223,7 +276,26 @@ function MobileWalletProfile() {
           <div className="space-y-2">
             <Label className="text-sm">지갑 주소</Label>
             <div className="p-2 bg-gray-100 rounded-base text-xs font-mono text-gray-600 break-all">
-              {walletState.address}
+              {address}
+            </div>
+          </div>
+
+          {/* SOL 잔고 표시 */}
+          <div className="space-y-2">
+            <Label className="text-sm">SOL 잔고</Label>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 p-2 bg-gray-100 rounded-base text-xs font-mono text-gray-700">
+                {isLoadingBalance ? '로딩 중...' : formatBalance(balance)}
+              </div>
+              <Button
+                variant="neutral"
+                size="sm"
+                onClick={handleRefreshBalance}
+                disabled={isLoadingBalance}
+                className="shrink-0 p-2"
+              >
+                <RefreshCw className={`h-3 w-3 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+              </Button>
             </div>
           </div>
 
@@ -232,6 +304,7 @@ function MobileWalletProfile() {
             <Button
               onClick={handleSave}
               className="neobrutalism-button w-full text-sm py-2"
+              disabled={isConnecting}
             >
               저장
             </Button>
@@ -246,10 +319,11 @@ function MobileWalletProfile() {
               </Button>
               <Button
                 variant="reverse"
-                onClick={disconnectWallet}
+                onClick={handleDisconnectWallet}
                 className="neobrutalism-button flex-1 text-sm py-2"
+                disabled={isConnecting}
               >
-                연결 해제
+                {isConnecting ? '해제 중...' : '연결 해제'}
               </Button>
             </div>
           </div>

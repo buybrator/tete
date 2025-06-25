@@ -11,7 +11,6 @@ import { TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TOKENS, formatTokenAmount } from '@/lib/tokens';
 import { Connection, Transaction, TransactionInstruction, PublicKey, SystemProgram } from '@solana/web3.js';
-import fetch from 'cross-fetch';
 
 // 🎯 수수료 설정
 const FEE_RECIPIENT_ADDRESS = '9YGfNLAiVNWbkgi9jFunyqQ1Q35yirSEFYsKLN6PP1DG';
@@ -336,10 +335,20 @@ export default function ChatInput({ roomId }: Props) {
       let retryCount = 0;
       const maxRetries = 3;
       
+      // 🚀 블록해시 전용 안정적인 연결 사용
+      let stableConnection;
+      
       while (retryCount < maxRetries) {
         try {
-          const latestBlockhash = await connection.getLatestBlockhash();
+          // 🎯 블록해시 전용 연결 함수 사용
+          const { getBlockhashConnection } = await import('@/lib/solana');
+          stableConnection = await getBlockhashConnection();
+          
+          // 더 안정적인 'finalized' commitment 사용
+          const latestBlockhash = await stableConnection.getLatestBlockhash('finalized');
           blockhash = latestBlockhash.blockhash;
+          console.log(`✅ 블록해시 조회 성공 (시도 ${retryCount + 1}): ${blockhash}`);
+          console.log(`🔗 사용된 RPC: ${stableConnection.rpcEndpoint}`);
           break;
         } catch (rpcError: unknown) {
           retryCount++;
@@ -350,12 +359,12 @@ export default function ChatInput({ roomId }: Props) {
             throw new Error(`블록체인 연결 실패: ${errorMessage}`);
           }
           
-          // 재시도 전 잠시 대기
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          // 재시도 전 잠시 대기 (지수 백오프)
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount - 1)));
         }
       }
 
-      if (!blockhash) {
+      if (!blockhash || !stableConnection) {
         throw new Error('블록해시 조회에 실패했습니다');
       }
 
@@ -377,9 +386,14 @@ export default function ChatInput({ roomId }: Props) {
       // 스왑 실행 중 토스트
       toast.loading(`스왑 실행 중... ${inputAmount} ${tokenPairInfo.inputTokenInfo.symbol} → ${outputAmount} ${tokenPairInfo.outputTokenInfo.symbol}`, { id: 'swap' });
 
-      // 4) 서명 및 전송
+      // 4) 서명 및 전송 (동일한 connection 사용)
       const signedTransaction = await signTransaction(transaction);
-      const txId = await connection.sendRawTransaction(signedTransaction.serialize());
+      console.log(`🚀 트랜잭션 전송 시작 (RPC: ${stableConnection.rpcEndpoint})`);
+      const txId = await stableConnection.sendRawTransaction(signedTransaction.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: 'finalized', // 블록해시와 동일한 commitment 사용
+        maxRetries: 3,
+      });
       console.log("트랜잭션 ID:", txId);
 
       // 5) 트랜잭션 확인 및 채팅 버블 표시
@@ -410,32 +424,30 @@ export default function ChatInput({ roomId }: Props) {
       if (confirmed) {
         console.log("🎊 트랜잭션 확인 완료 - 채팅 버블 생성");
         
-        // 스왑 정보 계산
-        const swapMessage = `🎉 ${settings.mode === 'buy' ? 'BUY' : 'SELL'} 스왑 완료!\n${inputAmount} ${tokenPairInfo.inputTokenInfo.symbol} → ${outputAmount} ${tokenPairInfo.outputTokenInfo.symbol}`;
-        
-        // 채팅에 표시할 최종 메시지 (메모 포함)
-        let finalMessage;
-        if (memoText) {
-          finalMessage = `💬 ${memoText}\n\n${swapMessage}`;
-          console.log('✅ 메모가 포함된 스왑 완료:', memoText);
-        } else {
-          finalMessage = swapMessage;
-          console.log('✅ 메모 없는 스왑 완료');
-        }
-        
-        console.log('📨 채팅 버블 생성:', finalMessage);
+        console.log('🎊 트랜잭션 확인 완료 - 채팅 버블 생성');
         console.log('📨 roomId:', roomId);
         console.log('📨 txId:', txId);
+        console.log('📨 저장할 메모:', memoText);
         
         try {
+          // 실제 거래한 SOL 양 계산 (항상 SOL 기준으로 저장)
+          let actualSolAmount: string;
+          if (settings.mode === 'buy') {
+            // Buy 모드: 입력한 SOL 양
+            actualSolAmount = quantity.toString();
+          } else {
+            // Sell 모드: 받은 SOL 양 (outputAmount)
+            actualSolAmount = outputAmount;
+          }
+          
           // addMessage를 직접 사용하여 txHash 포함 및 메모 텍스트 즉시 표시
           const messageData = {
             userId: 'user1',
             userAddress: publicKey?.toString() || 'Unknown',
             avatar: '🎉',
             tradeType: settings.mode as 'buy' | 'sell',
-            tradeAmount: `${outputAmount} ${tokenPairInfo.outputTokenInfo.symbol}`,
-            content: finalMessage, // 메모 텍스트가 포함된 전체 메시지
+            tradeAmount: actualSolAmount, // 항상 SOL 기준
+            content: memoText || '', // 사용자가 입력한 메모 텍스트만 저장
             txHash: txId, // 트랜잭션 해시 포함
           };
           
@@ -464,28 +476,27 @@ export default function ChatInput({ roomId }: Props) {
         
       } else {
         console.warn("⚠️ 트랜잭션 확인 시간 초과");
-        
-        // 시간 초과 시에도 채팅 버블 표시 (전송은 완료되었을 가능성)
-        const swapMessage = `⏱️ ${settings.mode === 'buy' ? 'BUY' : 'SELL'} 스왑 전송 완료!\n${inputAmount} ${tokenPairInfo.inputTokenInfo.symbol} → ${outputAmount} ${tokenPairInfo.outputTokenInfo.symbol}\n(확인 대기 중...)`;
-        
-        let finalMessage;
-        if (memoText) {
-          finalMessage = `💬 ${memoText}\n\n${swapMessage}`;
-          console.log('✅ 시간 초과 - 메모가 포함된 메시지:', memoText);
-        } else {
-          finalMessage = swapMessage;
-          console.log('✅ 시간 초과 - 메모 없는 메시지');
-        }
+        console.log('📨 시간 초과 - 저장할 메모:', memoText);
         
         try {
+          // 실제 거래한 SOL 양 계산 (항상 SOL 기준으로 저장)
+          let actualSolAmount: string;
+          if (settings.mode === 'buy') {
+            // Buy 모드: 입력한 SOL 양
+            actualSolAmount = quantity.toString();
+          } else {
+            // Sell 모드: 받은 SOL 양 (outputAmount)
+            actualSolAmount = outputAmount;
+          }
+          
           // addMessage를 직접 사용하여 txHash 포함 및 메모 텍스트 즉시 표시
           const messageData = {
             userId: 'user1',
             userAddress: publicKey?.toString() || 'Unknown',
             avatar: '⏱️',
             tradeType: settings.mode as 'buy' | 'sell',
-            tradeAmount: `${outputAmount} ${tokenPairInfo.outputTokenInfo.symbol}`,
-            content: finalMessage, // 메모 텍스트가 포함된 전체 메시지
+            tradeAmount: actualSolAmount, // 항상 SOL 기준
+            content: memoText || '', // 사용자가 입력한 메모 텍스트만 저장
             txHash: txId, // 트랜잭션 해시 포함
           };
           

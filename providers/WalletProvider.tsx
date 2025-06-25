@@ -1,63 +1,53 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { ReactNode, useMemo } from 'react';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import {
-  PhantomWalletAdapter,
-  SolflareWalletAdapter,
-} from '@solana/wallet-adapter-wallets';
-import { getSolanaConnection, getCurrentNetwork } from '@/lib/solana';
+import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
+import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
+import { clusterApiUrl } from '@solana/web3.js';
 
-// Wallet Adapter CSS
+// Default styles that can be overridden by your app
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 interface WalletProviderWrapperProps {
-  children: React.ReactNode;
+    children: ReactNode;
 }
 
 export default function WalletProviderWrapper({ children }: WalletProviderWrapperProps) {
-  // 현재 네트워크 설정 가져오기
-  const network = getCurrentNetwork();
-  
-  // Wallet Adapter 네트워크 매핑
-  const walletNetwork = useMemo(() => {
-    switch (network) {
-      case 'mainnet':
-        return WalletAdapterNetwork.Mainnet;
-      case 'devnet':
-        return WalletAdapterNetwork.Devnet;
-      case 'testnet':
-        return WalletAdapterNetwork.Testnet;
-      default:
-        return WalletAdapterNetwork.Devnet;
-    }
-  }, [network]);
+    // The network can be set to 'devnet', 'testnet', or 'mainnet-beta'.
+    const network = WalletAdapterNetwork.Mainnet;
 
-  // RPC 엔드포인트 가져오기
-  const connection = useMemo(() => getSolanaConnection(), []);
-  const endpoint = useMemo(() => connection.rpcEndpoint, [connection]);
+    // You can also provide a custom RPC endpoint.
+    const endpoint = useMemo(() => {
+        if (network === WalletAdapterNetwork.Mainnet) {
+            // Use custom RPC endpoint from environment variable
+            return process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
+        }
+        return clusterApiUrl(network);
+    }, [network]);
 
-  // 지원할 지갑 목록
-  const wallets = useMemo(
-    () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter({ network: walletNetwork }),
-    ],
-    [walletNetwork]
-  );
+    const wallets = useMemo(
+        () => [
+            new PhantomWalletAdapter(),
+            new SolflareWalletAdapter(),
+        ],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [network]
+    );
 
-  return (
-    <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
-          {children}
-        </WalletModalProvider>
-      </WalletProvider>
-    </ConnectionProvider>
-  );
+    return (
+        <ConnectionProvider endpoint={endpoint}>
+            <WalletProvider wallets={wallets} autoConnect>
+                <WalletModalProvider>
+                    {children}
+                </WalletModalProvider>
+            </WalletProvider>
+        </ConnectionProvider>
+    );
 }
 
-// 지갑 연결 상태를 확인하는 헬퍼 함수들
-export { useWallet, useConnection } from '@solana/wallet-adapter-react'; 
+// Re-export hooks for convenience
+export { useWallet, useConnection } from '@solana/wallet-adapter-react';
+export { useWalletModal } from '@solana/wallet-adapter-react-ui';

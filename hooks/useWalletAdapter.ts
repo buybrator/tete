@@ -51,14 +51,20 @@ export function useWalletAdapter() {
   const [balance, setBalance] = useState<number | null>(null);
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMounted, setHasMounted] = useState(false);
 
-  // 지갑 상태
+  // 클라이언트 마운트 상태 확인
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  // 지갑 상태 (hydration 안전)
   const walletState: WalletAdapterState = {
-    isConnected: connected,
-    isConnecting: connecting,
-    isDisconnecting: disconnecting,
-    publicKey,
-    walletName: wallet?.adapter.name || null,
+    isConnected: connected && hasMounted,
+    isConnecting: connecting && hasMounted,
+    isDisconnecting: disconnecting && hasMounted,
+    publicKey: connected && hasMounted ? publicKey : null,
+    walletName: hasMounted ? (wallet?.adapter.name || null) : null,
     balance,
     isLoadingBalance,
     error,
@@ -79,13 +85,26 @@ export function useWalletAdapter() {
   const disconnectWallet = useCallback(async () => {
     try {
       setError(null);
-      await disconnect();
+      
+      // 지갑이 연결되어 있고 disconnect 함수가 존재하는지 확인
+      if (connected && disconnect && typeof disconnect === 'function') {
+        await disconnect();
+      }
+      
+      // 상태 초기화
       setBalance(null);
+      
+      console.log('🔌 지갑 연결 해제 완료');
     } catch (error) {
-      console.error('지갑 연결 해제 실패:', error);
-      setError(error instanceof Error ? error.message : '지갑 연결 해제에 실패했습니다.');
+      console.error('❌ 지갑 연결 해제 실패:', error);
+      
+      // 에러가 발생해도 상태는 초기화
+      setBalance(null);
+      
+      // 사용자에게는 단순한 메시지로 표시
+      setError('지갑 연결 해제 중 오류가 발생했습니다.');
     }
-  }, [disconnect]);
+  }, [disconnect, connected]);
 
   // 안정적인 연결 확보
   const getStableConnection = useCallback(async (): Promise<Connection> => {

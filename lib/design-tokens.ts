@@ -41,7 +41,7 @@ export interface DesignTokens {
 // 라이트 테마 토큰
 export const lightTheme: DesignTokens = {
   colors: {
-    background: 'oklch(95.08% 0.0481 184.07)',
+    background: 'oklch(26.86% 0.0327 60.06)',
     secondaryBackground: 'oklch(100% 0 0)',
     foreground: 'oklch(0% 0 0)',
     mainForeground: 'oklch(0% 0 0)',

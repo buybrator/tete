@@ -2,7 +2,7 @@
 Write-Host "🔄 가격 데이터 수집 시작..." -ForegroundColor Yellow
 
 try {
-    $response = Invoke-RestMethod -Uri "http://localhost:3001/api/cron/price-collector" -Method GET -ContentType "application/json"
+    $response = Invoke-RestMethod -Uri "http://localhost:3000/api/cron/price-collector" -Method GET -ContentType "application/json"
     
     if ($response.success) {
         Write-Host "✅ 가격 수집 완료!" -ForegroundColor Green

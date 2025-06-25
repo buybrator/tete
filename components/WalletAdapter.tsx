@@ -1,20 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useWalletAdapter } from '@/hooks/useWalletAdapter';
+import React, { useState, useEffect } from 'react';
+import { useWallet } from '@/hooks/useWallet';
 import { 
   Card, CardContent, CardDescription, CardHeader, CardTitle 
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
-  Wallet, Copy, ExternalLink, RefreshCw, Send, X 
+  Wallet, Copy, ExternalLink, RefreshCw, X, AlertTriangle
 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { safePublicKeyToString, formatWalletAddress } from '@/lib/wallet-utils';
 
 interface WalletAdapterProps {
   className?: string;
@@ -27,95 +23,90 @@ export default function WalletAdapter({
   showBalance = true, 
   showActions = true 
 }: WalletAdapterProps) {
-  const {
-    publicKey,
+  const { 
     isConnected,
-    isConnecting,
-    isDisconnecting,
-    walletName,
+    address,
     balance,
+    isLoading,
     isLoadingBalance,
     error,
-    connect,
-    disconnect,
-    sendSol,
-    fetchBalance,
+    connectWallet,
+    disconnectWallet,
+    getBalance,
     clearError,
-    formatBalance,
-  } = useWalletAdapter();
+    raw
+  } = useWallet();
+  
+  // 클라이언트 마운트 상태
+  const [hasMounted, setHasMounted] = useState(false);
 
-  // SOL 전송 상태
-  const [isSending, setIsSending] = useState(false);
-  const [sendDialogOpen, setSendDialogOpen] = useState(false);
-  const [recipient, setRecipient] = useState('');
-  const [amount, setAmount] = useState('');
-
-  // 지갑 선택 모달 열기
-  const handleSelectWallet = () => {
-    connect();
-  };
+  useEffect(() => {
+    setHasMounted(true);
+    console.log('🏗️ WalletAdapter 마운트됨');
+    console.log('🔍 연결 상태:', isConnected);
+    console.log('🔑 주소:', address);
+    console.log('💼 지갑:', raw?.wallet?.adapter?.name);
+  }, [isConnected, address, raw?.wallet?.adapter?.name]);
 
   // 주소 복사
   const copyAddress = async () => {
-    const address = safePublicKeyToString(publicKey);
-    if (address) {
+    if (address && hasMounted) {
       try {
         await navigator.clipboard.writeText(address);
-        // TODO: 토스트 알림 추가
-        console.log('주소가 복사되었습니다');
+        alert('주소가 복사되었습니다!');
       } catch (error) {
         console.error('주소 복사 실패:', error);
+        alert('주소 복사에 실패했습니다');
       }
     }
   };
 
   // Solana Explorer 열기
   const openExplorer = () => {
-    const address = safePublicKeyToString(publicKey);
-    if (address) {
+    if (address && hasMounted) {
       const url = `https://solscan.io/account/${address}`;
       window.open(url, '_blank');
     }
   };
 
-  // SOL 전송
-  const handleSendSol = async () => {
-    if (!recipient || !amount) {
-      alert('받는 주소와 금액을 입력해주세요');
-      return;
-    }
-
-    try {
-      setIsSending(true);
-      const signature = await sendSol(recipient, parseFloat(amount));
-      
-      // 성공 메시지
-      alert(`전송 완료!\n트랜잭션: ${signature}`);
-      
-      // 입력 초기화
-      setRecipient('');
-      setAmount('');
-      setSendDialogOpen(false);
-    } catch (error) {
-      console.error('SOL 전송 실패:', error);
-      alert(`전송 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
-    } finally {
-      setIsSending(false);
-    }
+  // 주소 포맷팅
+  const formatAddress = (address: string) => {
+    if (!address) return '';
+    return `${address.slice(0, 4)}...${address.slice(-4)}`;
   };
+
+  // 잔고 포맷팅
+  const formatBalance = (balance: number | null) => {
+    if (balance === null) return '0.0000';
+    return balance.toFixed(4);
+  };
+
+  if (!hasMounted) {
+    return (
+      <div className={`p-4 ${className}`}>
+        <Card>
+          <CardContent className="flex items-center justify-center p-6">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="ml-2">로딩 중...</span>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* 에러 표시 */}
+      {/* 에러 메시지 */}
       {error && (
         <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
           <AlertDescription className="flex items-center justify-between">
             {error}
             <Button
               variant="neutral"
               size="sm"
               onClick={clearError}
-              className="h-auto p-1"
+              className="ml-2 p-1 h-auto"
             >
               <X className="h-3 w-3" />
             </Button>
@@ -136,19 +127,39 @@ export default function WalletAdapter({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {/* 연결 중 상태 표시 */}
+            {isLoading && (
+              <Alert>
+                <AlertDescription>
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    지갑에 연결 중...
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {/* 지갑 연결 버튼 */}
             <Button 
-              onClick={handleSelectWallet}
-              disabled={isConnecting}
               className="w-full"
+              onClick={connectWallet}
+              disabled={isLoading}
             >
-              {isConnecting ? '연결 중...' : '지갑 선택'}
+              {isLoading ? '연결 중...' : '지갑 연결'}
             </Button>
+            
+            {/* 디버깅 정보 표시 */}
+            <div className="text-xs text-gray-500 space-y-1">
+              <div>🔍 연결 상태: {isConnected ? '연결됨' : isLoading ? '연결 중' : '연결 안됨'}</div>
+              <div>🔑 주소: {address ? '있음' : '없음'}</div>
+              <div>💼 지갑: {raw?.wallet?.adapter?.name || '없음'}</div>
+            </div>
           </CardContent>
         </Card>
       )}
 
       {/* 지갑 연결된 상태 */}
-      {isConnected && publicKey && (
+      {isConnected && address && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -156,18 +167,30 @@ export default function WalletAdapter({
                 <Wallet className="h-5 w-5" />
                 연결된 지갑
               </div>
-              {walletName && (
-                <Badge variant="neutral">{walletName}</Badge>
+              {raw?.wallet?.adapter?.name && (
+                <Badge variant="neutral">{raw.wallet.adapter.name}</Badge>
               )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* 연결 해제 중 상태 표시 */}
+            {isLoading && (
+              <Alert>
+                <AlertDescription>
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600"></div>
+                    지갑 연결 해제 중...
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            
             {/* 지갑 주소 */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">지갑 주소</Label>
+              <label className="text-sm font-medium">지갑 주소</label>
               <div className="flex items-center gap-2">
                 <code className="flex-1 p-2 bg-gray-100 dark:bg-gray-800 rounded text-sm font-mono">
-                  {formatWalletAddress(publicKey)}
+                  {formatAddress(address)}
                 </code>
                 <Button
                   variant="neutral"
@@ -191,15 +214,15 @@ export default function WalletAdapter({
             {/* 잔고 표시 */}
             {showBalance && (
               <div className="space-y-2">
-                <Label className="text-sm font-medium">SOL 잔고</Label>
+                <label className="text-sm font-medium">SOL 잔고</label>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-lg">
-                    {isLoadingBalance ? '로딩...' : formatBalance(balance)}
-                  </span>
+                  <code className="flex-1 p-2 bg-gray-100 dark:bg-gray-800 rounded text-sm font-mono">
+                    {isLoadingBalance ? '로딩 중...' : `${formatBalance(balance)} SOL`}
+                  </code>
                   <Button
                     variant="neutral"
                     size="sm"
-                    onClick={fetchBalance}
+                    onClick={getBalance}
                     disabled={isLoadingBalance}
                     className="shrink-0"
                   >
@@ -211,66 +234,26 @@ export default function WalletAdapter({
 
             {/* 액션 버튼들 */}
             {showActions && (
-              <div className="flex gap-2">
-                <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="neutral" size="sm" className="flex-1">
-                      <Send className="h-3 w-3 mr-1" />
-                      SOL 전송
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>SOL 전송</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="recipient">받는 주소</Label>
-                        <Input
-                          id="recipient"
-                          placeholder="받는 사람의 Solana 주소"
-                          value={recipient}
-                          onChange={(e) => setRecipient(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="amount">전송 금액 (SOL)</Label>
-                        <Input
-                          id="amount"
-                          type="number"
-                          step="0.0001"
-                          placeholder="전송할 SOL 금액"
-                          value={amount}
-                          onChange={(e) => setAmount(e.target.value)}
-                        />
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="neutral"
-                          onClick={() => setSendDialogOpen(false)}
-                        >
-                          취소
-                        </Button>
-                        <Button
-                          onClick={handleSendSol}
-                          disabled={isSending || !recipient || !amount}
-                        >
-                          {isSending ? '전송 중...' : '전송'}
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                <Button 
-                  variant="neutral" 
-                  size="sm"
-                  onClick={disconnect}
-                  disabled={isDisconnecting}
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="reverse"
+                  onClick={disconnectWallet}
+                  disabled={isLoading}
                   className="flex-1"
                 >
-                  {isDisconnecting ? '연결 해제 중...' : '연결 해제'}
+                  {isLoading ? '해제 중...' : '연결 해제'}
                 </Button>
+                
+                {showBalance && (
+                  <Button
+                    variant="neutral"
+                    onClick={getBalance}
+                    disabled={isLoadingBalance}
+                    className="shrink-0"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>
@@ -282,22 +265,44 @@ export default function WalletAdapter({
 
 // 간단한 지갑 버튼 컴포넌트
 export function WalletButton({ className = '' }: { className?: string }) {
-  const { isConnected, publicKey, walletName } = useWalletAdapter();
+  const { isConnected, address, nickname, connectWallet, isLoading } = useWallet();
+  const [hasMounted, setHasMounted] = useState(false);
 
-  if (!isConnected || !publicKey) {
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  const formatAddress = (address: string) => {
+    if (!address) return '';
+    return `${address.slice(0, 4)}...${address.slice(-4)}`;
+  };
+
+  if (!hasMounted) {
     return (
-      <Button variant="neutral" className={className}>
+      <Button variant="neutral" className={className} disabled>
         <Wallet className="h-4 w-4 mr-2" />
-        지갑 연결
+        로딩 중...
+      </Button>
+    );
+  }
+
+  if (!isConnected) {
+    return (
+      <Button 
+        onClick={connectWallet} 
+        disabled={isLoading}
+        className={className}
+      >
+        <Wallet className="h-4 w-4 mr-2" />
+        {isLoading ? '연결 중...' : '지갑 연결'}
       </Button>
     );
   }
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <Badge variant="neutral" className="text-xs">
-        {walletName} ({formatWalletAddress(publicKey)})
-      </Badge>
-    </div>
+    <Button variant="neutral" className={className}>
+      <Wallet className="h-4 w-4 mr-2" />
+      {nickname || formatAddress(address || '')}
+    </Button>
   );
 } 

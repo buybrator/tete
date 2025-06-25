@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(95.08% 0.0481 184.07);
+  --background: oklch(26.86% 0.0327 60.06);
   --secondary-background: oklch(100% 0 0);
   --foreground: oklch(0% 0 0);
   --main-foreground: oklch(0% 0 0);
@@ -200,7 +200,8 @@
   }
   
   .mobile-navbar {
-    @apply w-full h-14 flex items-center justify-between bg-secondary-background border-2 border-border shadow-[var(--shadow)] fixed z-50;
+    @apply w-full h-14 flex items-center justify-between border-2 border-border border-b-4 border-b-black shadow-[var(--shadow)] fixed z-50;
+    background-color: oklch(23.93% 0 0);
     border-radius: 0px;
     padding: 0 12px;
     top: 12px;

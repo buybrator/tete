@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { toast } from 'sonner';
 
 interface TokenChartProps {
   tokenAddress?: string;
@@ -57,6 +58,7 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
   // 인터벌 참조
   const chartUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const priceUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const quarterHourIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // SOL 토큰 주소 (기본값)
   const SOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -192,6 +194,9 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
       // 먼저 빈 상태로 초기화
       handleApiFailure();
       
+      // 🔧 백그라운드 수집기 상태 확인 및 시작
+      await checkAndStartBackgroundCollector();
+      
       // 실제 DB 데이터 로드 시도
       await fetchPriceData();
       
@@ -206,24 +211,62 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
 
     initializeData();
     
-    // 차트 데이터 정기 업데이트 (5분마다)
-    chartUpdateIntervalRef.current = setInterval(() => {
-      fetchPriceData();
+    // 🎯 개선된 15분 정각 업데이트 시스템
+    const setupIntervals = () => {
+      // 1. 차트 데이터 정기 업데이트 (3분마다 - 더 자주 체크)
+      chartUpdateIntervalRef.current = setInterval(() => {
+        fetchPriceData();
+      }, 3 * 60 * 1000);
       
-      // 15분마다 백그라운드 업데이트 트리거
-      const now = new Date();
-      if (now.getMinutes() % 15 === 0) {
-        triggerPriceUpdate();
-      }
-    }, 5 * 60 * 1000);
+      // 2. 15분 정각 백그라운드 업데이트 시스템
+      const setup15MinUpdates = () => {
+        const now = new Date();
+        const minutes = now.getMinutes();
+        const seconds = now.getSeconds();
+        const milliseconds = now.getMilliseconds();
+        
+        // 다음 15분 정각까지 남은 시간 계산 (0, 15, 30, 45분)
+        const nextQuarterHour = Math.ceil(minutes / 15) * 15;
+        const minutesToNext = (nextQuarterHour === 60) ? (60 - minutes) : (nextQuarterHour - minutes);
+        const millisecondsToNext = (minutesToNext * 60 - seconds) * 1000 - milliseconds;
+        
+        console.log(`⏰ 다음 15분 정각까지 ${Math.round(millisecondsToNext / 1000)}초 대기`);
+        
+        // 첫 번째 15분 정각까지 대기
+        setTimeout(() => {
+          // 15분 정각에 백그라운드 업데이트 실행
+          console.log('🔔 15분 정각 - 백그라운드 업데이트 트리거');
+          triggerPriceUpdate();
+          
+          // 이후 정확히 15분마다 반복 실행
+          const quarterHourInterval = setInterval(() => {
+            console.log('🔔 15분 간격 - 백그라운드 업데이트 트리거');
+            triggerPriceUpdate();
+          }, 15 * 60 * 1000);
+          
+          // cleanup 함수에서 정리할 수 있도록 저장
+          quarterHourIntervalRef.current = quarterHourInterval;
+          
+        }, millisecondsToNext);
+      };
+      
+      setup15MinUpdates();
+      
+      // 3. 실시간 가격 업데이트 (1분마다)
+      priceUpdateIntervalRef.current = setInterval(() => {
+        fetchRealtimePrice();
+      }, 60 * 1000);
+    };
     
-    // 실시간 가격 업데이트 (1분마다)
-    priceUpdateIntervalRef.current = setInterval(() => {
-      fetchRealtimePrice();
-    }, 60 * 1000); // 1분 = 60초
+    setupIntervals();
     
     return () => {
       if (chartUpdateIntervalRef.current) {
+        // 15분 간격 인터벌도 정리
+        const quarterHourInterval = quarterHourIntervalRef.current;
+        if (quarterHourInterval) {
+          clearInterval(quarterHourInterval);
+        }
         clearInterval(chartUpdateIntervalRef.current);
       }
       if (priceUpdateIntervalRef.current) {
@@ -262,6 +305,45 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
   };
 
   const isPositive = priceChange >= 0;
+
+  // 🚀 백그라운드 수집기 상태 확인 및 시작
+  const checkAndStartBackgroundCollector = async () => {
+    try {
+      console.log('🔍 백그라운드 수집기 상태 확인 중...');
+      
+      // 상태 확인
+      const statusResponse = await fetch('/api/background/price-collector?action=status');
+      const statusData = await statusResponse.json();
+      
+      console.log('📊 백그라운드 수집기 상태:', statusData);
+      
+      if (!statusData.isRunning) {
+        console.log('🚀 백그라운드 수집기 시작 중...');
+        
+        // 수집기 시작
+        const startResponse = await fetch('/api/background/price-collector?action=start');
+        const startData = await startResponse.json();
+        
+        if (startData.success) {
+          console.log('✅ 백그라운드 수집기 시작 성공');
+          toast.success('15분 자동 업데이트가 활성화되었습니다', { id: 'background-collector' });
+        } else {
+          console.error('❌ 백그라운드 수집기 시작 실패:', startData);
+          toast.error('자동 업데이트 시작에 실패했습니다', { id: 'background-collector' });
+        }
+      } else {
+        console.log('✅ 백그라운드 수집기가 이미 실행 중입니다');
+        const nextCollection = statusData.stats?.nextCollection;
+        if (nextCollection) {
+          const nextTime = new Date(nextCollection).toLocaleTimeString();
+          console.log(`⏰ 다음 자동 수집: ${nextTime}`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ 백그라운드 수집기 확인 실패:', error);
+      // 에러가 발생해도 차트는 정상 작동하도록 함
+    }
+  };
 
   return (
     <div className={`bg-white rounded-lg px-3 pt-3 pb-[90px] ${className}`}>

@@ -15,7 +15,7 @@ async function collectPrices() {
   try {
     console.log('🔄 백그라운드: 자동 가격 수집 시작');
     
-    const response = await fetch('http://localhost:3001/api/cron/price-collector', {
+    const response = await fetch('http://localhost:3000/api/cron/price-collector', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

@@ -10,6 +10,8 @@ const DEFAULT_AVATARS = [
   '🦊', '🐸', '🐱', '🐶', '🦁', '🐯', '🐨', '🐼'
 ];
 
+
+
 // 🚀 토큰 주소 매핑 (기존 UI 호환성 + 동적 CA 지원)
 const ROOM_TOKEN_MAPPING: Record<string, string> = {
   'sol-usdc': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC Trading Room
@@ -44,9 +46,23 @@ const notifyListeners = () => {
   messageListeners.forEach(listener => listener());
 };
 
-// Supabase 메시지를 ChatMessage로 변환
+// Supabase 메시지를 ChatMessage로 변환 (프로필 정보 없이)
 function formatMessageFromSupabase(dbMessage: MessageCache, roomId: string): ChatMessage {
   const randomAvatar = DEFAULT_AVATARS[Math.floor(Math.random() * DEFAULT_AVATARS.length)];
+  
+  // SOL 거래량 처리 - quantity가 lamports 단위인 경우 SOL로 변환
+  let formattedAmount: string | undefined;
+  if (dbMessage.quantity && dbMessage.quantity > 0) {
+    // quantity가 1보다 큰 경우 lamports로 간주하고 SOL로 변환
+    if (dbMessage.quantity >= 1000000000) { // 1 SOL = 1,000,000,000 lamports
+      formattedAmount = (dbMessage.quantity / 1000000000).toFixed(3);
+    } else if (dbMessage.quantity >= 1000000) { // 0.001 SOL = 1,000,000 lamports
+      formattedAmount = (dbMessage.quantity / 1000000000).toFixed(6);
+    } else {
+      // 이미 SOL 단위인 경우
+      formattedAmount = dbMessage.quantity.toString();
+    }
+  }
   
   return {
     id: dbMessage.signature,
@@ -58,12 +74,14 @@ function formatMessageFromSupabase(dbMessage: MessageCache, roomId: string): Cha
     content: dbMessage.content,
     timestamp: new Date(dbMessage.block_time),
     tradeType: dbMessage.message_type ? dbMessage.message_type.toLowerCase() as 'buy' | 'sell' : 'buy',
-    tradeAmount: dbMessage.quantity ? `${dbMessage.quantity}` : undefined,
+    tradeAmount: formattedAmount,
     txHash: dbMessage.signature,
   };
 }
 
-// Supabase에서 메시지 가져오기
+
+
+// Supabase에서 메시지 가져오기 (프로필은 ChatBubble에서 개별 조회)
 async function fetchMessagesFromSupabase(roomId: string): Promise<ChatMessage[]> {
   try {
     const tokenAddress = getTokenAddressFromRoomId(roomId);

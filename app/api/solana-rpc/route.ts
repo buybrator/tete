@@ -42,6 +42,17 @@ const FAILURE_COOLDOWNS = {
 const SUCCESS_CACHE_DURATION = 3 * 60 * 1000; // 3분간 성공한 엔드포인트 재사용
 const MAX_RETRIES = 3; // 최대 3개 엔드포인트만 시도
 
+// 🎯 블록해시 캐싱 시스템 (30초 캐시)
+interface BlockhashCache {
+  blockhash: string;
+  lastValidBlockHeight: number;
+  cachedAt: number;
+  endpoint: string;
+}
+
+let blockhashCache: BlockhashCache | null = null;
+const BLOCKHASH_CACHE_DURATION = 30 * 1000; // 30초 캐시
+
 // 백오프 전략: 요청 실패 시 대기 시간 증가
 function getBackoffDelay(retryCount: number): number {
   return Math.min(1000 * Math.pow(2, retryCount), 3000); // 최대 3초로 단축
@@ -154,6 +165,30 @@ async function makeRpcRequest(body: unknown, retryCount = 0): Promise<unknown> {
     throw new Error(`최대 재시도 횟수 초과 (${MAX_RETRIES}회 시도)`);
   }
 
+  // 🎯 getLatestBlockhash 요청에 대한 캐시 처리
+  const requestBody = body as { method?: string; id?: string | number };
+  if (requestBody?.method === 'getLatestBlockhash') {
+    const now = Date.now();
+    
+    // 캐시된 블록해시가 유효한지 확인
+    if (blockhashCache && 
+        (now - blockhashCache.cachedAt) < BLOCKHASH_CACHE_DURATION &&
+        !isBlacklisted(blockhashCache.endpoint)) {
+      console.log(`🎯 캐시된 블록해시 사용: ${blockhashCache.blockhash} (${blockhashCache.endpoint})`);
+      return {
+        jsonrpc: '2.0',
+        id: requestBody.id,
+        result: {
+          context: { slot: blockhashCache.lastValidBlockHeight },
+          value: {
+            blockhash: blockhashCache.blockhash,
+            lastValidBlockHeight: blockhashCache.lastValidBlockHeight
+          }
+        }
+      };
+    }
+  }
+
   let endpoint: string | null = null;
   
   if (retryCount === 0) {
@@ -231,6 +266,17 @@ async function makeRpcRequest(body: unknown, retryCount = 0): Promise<unknown> {
     }
 
     console.log(`✅ RPC 성공: ${endpoint}`);
+    
+    // 🎯 getLatestBlockhash 응답 캐싱
+    if (requestBody?.method === 'getLatestBlockhash' && data.result?.value) {
+      blockhashCache = {
+        blockhash: data.result.value.blockhash,
+        lastValidBlockHeight: data.result.value.lastValidBlockHeight,
+        cachedAt: Date.now(),
+        endpoint: endpoint
+      };
+      console.log(`💾 블록해시 캐시 저장: ${blockhashCache.blockhash} (${endpoint})`);
+    }
     
     // 성공 정보 캐시
     lastSuccessfulEndpoint = endpoint;

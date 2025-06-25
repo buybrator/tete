@@ -4,11 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { useWallet } from '@/hooks/useWallet';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { useWallet } from '@/hooks/useWallet'; // 원래대로 복구
+// useWalletModal 제거 - 직접 연결 구현
+import ClientOnly from '@/components/ClientOnly'; // Hydration 에러 방지용
 import TokenAvatar from '@/components/ui/TokenAvatar';
 import CreateChatRoomDialog from './CreateChatRoomDialog';
 
@@ -232,51 +232,110 @@ function ChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
 
 // 지갑 프로필 컴포넌트
 function WalletProfile() {
-  const { walletState, disconnectWallet, updateNickname, updateAvatar, DEFAULT_AVATARS } = useWallet();
-  const { setVisible } = useWalletModal();
+  const { 
+    isConnected, 
+    address, 
+    nickname, 
+    avatar, 
+    profile,
+    disconnectWallet, 
+    updateProfile,
+    connectWallet
+  } = useWallet();
+  
+  const DEFAULT_AVATARS = ['👤', '🧑', '👩', '🤵', '👩‍💼', '🧑‍💼', '👨‍💼', '🧙‍♂️', '🧙‍♀️', '🥷'];
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [tempNickname, setTempNickname] = useState('');
   const [tempAvatar, setTempAvatar] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Dialog가 열릴 때 현재 값들로 초기화
-  const handleDialogOpen = () => {
-    setTempNickname(walletState.nickname || '');
-    setTempAvatar(walletState.avatar || DEFAULT_AVATARS[0]);
-    setIsDialogOpen(true);
-  };
+  useEffect(() => {
+    if (isDialogOpen && isConnected) {
+      setTempNickname(nickname || '');
+      // 아바타 설정 (useWallet에서 이미 처리됨)
+      setTempAvatar(avatar || DEFAULT_AVATARS[0]);
+    }
+  }, [isDialogOpen, nickname, avatar, isConnected]);
 
   // 변경사항 저장
-  const handleSave = () => {
-    updateNickname(tempNickname);
-    updateAvatar(tempAvatar);
-    setIsDialogOpen(false);
-  };
-
-  // 이미지 업로드 처리
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const imageUrl = e.target?.result as string;
-        setTempAvatar(imageUrl);
-      };
-      reader.readAsDataURL(file);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await updateProfile({
+        nickname: tempNickname,
+        avatar: tempAvatar
+      });
+      setIsDialogOpen(false);
+      console.log('✅ 프로필 저장 완료');
+    } catch (error) {
+      console.error('❌ 프로필 저장 오류:', error);
+      alert('프로필 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // 지갑 연결 - useWalletModal 사용
-  const handleConnectWallet = () => {
-    setVisible(true);
+  // 이미지 업로드 처리
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !address) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('wallet_address', address);
+
+      const response = await fetch('/api/profiles/upload-avatar', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setTempAvatar(result.avatar_url);
+        console.log('✅ 이미지 업로드 완료:', result.avatar_url);
+      } else {
+        console.error('❌ 이미지 업로드 실패:', result.error);
+        alert('이미지 업로드에 실패했습니다: ' + result.error);
+      }
+    } catch (error) {
+      console.error('❌ 이미지 업로드 오류:', error);
+      alert('이미지 업로드 중 오류가 발생했습니다.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // 현재 표시할 아바타 결정
+  const displayAvatar = () => {
+    if (!avatar) return DEFAULT_AVATARS[0];
+    return avatar; // useWallet에서 이미 emoji: 접두사를 제거했으므로 그대로 사용
   };
 
   // 지갑이 연결되지 않은 경우
-  if (!walletState.isConnected) {
+  if (!isConnected) {
     return (
-      <Button className="neobrutalism-button" onClick={handleConnectWallet}>
-        지갑 연결
-      </Button>
+      <ClientOnly fallback={
+        <Button className="neobrutalism-button" disabled>
+          지갑 연결
+        </Button>
+      }>
+        <Button 
+          className="neobrutalism-button border-2 border-black rounded-none px-6 font-semibold shadow-[4px_4px_0px_0px_black] hover:shadow-none focus:shadow-none active:shadow-none"
+          style={{ 
+            backgroundColor: 'oklch(23.93% 0 0)',
+            color: 'oklch(0.9249 0 0)'
+          }}
+          onClick={connectWallet}
+        >
+          지갑 연결
+        </Button>
+      </ClientOnly>
     );
   }
 
@@ -286,24 +345,62 @@ function WalletProfile() {
       <DialogTrigger asChild>
         <Button
           variant="neutral"
-          className="neobrutalism-button flex items-center gap-2 px-3 py-2"
-          onClick={handleDialogOpen}
+          className="neobrutalism-button border-2 border-black rounded-none shadow-[4px_4px_0px_0px_black] hover:shadow-none focus:shadow-none active:shadow-none flex items-center px-3 py-2"
+          style={{ 
+            backgroundColor: 'oklch(23.93% 0 0)',
+            color: 'oklch(0.9249 0 0)'
+          }}
+          onClick={() => {
+            setIsDialogOpen(true);
+          }}
         >
-          <Avatar className="h-6 w-6">
-            {walletState.avatar?.startsWith('data:') ? (
+          <div 
+            className="relative flex shrink-0 overflow-hidden"
+            style={{ 
+              minWidth: '32px',
+              minHeight: '32px',
+              maxWidth: '32px',
+              maxHeight: '32px',
+              width: '32px',
+              height: '32px',
+              borderTopWidth: '0px',
+              borderRightWidth: '0px',
+              borderBottomWidth: '0px',
+              borderLeftWidth: '0px',
+              marginLeft: '0px',
+              borderRadius: '0px',
+              boxShadow: 'none'
+            }}
+          >
+            {avatar?.startsWith('data:') || avatar?.startsWith('http') ? (
               <img 
-                src={walletState.avatar} 
+                src={avatar} 
                 alt="아바타" 
-                className="w-full h-full object-cover rounded-full"
+                className="w-full h-full object-cover"
+                style={{ borderRadius: '0px' }}
+                onError={(e) => {
+                  console.error('❌ 아바타 이미지 로드 실패:', avatar);
+                  // 이미지 로드 실패 시 기본 아바타로 대체
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                }}
               />
             ) : (
-              <AvatarFallback className="text-sm">
-                {walletState.avatar}
-              </AvatarFallback>
+              <div 
+                className="flex items-center justify-center bg-white text-black font-bold text-sm w-full h-full"
+                style={{ borderRadius: '0px' }}
+              >
+                {displayAvatar()}
+              </div>
             )}
-          </Avatar>
-          <span className="text-sm font-medium">
-            {walletState.nickname}
+          </div>
+          <span className="text-sm font-medium flex-1 text-center">
+            {(nickname && nickname.trim()) 
+              ? nickname 
+              : address 
+                ? `${address.slice(0, 4)}...${address.slice(-4)}` 
+                : '지갑 연결됨'
+            }
           </span>
         </Button>
       </DialogTrigger>
@@ -322,10 +419,10 @@ function WalletProfile() {
             <div className="flex items-center gap-4 mb-4">
               <div 
                 className="relative group cursor-pointer"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => !isUploading && fileInputRef.current?.click()}
               >
-                <div className="w-16 h-16 rounded-full border-2 border-border bg-gray-100 flex items-center justify-center overflow-hidden">
-                  {tempAvatar.startsWith('data:') ? (
+                <div className="w-16 h-16 border-2 border-border bg-gray-100 flex items-center justify-center overflow-hidden">
+                  {tempAvatar.startsWith('data:') || tempAvatar.startsWith('http') ? (
                     <img 
                       src={tempAvatar} 
                       alt="아바타" 
@@ -335,14 +432,24 @@ function WalletProfile() {
                     <span className="text-2xl">{tempAvatar}</span>
                   )}
                 </div>
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-full transition-all duration-200 flex items-center justify-center">
-                  <Upload className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
+                  {isUploading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Upload className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  )}
                 </div>
               </div>
               
               <div className="text-sm text-gray-600">
-                클릭하여 이미지를 업로드하거나<br />
-                아래에서 기본 아바타를 선택하세요
+                {isUploading ? (
+                  <span className="text-blue-600">이미지 업로드 중...</span>
+                ) : (
+                  <>
+                    클릭하여 이미지를 업로드하거나<br />
+                    아래에서 기본 아바타를 선택하세요
+                  </>
+                )}
               </div>
             </div>
 
@@ -380,7 +487,7 @@ function WalletProfile() {
               id="nickname"
               value={tempNickname}
               onChange={(e) => setTempNickname(e.target.value)}
-              placeholder={walletState.address ? `기본값: ${walletState.address.slice(0, 4)}...${walletState.address.slice(-4)}` : '닉네임을 입력하세요'}
+              placeholder={address ? `기본값: ${address.slice(0, 4)}...${address.slice(-4)}` : '닉네임을 입력하세요'}
               className="neobrutalism-input"
             />
           </div>
@@ -389,9 +496,16 @@ function WalletProfile() {
           <div className="space-y-2">
             <Label>지갑 주소</Label>
             <div className="p-2 bg-gray-100 rounded-base text-sm font-mono text-gray-600">
-              {walletState.address}
+              {address}
             </div>
           </div>
+
+          {/* 저장된 프로필 상태 */}
+          {profile && profile.updated_at && (
+            <div className="text-xs text-gray-500 border-l-2 border-blue-200 pl-2">
+              💾 마지막 저장: {new Date(profile.updated_at).toLocaleString('ko-KR')}
+            </div>
+          )}
 
           {/* 버튼들 */}
           <div className="flex justify-between space-x-2">
@@ -399,6 +513,7 @@ function WalletProfile() {
               variant="reverse"
               onClick={disconnectWallet}
               className="neobrutalism-button"
+              disabled={isSaving}
             >
               지갑 연결 해제
             </Button>
@@ -408,14 +523,23 @@ function WalletProfile() {
                 variant="neutral"
                 onClick={() => setIsDialogOpen(false)}
                 className="neobrutalism-button"
+                disabled={isSaving}
               >
                 취소
               </Button>
               <Button
                 onClick={handleSave}
                 className="neobrutalism-button"
+                disabled={isSaving || isUploading}
               >
-                저장
+                {isSaving ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                    저장 중...
+                  </div>
+                ) : (
+                  '저장'
+                )}
               </Button>
             </div>
           </div>

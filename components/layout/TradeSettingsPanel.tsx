@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Check, TrendingDown, Fuel, DollarSign } from 'lucide-react';
+import { Edit, Check, TrendingDown, Fuel } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { useTradeSettings } from '@/contexts/TradeSettingsContext';
 import TokenChart from '@/components/chart/TokenChart';
@@ -27,11 +27,8 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   
   // PC 버전 프리셋 설정
-  const [selectedPreset, setSelectedPreset] = useState(1);
-  const [settingsMode, setSettingsMode] = useState<'buy' | 'sell'>('buy');
   const [presetSlippage, setPresetSlippage] = useState('30');
   const [presetPriority, setPresetPriority] = useState('0.0001');
-  const [presetBribe, setPresetBribe] = useState('0.001');
 
   // 현재 토큰 주소 상태 (채팅방별 토큰)
   const [currentTokenAddress, setCurrentTokenAddress] = useState<string>('So11111111111111111111111111111111111111112'); // SOL 기본값
@@ -58,16 +55,14 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
   useEffect(() => {
     console.log('PC 프리셋 설정값 Context 업데이트:', {
       slippage: presetSlippage,
-      priorityFee: presetPriority,
-      maxFee: presetBribe
+      priorityFee: presetPriority
     });
     
     updateSettings({
       slippage: presetSlippage,
-      priorityFee: presetPriority,
-      maxFee: presetBribe
+      priorityFee: presetPriority
     });
-  }, [presetSlippage, presetPriority, presetBribe]); // updateSettings 제거
+  }, [presetSlippage, presetPriority]);
 
   const presets = settings.mode === 'buy' ? buyPresets : sellPresets;
   const setPresets = settings.mode === 'buy' ? setBuyPresets : setSellPresets;
@@ -241,10 +236,6 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                 <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
                   <Fuel className="h-4 w-4 text-orange-500 flex-shrink-0" />
                   <span className="font-medium text-sm truncate">{settings.priorityFee}</span>
-                </div>
-                <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
-                  <DollarSign className="h-4 w-4 text-green-500 flex-shrink-0" />
-                  <span className="font-medium text-sm truncate">{settings.maxFee}</span>
                 </div>
               </div>
             </div>
@@ -433,10 +424,6 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
               <Fuel className="h-3 w-3 text-orange-500 flex-shrink-0" />
               <span className="font-medium text-xs truncate">{presetPriority}</span>
             </div>
-            <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
-              <DollarSign className="h-3 w-3 text-green-500 flex-shrink-0" />
-              <span className="font-medium text-xs truncate">{presetBribe}</span>
-            </div>
           </div>
         </div>
 
@@ -458,60 +445,10 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
         </div>
       </div>
 
-      {/* 하단 프리셋 설정 섹션 */}
+      {/* 하단 설정값 입력 섹션 */}
       <div className="space-y-4 pt-6 border-t border-gray-200">
-        {/* 프리셋 탭 */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Presets</label>
-          <div className="grid grid-cols-3 gap-2">
-            {[1, 2, 3].map((preset) => (
-              <Button
-                key={preset}
-                variant={selectedPreset === preset ? 'default' : 'neutral'}
-                className={`h-10 font-semibold transition-all ${
-                  selectedPreset === preset 
-                    ? 'bg-blue-500 hover:bg-blue-600 text-white border-blue-500' 
-                    : 'border-2 hover:border-blue-300'
-                }`}
-                onClick={() => setSelectedPreset(preset)}
-              >
-                PRESET {preset}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Buy/Sell settings 토글 */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Settings Mode</label>
-          <div className="flex gap-2">
-            <Button
-              variant={settingsMode === 'buy' ? 'default' : 'neutral'}
-              className={`flex-1 h-10 font-semibold transition-all ${
-                settingsMode === 'buy' 
-                  ? 'bg-green-500 hover:bg-green-600 text-white border-green-500' 
-                  : 'border-2 hover:border-green-300'
-              }`}
-              onClick={() => setSettingsMode('buy')}
-            >
-              Buy Settings
-            </Button>
-            <Button
-              variant={settingsMode === 'sell' ? 'default' : 'neutral'}
-              className={`flex-1 h-10 font-semibold transition-all ${
-                settingsMode === 'sell' 
-                  ? 'bg-red-500 hover:bg-red-600 text-white border-red-500' 
-                  : 'border-2 hover:border-red-300'
-              }`}
-              onClick={() => setSettingsMode('sell')}
-            >
-              Sell Settings
-            </Button>
-          </div>
-        </div>
-
         {/* 설정값 입력 */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
               <TrendingDown className="h-3 w-3" />
@@ -534,18 +471,6 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
               onChange={(e) => setPresetPriority(e.target.value)}
               className="text-center h-8 text-lg font-semibold border-2 focus:ring-2 focus:ring-orange-500"
               placeholder="105"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
-              <span>💰</span>
-              BRIBE
-            </label>
-            <Input
-              value={presetBribe}
-              onChange={(e) => setPresetBribe(e.target.value)}
-              className="text-center h-8 text-lg font-semibold border-2 focus:ring-2 focus:ring-green-500"
-              placeholder="0.001"
             />
           </div>
         </div>

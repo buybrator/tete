@@ -7,14 +7,14 @@ export type SolanaNetwork = 'mainnet' | 'devnet' | 'testnet';
 const getMainnetRpcEndpoints = () => {
   const customRpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
   const baseEndpoints = [
-    'https://api.mainnet-beta.solana.com', // 공식 RPC (진짜 무료)
+    'https://api.mainnet-beta.solana.com', // 공식 RPC (백업용)
     'https://solana-api.projectserum.com', // Project Serum (무료)
     'https://api.metaplex.solana.com', // Metaplex (무료)
     'https://rpc.public.solana.com', // 공개 RPC
     'https://solana-mainnet.core.chainstack.com', // Chainstack 무료 티어
   ];
   
-  // 사용자 지정 RPC URL이 있으면 가장 앞에 배치
+  // 사용자 지정 RPC URL이 있으면 가장 앞에 배치 (Alchemy 우선)
   return customRpcUrl ? [customRpcUrl, ...baseEndpoints] : baseEndpoints;
 };
 
@@ -204,6 +204,38 @@ export async function getStableConnection(network?: SolanaNetwork): Promise<Conn
       }
       
       throw new Error('Solana 네트워크에 연결할 수 없습니다');
+    }
+  }
+}
+
+// 🎯 블록해시 전용 안정적인 Connection (에러 시 즉시 백업 전환)
+export async function getBlockhashConnection(network?: SolanaNetwork): Promise<Connection> {
+  const currentNetwork = network || getCurrentNetwork();
+  
+  // 1차: 프록시 연결 시도
+  try {
+    const proxyConnection = createSolanaConnection(currentNetwork);
+    
+    // 블록해시 테스트
+    await proxyConnection.getLatestBlockhash('finalized');
+    console.log('✅ 프록시 블록해시 연결 성공');
+    return proxyConnection;
+    
+  } catch (proxyError) {
+    console.warn('⚠️ 프록시 블록해시 실패, 직접 연결 시도:', proxyError);
+    
+    // 2차: 직접 연결 시도
+    try {
+      const directConnection = createDirectConnection(currentNetwork);
+      
+      // 블록해시 테스트
+      await directConnection.getLatestBlockhash('finalized');
+      console.log('✅ 직접 블록해시 연결 성공');
+      return directConnection;
+      
+    } catch (directError) {
+      console.error('❌ 모든 블록해시 연결 실패:', directError);
+      throw new Error(`블록해시 조회 불가: ${directError instanceof Error ? directError.message : String(directError)}`);
     }
   }
 }
@@ -404,6 +436,8 @@ export async function confirmTransaction(
 export default {
   createConnection: createSolanaConnection,
   getConnection: getSolanaConnection,
+  getStableConnection,
+  getBlockhashConnection,
   switchNetwork,
   checkConnection: checkSolanaConnection,
   getAccountBalance,

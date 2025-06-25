@@ -1,333 +1,303 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
-import { WalletState, UserProfile } from '@/types';
-import { safePublicKeyToString } from '@/lib/wallet-utils';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { useConnection } from '@solana/wallet-adapter-react';
+import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
-const DEFAULT_AVATARS = ['👤', '🧑', '👩', '🤵', '👩‍💼', '🧑‍💼', '👨‍💼', '🧙‍♂️', '🧙‍♀️', '🥷'];
+export const DEFAULT_AVATARS = ['👤', '🧑', '👩', '🤵', '👩‍💼', '🧑‍💼', '👨‍💼', '🧙‍♂️', '🧙‍♀️', '🥷'];
 
-// 지갑 주소를 축약된 형태로 변환
 export const formatWalletAddress = (address: string): string => {
   if (!address) return '';
   return `${address.slice(0, 4)}...${address.slice(-4)}`;
 };
 
+interface WalletProfile {
+  wallet_address: string;
+  nickname?: string;
+  avatar?: string;
+  avatar_url?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export function useWallet() {
-  // Solana Wallet Adapter 사용
   const { 
     publicKey, 
     connected, 
-    connect, 
+    connecting, 
+    disconnecting, 
+    wallet,
+    wallets,
+    select,
+    connect,
     disconnect,
-    signMessage
+    signMessage,
+    signTransaction,
+    sendTransaction
   } = useSolanaWallet();
-
-  const [walletState, setWalletState] = useState<WalletState>({
-    isConnected: false,
-    address: null,
-    nickname: null,
-    avatar: DEFAULT_AVATARS[0],
-  });
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  
+  const { connection } = useConnection();
+  const { setVisible } = useWalletModal();
+  
+  // Local state
+  const [balance, setBalance] = useState<number | null>(null);
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [authToken, setAuthToken] = useState<string | null>(null);
-
-  // 지갑 연결 상태 동기화
-  useEffect(() => {
-    if (connected && publicKey) {
-      const walletAddress = safePublicKeyToString(publicKey);
-      
-      if (!walletAddress) {
-        console.error('❌ 유효하지 않은 PublicKey');
-        return;
-      }
-      
-      console.log('🔗 Solana Wallet Adapter 연결됨:', walletAddress);
-      
-      // 🚨 자동 인증 비활성화 - 수동으로 인증하도록 변경
-      // handleAuthentication(walletAddress);
-      
-      // 단순히 연결 상태만 업데이트
-      setWalletState(prev => ({
-        ...prev,
-        isConnected: true,
-        address: walletAddress,
-      }));
-      
-    } else if (!connected) {
-      console.log('❌ Solana Wallet Adapter 연결 해제됨');
-      handleDisconnection();
-    }
-  }, [connected, publicKey]);
-
-  // 인증 처리 함수
-  const handleAuthentication = async (walletAddress: string) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // 이미 인증된 상태인지 확인
-      if (walletState.isConnected && walletState.address === walletAddress) {
-        return;
-      }
-
-      console.log('🔐 지갑 인증 시작:', walletAddress);
-
-      // 인증 메시지 요청
-      const messageResponse = await fetch(`/api/auth/wallet?walletAddress=${encodeURIComponent(walletAddress)}`, {
-        method: 'GET',
-      });
-      
-      if (!messageResponse.ok) {
-        const errorData = await messageResponse.json();
-        throw new Error(errorData.error || '인증 메시지 생성에 실패했습니다.');
-      }
-      
-      const { message } = await messageResponse.json();
-
-      // 메시지 서명 요청
-      if (!signMessage) {
-        throw new Error('지갑에서 메시지 서명을 지원하지 않습니다.');
-      }
-
-      const encodedMessage = new TextEncoder().encode(message);
-      const signedMessage = await signMessage(encodedMessage);
-
-      // 서명을 hex 문자열로 변환
-      const signature = Array.from(signedMessage)
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-
-      // 서버에 인증 요청
-      const authResponse = await fetch('/api/auth/wallet', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          walletAddress,
-          signature,
-          message,
-        }),
-      });
-
-      const authData = await authResponse.json();
-
-      if (!authResponse.ok) {
-        throw new Error(authData.error || '인증에 실패했습니다.');
-      }
-
-      // 인증 성공
-      const randomAvatar = DEFAULT_AVATARS[Math.floor(Math.random() * DEFAULT_AVATARS.length)];
-      
-      setWalletState({
-        isConnected: true,
-        address: walletAddress,
-        nickname: authData.profile.nickname,
-        avatar: randomAvatar,
-      });
-
-      setUserProfile({
-        id: authData.profile.wallet_address,
-        address: authData.profile.wallet_address,
-        nickname: authData.profile.nickname,
-        avatar: randomAvatar,
-        createdAt: new Date(authData.profile.created_at),
-        updatedAt: new Date(authData.profile.updated_at),
-      });
-
-      setAuthToken(authData.token);
-
-      // 토큰을 localStorage에 저장
-      localStorage.setItem('authToken', authData.token);
-      localStorage.setItem('walletAddress', walletAddress);
-
-      console.log('✅ 지갑 인증 완료');
-
-    } catch (error) {
-      console.error('❌ 지갑 인증 실패:', error);
-      setError(error instanceof Error ? error.message : '지갑 인증에 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 연결 해제 처리
-  const handleDisconnection = () => {
-    setWalletState({
-      isConnected: false,
-      address: null,
-      nickname: null,
-      avatar: DEFAULT_AVATARS[0],
-    });
-    setUserProfile(null);
-    setAuthToken(null);
-
-    // localStorage 정리
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('walletAddress');
+  const [profile, setProfile] = useState<WalletProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  
+  // 지갑 주소
+  const address = publicKey?.toBase58() || null;
+  
+  // 프로필에서 닉네임과 아바타 가져오기
+  const nickname = profile?.nickname || '';
+  
+  // 아바타 처리: emoji: 접두사 제거 및 기본값 설정
+  const avatar = useMemo(() => {
+    const rawAvatar = profile?.avatar_url;
+    if (!rawAvatar) return DEFAULT_AVATARS[0];
     
-    console.log('🔌 지갑 연결 해제 완료');
-  };
-
+    // emoji: 접두사가 있으면 제거
+    if (rawAvatar.startsWith('emoji:')) {
+      return rawAvatar.replace('emoji:', '');
+    }
+    
+    return rawAvatar;
+  }, [profile?.avatar_url]);
+  
+  // 지갑 연결 시 프로필 로드
+  useEffect(() => {
+    if (connected && address) {
+      loadProfile(address);
+      fetchBalance();
+    } else {
+      setProfile(null);
+      setBalance(null);
+    }
+  }, [connected, address]);
+  
+  // 프로필 로드
+  const loadProfile = useCallback(async (walletAddress: string) => {
+    setIsLoadingProfile(true);
+    setError(null);
+    
+    try {
+      console.log('🔄 프로필 로드 시작:', walletAddress);
+      const response = await fetch(`/api/profiles?wallet_address=${encodeURIComponent(walletAddress)}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log('📥 프로필 API 응답:', result);
+      
+      if (result.success) {
+        if (result.profile) {
+          setProfile(result.profile);
+          console.log('✅ 기존 프로필 로드 성공:', result.profile);
+        } else {
+          console.log('📝 프로필이 없어서 새로 생성');
+          // 프로필이 없으면 새로 생성
+          await createProfile(walletAddress);
+        }
+      } else {
+        throw new Error(result.error || '프로필 로드 실패');
+      }
+    } catch (error) {
+      console.error('❌ 프로필 로드 실패:', error);
+      setError('프로필 로드에 실패했습니다');
+      // 프로필 로드 실패 시에도 빈 프로필로 설정하여 UI가 작동하도록 함
+      setProfile(null);
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  }, []);
+  
+  // 프로필 생성
+  const createProfile = useCallback(async (walletAddress: string) => {
+    try {
+      console.log('🆕 새 프로필 생성 시작:', walletAddress);
+      const response = await fetch('/api/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wallet_address: walletAddress,
+          nickname: null,
+          avatar_url: null
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log('📥 프로필 생성 API 응답:', result);
+      
+      if (result.success && result.profile) {
+        setProfile(result.profile);
+        console.log('✅ 새 프로필 생성 성공:', result.profile);
+      } else {
+        throw new Error(result.error || '프로필 생성 실패');
+      }
+    } catch (error) {
+      console.error('❌ 프로필 생성 실패:', error);
+      setError('프로필 생성에 실패했습니다');
+    }
+  }, [setError]);
+  
+  // 프로필 업데이트
+  const updateProfile = useCallback(async (updates: { nickname?: string; avatar?: string }) => {
+    if (!address) return;
+    
+    try {
+      // 아바타 URL 처리
+      let avatarUrl = null;
+      if (updates.avatar) {
+        if (updates.avatar.startsWith('http') || updates.avatar.startsWith('data:')) {
+          avatarUrl = updates.avatar;
+        } else if (DEFAULT_AVATARS.includes(updates.avatar)) {
+          avatarUrl = `emoji:${updates.avatar}`;
+        }
+      }
+      
+      const response = await fetch('/api/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wallet_address: address,
+          nickname: updates.nickname?.trim() || null,
+          avatar_url: avatarUrl
+        })
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        setProfile(result.profile);
+        console.log('✅ 프로필 업데이트 성공');
+      }
+    } catch (error) {
+      console.error('❌ 프로필 업데이트 실패:', error);
+      setError('프로필 업데이트에 실패했습니다');
+    }
+  }, [address]);
+  
+  // 잔고 조회
+  const fetchBalance = useCallback(async () => {
+    if (!publicKey || !connection) return;
+    
+    setIsLoadingBalance(true);
+    try {
+      const balance = await connection.getBalance(publicKey);
+      setBalance(balance / LAMPORTS_PER_SOL);
+      setError(null);
+    } catch (error) {
+      console.error('❌ 잔고 조회 실패:', error);
+      setError('잔고 조회에 실패했습니다');
+      setBalance(null);
+    } finally {
+      setIsLoadingBalance(false);
+    }
+  }, [publicKey, connection]);
+  
   // 지갑 연결
   const connectWallet = useCallback(async () => {
     try {
-      setIsLoading(true);
       setError(null);
       
-      console.log('🔗 지갑 연결 시도...');
-      await connect();
+      if (!wallet) {
+        // 지갑이 선택되지 않은 경우 모달 열기
+        setVisible(true);
+        return;
+      }
       
+      // 이미 연결된 경우
+      if (connected) {
+        console.log('✅ 이미 지갑이 연결되어 있습니다');
+        return;
+      }
+      
+      // 연결 시도
+      await connect();
+      console.log('✅ 지갑 연결 성공');
     } catch (error) {
       console.error('❌ 지갑 연결 실패:', error);
-      setError(error instanceof Error ? error.message : '지갑 연결에 실패했습니다.');
-      setIsLoading(false);
+      
+      if (error instanceof Error) {
+        if (error.name === 'WalletNotReadyError') {
+          setError('지갑이 설치되지 않았습니다. Phantom 또는 Solflare를 설치해주세요.');
+        } else if (error.name === 'WalletNotSelectedError') {
+          setError('지갑을 선택해주세요.');
+        } else {
+          setError(error.message || '지갑 연결에 실패했습니다');
+        }
+      } else {
+        setError('지갑 연결에 실패했습니다');
+      }
     }
-  }, [connect]);
-
+  }, [wallet, connected, connect, setVisible]);
+  
   // 지갑 연결 해제
   const disconnectWallet = useCallback(async () => {
     try {
-      console.log('🔌 지갑 연결 해제 시도...');
       await disconnect();
+      setProfile(null);
+      setBalance(null);
+      setError(null);
+      console.log('✅ 지갑 연결 해제 성공');
     } catch (error) {
-      console.error('❌ 지갑 연결 해제 오류:', error);
+      console.error('❌ 지갑 연결 해제 실패:', error);
+      setError('지갑 연결 해제에 실패했습니다');
     }
   }, [disconnect]);
-
-  // 저장된 토큰으로 자동 로그인 시도
-  const tryAutoLogin = useCallback(async () => {
-    const savedToken = localStorage.getItem('authToken');
-    const savedAddress = localStorage.getItem('walletAddress');
-
-    if (!savedToken || !savedAddress) return;
-
-    setIsLoading(true);
-
-    try {
-      // 토큰 검증
-      const response = await fetch('/api/auth/verify', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${savedToken}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const randomAvatar = DEFAULT_AVATARS[Math.floor(Math.random() * DEFAULT_AVATARS.length)];
-
-        setWalletState({
-          isConnected: true,
-          address: data.walletAddress,
-          nickname: data.profile.nickname,
-          avatar: randomAvatar,
-        });
-
-        setUserProfile({
-          id: data.profile.wallet_address,
-          address: data.profile.wallet_address,
-          nickname: data.profile.nickname,
-          avatar: randomAvatar,
-          createdAt: new Date(data.profile.created_at),
-          updatedAt: new Date(data.profile.updated_at),
-        });
-
-        setAuthToken(savedToken);
-      } else {
-        // 토큰이 유효하지 않으면 정리
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('walletAddress');
-      }
-    } catch (error) {
-      console.error('자동 로그인 실패:', error);
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('walletAddress');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // 닉네임 업데이트
-  const updateNickname = useCallback((newNickname: string) => {
-    setWalletState(prev => ({
-      ...prev,
-      nickname: newNickname || (prev.address ? formatWalletAddress(prev.address) : null),
-    }));
-  }, []);
-
-  // 아바타 업데이트
-  const updateAvatar = useCallback((newAvatar: string) => {
-    setWalletState(prev => ({
-      ...prev,
-      avatar: newAvatar,
-    }));
-  }, []);
-
-  // 프로필 업데이트
-  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
-    if (!userProfile || !authToken) return;
-
-    setIsLoading(true);
+  
+  // 에러 클리어
+  const clearError = useCallback(() => {
     setError(null);
-
-    try {
-      // TODO: 프로필 업데이트 API 호출
-      const updatedProfile = {
-        ...userProfile,
-        ...updates,
-        updatedAt: new Date(),
-      };
-      setUserProfile(updatedProfile);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '프로필 업데이트에 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [userProfile, authToken]);
-
-  // 잔액 새로고침
-  const refreshBalance = useCallback(async () => {
-    if (!walletState.isConnected || !walletState.address) return;
-
-    setIsLoading(true);
-    
-    try {
-      // TODO: 실제 Solana 잔액 조회 로직
-      const mockBalance = Math.random() * 20;
-      setWalletState(prev => ({ ...prev, balance: mockBalance }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '잔액 조회에 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [walletState.isConnected, walletState.address]);
-
-  // 초기 연결 상태 확인
-  useEffect(() => {
-    tryAutoLogin();
-  }, [tryAutoLogin]);
-
+  }, []);
+  
   return {
-    walletState,
-    userProfile,
-    isLoading,
+    // 연결 상태
+    isConnected: connected,
+    isConnecting: connecting,
+    isDisconnecting: disconnecting,
+    
+    // 지갑 정보
+    address,
+    publicKey,
+    wallet,
+    wallets,
+    
+    // 프로필 정보
+    profile,
+    nickname,
+    avatar,
+    isLoadingProfile,
+    
+    // 잔고 정보
+    balance,
+    isLoadingBalance,
+    
+    // 에러 상태
     error,
-    authToken,
+    
+    // 액션
     connectWallet,
     disconnectWallet,
-    tryAutoLogin,
-    authenticate: handleAuthentication,
     updateProfile,
-    refreshBalance,
-    updateNickname,
-    updateAvatar,
-    isAuthenticated: !!authToken,
-    formatWalletAddress,
-    DEFAULT_AVATARS,
-    clearError: () => setError(null),
+    fetchBalance,
+    clearError,
+    select,
+    
+    // 서명 함수들
+    signMessage,
+    signTransaction,
+    sendTransaction,
+    
+    // 모달 제어
+    setVisible
   };
-} 
+}

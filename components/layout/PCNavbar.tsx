@@ -2,13 +2,12 @@
 
 import { useCallback, useState } from 'react';
 import { useWallet } from '@/hooks/useWallet';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Upload, Search } from 'lucide-react';
+import { Upload, Search, RefreshCw } from 'lucide-react';
 import { useRef, useEffect, useMemo } from 'react';
 import CreateChatRoomDialog from './CreateChatRoomDialog';
 import TokenAvatar from '@/components/ui/TokenAvatar';
@@ -210,28 +209,56 @@ function PCChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
 }
 
 function PCWalletProfile() {
-  const { walletState, disconnectWallet, updateNickname, updateAvatar, DEFAULT_AVATARS } = useWallet();
-  const { setVisible } = useWalletModal();
+  const { 
+    isConnected,
+    isConnecting,
+    address,
+    nickname,
+    avatar,
+    balance,
+    isLoadingBalance,
+    error,
+    connectWallet, 
+    disconnectWallet, 
+    updateProfile,
+    fetchBalance,
+    clearError
+  } = useWallet();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [tempNickname, setTempNickname] = useState('');
   const [tempAvatar, setTempAvatar] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 기본 아바타 배열
+  const DEFAULT_AVATARS = ['👤', '🧑', '👩', '🤵', '👩‍💼', '🧑‍💼', '👨‍💼', '🧙‍♂️', '🧙‍♀️', '🥷'];
+
   const handleDialogOpen = () => {
-    setTempNickname(walletState.nickname || '');
-    setTempAvatar(walletState.avatar || DEFAULT_AVATARS[0]);
+    setTempNickname(nickname || '');
+    setTempAvatar(avatar || DEFAULT_AVATARS[0]);
     setIsDialogOpen(true);
   };
 
   const handleSave = () => {
-    updateNickname(tempNickname);
-    updateAvatar(tempAvatar);
+    updateProfile({
+      nickname: tempNickname,
+      avatar: tempAvatar
+    });
     setIsDialogOpen(false);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('이미지 파일만 업로드할 수 있습니다.');
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        alert('파일 크기는 5MB 이하여야 합니다.');
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onload = (e) => {
         const imageUrl = e.target?.result as string;
@@ -241,15 +268,44 @@ function PCWalletProfile() {
     }
   };
 
-  const handleConnectWallet = () => {
-    setVisible(true);
+  const handleConnectWallet = async () => {
+    clearError();
+    await connectWallet();
   };
 
-  if (!walletState.isConnected) {
+  const handleDisconnectWallet = async () => {
+    clearError();
+    await disconnectWallet();
+    setIsDialogOpen(false);
+  };
+
+  const handleRefreshBalance = async () => {
+    await fetchBalance();
+  };
+
+  const formatBalance = (balance: number | null) => {
+    if (balance === null) return 'N/A';
+    return `${balance.toFixed(4)} SOL`;
+  };
+
+  if (!isConnected) {
     return (
-      <Button className="neobrutalism-button" onClick={handleConnectWallet}>
-        지갑 연결
-      </Button>
+      <div className="flex flex-col items-center gap-1">
+        <Button 
+          className="border-2 border-black rounded-none h-[36px] px-6 font-semibold shadow-[4px_4px_0px_0px_black] hover:shadow-none focus:shadow-none active:shadow-none"
+          style={{ 
+            backgroundColor: 'oklch(23.93% 0 0)',
+            color: 'oklch(0.9249 0 0)'
+          }}
+          onClick={handleConnectWallet}
+          disabled={isConnecting}
+        >
+          {isConnecting ? '연결 중...' : '지갑 연결'}
+        </Button>
+        {error && (
+          <span className="text-xs text-red-500">{error}</span>
+        )}
+      </div>
     );
   }
 
@@ -258,24 +314,30 @@ function PCWalletProfile() {
       <DialogTrigger asChild>
         <Button
           variant="neutral"
-          className="neobrutalism-button flex items-center gap-2 px-3 py-2"
+          className="border-2 border-black rounded-none h-[36px] pl-0 pr-6 flex items-center justify-start shadow-[4px_4px_0px_0px_black] hover:shadow-none active:shadow-none hover:translate-x-1 hover:translate-y-1 active:translate-x-1 active:translate-y-1 transition-all"
+          style={{ 
+            backgroundColor: 'oklch(23.93% 0 0)',
+            color: 'oklch(0.9249 0 0)'
+          }}
           onClick={handleDialogOpen}
+          disabled={isConnecting}
         >
-          <Avatar className="h-6 w-6">
-            {walletState.avatar?.startsWith('data:') ? (
+          <Avatar className="w-8 h-8" style={{ minWidth: '32px', minHeight: '32px', maxWidth: '32px', maxHeight: '32px', width: '32px', height: '32px', borderTopWidth: '0px', borderRightWidth: '0px', borderBottomWidth: '0px', borderLeftWidth: '0px', marginLeft: '0px' }}>
+            {avatar?.startsWith('data:') ? (
               <img 
-                src={walletState.avatar} 
+                src={avatar} 
                 alt="아바타" 
-                className="w-full h-full object-cover rounded-full"
+                className="w-full h-full object-cover"
+                style={{ borderRadius: '0px' }}
               />
             ) : (
               <AvatarFallback className="text-sm">
-                {walletState.avatar}
+                {avatar}
               </AvatarFallback>
             )}
           </Avatar>
-          <span className="text-sm font-medium">
-            {walletState.nickname}
+          <span className="text-sm font-medium flex-1 text-center">
+            {nickname || `${address?.slice(0, 4)}...${address?.slice(-4)}`}
           </span>
         </Button>
       </DialogTrigger>
@@ -284,6 +346,12 @@ function PCWalletProfile() {
         <DialogHeader>
           <DialogTitle>프로필 편집</DialogTitle>
         </DialogHeader>
+        
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-base p-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
         
         <div className="space-y-4">
           <div className="space-y-2">
@@ -294,7 +362,7 @@ function PCWalletProfile() {
                 className="relative group cursor-pointer"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <div className="w-16 h-16 rounded-full border-2 border-border bg-gray-100 flex items-center justify-center overflow-hidden">
+                <div className="w-16 h-16 border-2 border-border bg-gray-100 flex items-center justify-center overflow-hidden">
                   {tempAvatar.startsWith('data:') ? (
                     <img 
                       src={tempAvatar} 
@@ -305,7 +373,7 @@ function PCWalletProfile() {
                     <span className="text-2xl">{tempAvatar}</span>
                   )}
                 </div>
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-full transition-all duration-200 flex items-center justify-center">
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
                   <Upload className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
@@ -325,17 +393,17 @@ function PCWalletProfile() {
             />
             
             <div className="grid grid-cols-5 gap-2">
-              {DEFAULT_AVATARS.map((avatar) => (
+              {DEFAULT_AVATARS.map((avatarOption) => (
                 <button
-                  key={avatar}
-                  onClick={() => setTempAvatar(avatar)}
+                  key={avatarOption}
+                  onClick={() => setTempAvatar(avatarOption)}
                   className={`p-2 rounded-base border-2 text-lg hover:bg-gray-100 transition-colors ${
-                    tempAvatar === avatar 
+                    tempAvatar === avatarOption 
                       ? 'border-blue-500 bg-blue-50' 
                       : 'border-border'
                   }`}
                 >
-                  {avatar}
+                  {avatarOption}
                 </button>
               ))}
             </div>
@@ -347,25 +415,44 @@ function PCWalletProfile() {
               id="nickname"
               value={tempNickname}
               onChange={(e) => setTempNickname(e.target.value)}
-              placeholder={walletState.address ? `기본값: ${walletState.address.slice(0, 4)}...${walletState.address.slice(-4)}` : '닉네임을 입력하세요'}
+              placeholder={address ? `기본값: ${address.slice(0, 4)}...${address.slice(-4)}` : '닉네임을 입력하세요'}
               className="neobrutalism-input"
             />
           </div>
 
           <div className="space-y-2">
             <Label>지갑 주소</Label>
-            <div className="p-2 bg-gray-100 rounded-base text-sm font-mono text-gray-600">
-              {walletState.address}
+            <div className="p-2 bg-gray-100 rounded-base text-sm font-mono text-gray-600 break-all">
+              {address}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>SOL 잔고</Label>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 p-2 bg-gray-100 rounded-base text-sm font-mono text-gray-700">
+                {isLoadingBalance ? '로딩 중...' : formatBalance(balance)}
+              </div>
+              <Button
+                variant="neutral"
+                size="sm"
+                onClick={handleRefreshBalance}
+                disabled={isLoadingBalance}
+                className="shrink-0"
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+              </Button>
             </div>
           </div>
 
           <div className="flex justify-between space-x-2">
             <Button
               variant="reverse"
-              onClick={disconnectWallet}
+              onClick={handleDisconnectWallet}
               className="neobrutalism-button"
+              disabled={isConnecting}
             >
-              지갑 연결 해제
+              {isConnecting ? '해제 중...' : '지갑 연결 해제'}
             </Button>
 
             <div className="flex space-x-2">
@@ -379,6 +466,7 @@ function PCWalletProfile() {
               <Button
                 onClick={handleSave}
                 className="neobrutalism-button"
+                disabled={isConnecting}
               >
                 저장
               </Button>
@@ -408,7 +496,7 @@ export default function PCNavbar() {
   return (
     <>
       {/* PC 전용 Navbar - 70px 높이, padding 없음 */}
-      <nav className="hidden lg:flex h-[70px] w-full bg-background border-b border-border items-center justify-between px-6">
+      <nav className="hidden lg:flex h-[70px] w-full bg-[oklch(23.93%_0_0)] border-b-4 border-black items-center justify-between px-6">
         {/* 로고 */}
         <div className="flex items-center gap-3">
           {/* 정사각형들이 둘러싸는 로고 영역 */}

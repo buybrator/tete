@@ -37,7 +37,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/solana-proxy/:path*',
-        destination: 'https://api.mainnet-beta.solana.com/:path*',
+        destination: process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com/:path*',
       },
       {
         source: '/api/serum-proxy/:path*',

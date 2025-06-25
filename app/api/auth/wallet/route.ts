@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { 
   generateAuthMessage, 
   verifyWalletSignature, 
-  generateJWT
-  // createOrUpdateProfile // 임시로 주석 처리
+  generateJWT,
+  createOrUpdateProfile
 } from '@/lib/auth'
 
 // POST /api/auth/wallet - 지갑 서명을 통한 인증
@@ -40,23 +40,19 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ 지갑 서명 검증 성공:', walletAddress)
 
-    // 프로필 생성/업데이트 건너뛰고 바로 JWT 생성
-    console.log('프로필 생성 건너뛰고 JWT 생성 중...')
+    // 프로필 생성/업데이트
+    console.log('🔄 프로필 생성/업데이트 시작...')
+    const profile = await createOrUpdateProfile(walletAddress, nickname)
+    console.log('✅ 프로필 저장 완료:', profile)
     
     // JWT 토큰 생성
     const token = generateJWT(walletAddress)
-
     console.log('✅ JWT 토큰 생성 완료')
 
     return NextResponse.json({
       success: true,
       token,
-      profile: {
-        wallet_address: walletAddress,
-        nickname: nickname || `User_${walletAddress.slice(0, 8)}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
+      profile
     })
 
   } catch (error) {

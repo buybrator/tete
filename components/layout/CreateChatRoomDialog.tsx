@@ -30,7 +30,7 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
   const [isDuplicateChecking, setIsDuplicateChecking] = useState(false);
   const [duplicateError, setDuplicateError] = useState('');
   
-  const { walletState } = useWallet();
+  const { isConnected, address } = useWallet();
 
   // 컨트랙트 주소 중복 체크 (디바운싱)
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
       return;
     }
 
-    if (!walletState.isConnected || !walletState.address) {
+    if (!isConnected || !address) {
       alert('지갑을 먼저 연결해주세요.');
       return;
     }
@@ -107,7 +107,7 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
         body: JSON.stringify({
           name: roomName.trim(),
           contractAddress: contractAddress.trim(),
-          creatorAddress: walletState.address,
+          creatorAddress: address,
           transactionSignature
         }),
       });
@@ -143,7 +143,7 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
   const sendPaymentTransaction = async (): Promise<string | null> => {
     try {
       const connection = await getStableConnection();
-      const fromPubkey = new PublicKey(walletState.address!);
+      const fromPubkey = new PublicKey(address!);
       const toPubkey = new PublicKey(PAYMENT_WALLET);
       
       // 트랜잭션 생성
@@ -235,7 +235,7 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
   const canCreate = 
     roomName.trim() && 
     contractAddress.trim() && 
-    walletState.isConnected && 
+    isConnected && 
     !duplicateError && 
     !isDuplicateChecking;
 
@@ -254,7 +254,7 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
           {step === 'input' && (
             <>
               {/* 지갑 연결 상태 */}
-              {!walletState.isConnected && (
+              {!isConnected && (
                 <div className="p-3 bg-yellow-100 border border-yellow-400 rounded-md">
                   <p className="text-sm text-yellow-700">
                     ⚠️ 채팅방을 생성하려면 지갑을 먼저 연결해주세요.
