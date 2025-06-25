@@ -25,16 +25,17 @@ export default function WalletAdapter({
 }: WalletAdapterProps) {
   const { 
     isConnected,
+    isConnecting,
+    isDisconnecting,
     address,
     balance,
-    isLoading,
     isLoadingBalance,
     error,
     connectWallet,
     disconnectWallet,
-    getBalance,
+    fetchBalance,
     clearError,
-    raw
+    wallet
   } = useWallet();
   
   // 클라이언트 마운트 상태
@@ -45,8 +46,8 @@ export default function WalletAdapter({
     console.log('🏗️ WalletAdapter 마운트됨');
     console.log('🔍 연결 상태:', isConnected);
     console.log('🔑 주소:', address);
-    console.log('💼 지갑:', raw?.wallet?.adapter?.name);
-  }, [isConnected, address, raw?.wallet?.adapter?.name]);
+    console.log('💼 지갑:', wallet?.adapter?.name);
+  }, [isConnected, address, wallet?.adapter?.name]);
 
   // 주소 복사
   const copyAddress = async () => {
@@ -128,7 +129,7 @@ export default function WalletAdapter({
           </CardHeader>
           <CardContent className="space-y-3">
             {/* 연결 중 상태 표시 */}
-            {isLoading && (
+            {isConnecting && (
               <Alert>
                 <AlertDescription>
                   <div className="flex items-center gap-2">
@@ -143,16 +144,16 @@ export default function WalletAdapter({
             <Button 
               className="w-full"
               onClick={connectWallet}
-              disabled={isLoading}
+              disabled={isConnecting}
             >
-              {isLoading ? '연결 중...' : '지갑 연결'}
+              {isConnecting ? '연결 중...' : '지갑 연결'}
             </Button>
             
             {/* 디버깅 정보 표시 */}
             <div className="text-xs text-gray-500 space-y-1">
-              <div>🔍 연결 상태: {isConnected ? '연결됨' : isLoading ? '연결 중' : '연결 안됨'}</div>
+              <div>🔍 연결 상태: {isConnected ? '연결됨' : isConnecting ? '연결 중' : '연결 안됨'}</div>
               <div>🔑 주소: {address ? '있음' : '없음'}</div>
-              <div>💼 지갑: {raw?.wallet?.adapter?.name || '없음'}</div>
+              <div>💼 지갑: {wallet?.adapter?.name || '없음'}</div>
             </div>
           </CardContent>
         </Card>
@@ -167,14 +168,14 @@ export default function WalletAdapter({
                 <Wallet className="h-5 w-5" />
                 연결된 지갑
               </div>
-              {raw?.wallet?.adapter?.name && (
-                <Badge variant="neutral">{raw.wallet.adapter.name}</Badge>
+              {wallet?.adapter?.name && (
+                <Badge variant="neutral">{wallet.adapter.name}</Badge>
               )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* 연결 해제 중 상태 표시 */}
-            {isLoading && (
+            {isDisconnecting && (
               <Alert>
                 <AlertDescription>
                   <div className="flex items-center gap-2">
@@ -222,7 +223,7 @@ export default function WalletAdapter({
                   <Button
                     variant="neutral"
                     size="sm"
-                    onClick={getBalance}
+                    onClick={fetchBalance}
                     disabled={isLoadingBalance}
                     className="shrink-0"
                   >
@@ -238,16 +239,16 @@ export default function WalletAdapter({
                 <Button
                   variant="reverse"
                   onClick={disconnectWallet}
-                  disabled={isLoading}
+                  disabled={isDisconnecting}
                   className="flex-1"
                 >
-                  {isLoading ? '해제 중...' : '연결 해제'}
+                  {isDisconnecting ? '해제 중...' : '연결 해제'}
                 </Button>
                 
                 {showBalance && (
                   <Button
                     variant="neutral"
-                    onClick={getBalance}
+                    onClick={fetchBalance}
                     disabled={isLoadingBalance}
                     className="shrink-0"
                   >
@@ -265,7 +266,7 @@ export default function WalletAdapter({
 
 // 간단한 지갑 버튼 컴포넌트
 export function WalletButton({ className = '' }: { className?: string }) {
-  const { isConnected, address, nickname, connectWallet, isLoading } = useWallet();
+  const { isConnected, address, nickname, connectWallet, isConnecting } = useWallet();
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
@@ -290,11 +291,11 @@ export function WalletButton({ className = '' }: { className?: string }) {
     return (
       <Button 
         onClick={connectWallet} 
-        disabled={isLoading}
+        disabled={isConnecting}
         className={className}
       >
         <Wallet className="h-4 w-4 mr-2" />
-        {isLoading ? '연결 중...' : '지갑 연결'}
+        {isConnecting ? '연결 중...' : '지갑 연결'}
       </Button>
     );
   }
