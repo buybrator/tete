@@ -135,10 +135,10 @@ function PCChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
   return (
     <div ref={searchRef} className="relative w-full max-w-md">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-300" />
         <Input 
           placeholder="채팅방 검색 및 선택..."
-          className="neobrutalism-input pl-10"
+          className="pl-10 border-2 border-black focus:border-black focus:ring-0 rounded-none bg-[oklch(0.2393_0_0)] text-white placeholder:text-gray-300"
           value={searchQuery}
           onChange={handleSearchChange}
           onFocus={handleFocus}

@@ -2,12 +2,11 @@
 
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { useChatMessages, addMessage } from '@/hooks/useChatMessages';
 import { useMemo } from '@/hooks/useMemo';
 import { useTradeSettings } from '@/contexts/TradeSettingsContext';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TOKENS, formatTokenAmount } from '@/lib/tokens';
 import { Connection, Transaction, TransactionInstruction, PublicKey, SystemProgram } from '@solana/web3.js';
@@ -560,9 +559,6 @@ export default function ChatInput({ roomId }: Props) {
   // 거래 정보가 완전한지 확인
   const isTradeReady = settings.quantity && connected && publicKey && signTransaction;
 
-  // 🚀 동적 버튼 텍스트 계산
-  const tokenPairInfo = getTokenPairInfo();
-
   return (
     <div className="space-y-2">
       {/* 에러 표시 */}
@@ -572,46 +568,50 @@ export default function ChatInput({ roomId }: Props) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex items-center gap-2">
+      <form onSubmit={handleSubmit} className="flex items-center gap-2 h-9">
         <Input 
           placeholder="메시지를 입력하세요 (선택사항)..." 
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          className="flex-1 h-12 text-base border-2 border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 rounded-xl bg-white transition-all duration-200"
+          className="flex-1 text-sm border-0 focus:ring-0 rounded-none bg-[oklch(0.2393_0_0)] text-white placeholder:text-gray-300 transition-all duration-200 px-3 py-1 h-9"
           style={{ boxShadow: 'none' }}
           disabled={isLoading}
         />
         
         {/* 🚀 실제 스왑 실행 버튼 (동적 텍스트) */}
-        <Button 
-          type="button"
+        <button
           onClick={handleTradeSubmit}
           disabled={!isTradeReady || isLoading}
-          className={`h-12 px-6 font-semibold border-2 rounded-xl transition-all duration-200 ${
+          className={`group relative px-4 md:px-8 py-1 font-semibold rounded-none border-0 overflow-hidden transition-all duration-200 md:min-w-32 ${
             settings.mode === 'buy' 
-              ? 'bg-green-500 hover:bg-green-600 text-white border-green-500' 
-              : 'bg-red-500 hover:bg-red-600 text-white border-red-500'
-          }`}
-          style={{ boxShadow: 'none' }}
+              ? 'bg-green-500 hover:bg-green-600 text-white' 
+              : 'bg-red-500 hover:bg-red-600 text-white'
+          } ${(!isTradeReady || isLoading) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+          style={{ height: '36px' }}
         >
           {isLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              스왑 중...
-            </>
+            <div className="flex items-center justify-center">
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              <span className="text-xs">스왑 중...</span>
+            </div>
           ) : (
             <>
-              {settings.mode === 'buy' ? (
-                <TrendingUp className="h-4 w-4 mr-2" />
-              ) : (
-                <TrendingDown className="h-4 w-4 mr-2" />
-              )}
-              {tokenPairInfo.buttonText}
-              {settings.quantity && ` (${settings.mode === 'sell' ? `${settings.quantity}%` : settings.quantity})`}
-              <span className="text-xs opacity-75 ml-1">+0.69% 수수료</span>
+                              {/* 기본 상태: BUY/SELL만 표시 */}
+                <div className="flex items-center justify-center gap-1 transition-all duration-300 group-hover:translate-x-12 group-hover:opacity-0">
+                  <div className="h-1.5 w-1.5 rounded-full bg-white transition-all duration-300 group-hover:scale-[100.8]"></div>
+                  <span className="font-bold text-xs">
+                    {settings.mode === 'buy' ? 'BUY' : 'SELL'}
+                  </span>
+                </div>
+                
+                {/* 호버 상태: SEND 텍스트와 이모티콘 */}
+                <div className="absolute top-0 left-0 flex h-full w-full items-center justify-center gap-1 translate-x-12 opacity-0 transition-all duration-300 group-hover:-translate-x-0 group-hover:opacity-100">
+                  <span className="font-bold text-xs">SEND</span>
+                  <span className="text-sm">🚀</span>
+                </div>
             </>
           )}
-        </Button>
+        </button>
       </form>
     </div>
   );

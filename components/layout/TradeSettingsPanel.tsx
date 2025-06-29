@@ -8,6 +8,7 @@ import { Edit, Check, TrendingDown, Fuel } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { useTradeSettings } from '@/contexts/TradeSettingsContext';
 import TokenChart from '@/components/chart/TokenChart';
+import TokenAvatar from '@/components/ui/TokenAvatar';
 
 type Props = {
   mobile?: boolean;
@@ -94,7 +95,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
 
   const PanelBody = mobile ? (
     // 모바일 버전
-    <div className="flex flex-col py-3 px-4 h-full">
+    <div className="flex flex-col py-3 px-4 h-full" style={{ backgroundColor: 'oklch(0.2393 0 0)', color: 'white' }}>
       <div className="flex flex-col justify-between h-full">
         {/* 편집 버튼과 BUY/SELL 토글 */}
         <div className="flex items-center justify-between w-full">
@@ -124,31 +125,42 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                 setIsEditingPresets(true);
               }
             }}
-            className="h-8 px-3 font-medium text-sm"
+            className="h-8 px-3 font-medium text-sm text-white"
+            style={{ backgroundColor: 'oklch(0.2393 0 0)', borderRadius: '0', borderColor: 'rgb(0, 0, 0)' }}
           >
             {isEditingPresets ? <Check className="h-3 w-3" /> : <Edit className="h-3 w-3" />}
             {isEditingPresets ? ' 저장' : ' 편집'}
           </Button>
           
-          <div className="flex w-full bg-neutral-100 rounded-lg p-1 ml-2">
+          <div className="flex w-full ml-2 gap-1">
             <Button 
               variant={settings.mode === 'buy' ? 'default' : 'neutral'}
-              className={`flex-1 h-8 rounded-md font-semibold transition-all text-sm ${
+              className={`flex-1 h-8 font-semibold transition-all text-sm ${
                 settings.mode === 'buy' 
-                  ? 'bg-green-500 hover:bg-green-600 text-white' 
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                  ? 'text-white' 
+                  : 'text-white hover:text-gray-300'
               }`}
+              style={{ 
+                backgroundColor: settings.mode === 'buy' ? '#22c55e' : 'oklch(0.2393 0 0)',
+                borderRadius: '0',
+                borderColor: 'rgb(0, 0, 0)'
+              }}
               onClick={() => handleModeChange('buy')}
             >
               BUY
             </Button>
             <Button 
               variant={settings.mode === 'sell' ? 'default' : 'neutral'}
-              className={`flex-1 h-8 rounded-md font-semibold transition-all text-sm ${
+              className={`flex-1 h-8 font-semibold transition-all text-sm ${
                 settings.mode === 'sell' 
-                  ? 'bg-red-500 hover:bg-red-600 text-white' 
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                  ? 'text-white' 
+                  : 'text-white hover:text-gray-300'
               }`}
+              style={{ 
+                backgroundColor: settings.mode === 'sell' ? '#ef4444' : 'oklch(0.2393 0 0)',
+                borderRadius: '0',
+                borderColor: 'rgb(0, 0, 0)'
+              }}
               onClick={() => handleModeChange('sell')}
             >
               SELL
@@ -172,8 +184,11 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                     newValues[index] = e.target.value;
                     setEditingValues(newValues);
                   }}
-                  className="text-center h-8 border-2 font-medium text-sm"
+                  className="text-center h-8 border-2 font-medium text-sm text-white placeholder-gray-400"
                   style={{
+                    backgroundColor: 'oklch(0.2393 0 0)',
+                    borderColor: 'rgb(0, 0, 0)',
+                    borderRadius: '0',
                     boxShadow: 'none',
                     outline: 'none'
                   }}
@@ -187,13 +202,24 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                 <Badge 
                   key={preset}
                   variant={settings.quantity === preset ? 'default' : 'neutral'}
-                  className={`cursor-pointer px-2 py-2 text-center h-8 flex items-center justify-center w-full font-semibold border-2 transition-all rounded-md text-sm ${
+                  className={`cursor-pointer px-2 py-2 text-center h-8 flex items-center justify-center w-full font-semibold border-2 transition-all text-sm text-white ${
                     settings.quantity === preset 
-                      ? settings.mode === 'buy' 
-                        ? 'bg-green-500 hover:bg-green-600 text-white border-green-500' 
-                        : 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+                      ? ''
                       : 'hover:border-gray-400'
                   }`}
+                  style={{
+                    backgroundColor: settings.quantity === preset 
+                      ? settings.mode === 'buy' 
+                        ? '#22c55e' 
+                        : '#ef4444'
+                      : 'oklch(0.2393 0 0)',
+                    borderColor: settings.quantity === preset 
+                      ? settings.mode === 'buy' 
+                        ? '#22c55e' 
+                        : '#ef4444'
+                      : 'rgb(0, 0, 0)',
+                    borderRadius: '0'
+                  }}
                   onClick={() => handleQuantityChange(preset)}
                 >
                   {settings.mode === 'sell' ? `${preset}%` : preset}
@@ -209,22 +235,26 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
             placeholder={settings.mode === 'buy' ? 'Enter SOL amount' : 'Enter percentage (%)'}
             value={settings.quantity}
             onChange={(e) => handleQuantityChange(e.target.value)}
-            className="w-full h-8 text-base font-medium border-2"
+            className="w-full h-8 text-base font-medium border-2 text-white placeholder-gray-400"
             style={{
+              backgroundColor: 'oklch(0.2393 0 0)',
+              borderColor: 'rgb(0, 0, 0)',
+              borderRadius: '0',
               boxShadow: 'none',
               outline: 'none'
             }}
           />
-          <div className="text-xs text-gray-500 text-center">
-            + 0.69% 플랫폼 수수료
-          </div>
+
         </div>
 
         {/* 고급 설정 */}
         <Drawer open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
           <DrawerTrigger asChild>
-            <div className="w-full bg-gray-50 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors h-8 p-2 flex items-center"
+            <div className="w-full border-2 cursor-pointer transition-colors h-8 p-2 flex items-center"
                  style={{
+                   backgroundColor: 'oklch(0.2393 0 0)',
+                   borderColor: 'rgb(0, 0, 0)',
+                   borderRadius: '0',
                    boxShadow: 'none',
                    outline: 'none'
                  }}>
@@ -286,29 +316,39 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
     </div>
   ) : (
     // PC 버전
-    <div className="flex flex-col h-full p-6 justify-between">
+    <div className="flex flex-col h-full py-6 justify-between" style={{ paddingLeft: '24px', paddingRight: '24px', backgroundColor: 'oklch(0.2393 0 0)', color: 'white' }}>
       {/* 상단 거래 섹션 */}
       <div className="space-y-4">
         {/* BUY/SELL 탭 */}
-        <div className="flex w-full bg-neutral-100 rounded-lg py-1 gap-3">
+        <div className="flex w-full gap-3">
           <Button 
             variant={settings.mode === 'buy' ? 'default' : 'neutral'}
-            className={`flex-1 h-10 rounded-md font-semibold transition-all ${
-              settings.mode === 'buy' 
-                ? 'bg-green-500 hover:bg-green-600 text-white shadow-md' 
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-            }`}
+                          className={`flex-1 h-10 font-semibold transition-all ${
+                settings.mode === 'buy' 
+                  ? 'text-white' 
+                  : 'text-white hover:text-gray-300'
+              }`}
+              style={{ 
+                backgroundColor: settings.mode === 'buy' ? '#22c55e' : 'oklch(0.2393 0 0)',
+                borderRadius: '0',
+                borderColor: 'rgb(0, 0, 0)'
+              }}
             onClick={() => handleModeChange('buy')}
           >
             Buy
           </Button>
           <Button 
             variant={settings.mode === 'sell' ? 'default' : 'neutral'}
-            className={`flex-1 h-10 rounded-md font-semibold transition-all ${
-              settings.mode === 'sell' 
-                ? 'bg-red-500 hover:bg-red-600 text-white shadow-md' 
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-            }`}
+                          className={`flex-1 h-10 font-semibold transition-all ${
+                settings.mode === 'sell' 
+                  ? 'text-white' 
+                  : 'text-white hover:text-gray-300'
+              }`}
+              style={{ 
+                backgroundColor: settings.mode === 'sell' ? '#ef4444' : 'oklch(0.2393 0 0)',
+                borderRadius: '0',
+                borderColor: 'rgb(0, 0, 0)'
+              }}
             onClick={() => handleModeChange('sell')}
           >
             Sell
@@ -317,31 +357,45 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
 
         {/* AMOUNT 입력 */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Amount</label>
-          <div className="flex items-center gap-2">
-            <Input 
-              value={settings.quantity}
-              onChange={(e) => handleQuantityChange(e.target.value)}
-              placeholder={settings.mode === 'buy' ? 'Enter SOL amount' : 'Enter percentage (%)'}
-              className="flex-1 h-12 text-lg font-medium border-2 focus:ring-2 focus:ring-blue-500"
-            />
-            <Button variant="neutral" className="h-12 w-12 p-0 border-2">
-              <span className="text-lg">⚙️</span>
-            </Button>
+          <label className="text-sm font-medium text-white">Amount</label>
+          <div className="relative">
+                          <Input 
+                value={settings.quantity}
+                onChange={(e) => handleQuantityChange(e.target.value)}
+                placeholder={settings.mode === 'buy' ? 'Enter SOL amount' : 'Enter percentage (%)'}
+                className="w-full h-12 text-lg font-medium border-2 focus:ring-2 focus:ring-blue-500 pr-14 text-white placeholder-gray-400"
+                style={{ backgroundColor: 'oklch(0.2393 0 0)', borderColor: 'rgb(0, 0, 0)', borderRadius: '0' }}
+              />
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              {settings.mode === 'buy' ? (
+                <TokenAvatar 
+                  key={`buy-sol-${settings.mode}`}
+                  tokenAddress="So11111111111111111111111111111111111111112"
+                  tokenName="SOL"
+                  size="sm"
+                />
+              ) : (
+                <TokenAvatar 
+                  key={`sell-${currentTokenAddress}-${settings.mode}`}
+                  tokenAddress={currentTokenAddress}
+                  tokenName={currentTokenName}
+                  size="sm"
+                />
+              )}
+            </div>
           </div>
-          <div className="text-xs text-gray-500 text-center">
-            + 0.69% 플랫폼 수수료가 자동으로 추가됩니다
-          </div>
+
         </div>
 
         {/* 프리셋 버튼들 */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-700">Quick Amounts</label>
+            <label className="text-sm font-medium text-white">Quick Amounts</label>
             <Button
               variant="neutral"
               size="sm"
-              className="h-8 w-8 p-0"
+              className="h-8 w-8 p-0 text-white"
+              style={{ backgroundColor: 'oklch(0.2393 0 0)', borderRadius: '0', borderColor: 'rgb(0, 0, 0)' }}
               onClick={() => {
                 if (isEditingPresets) {
                   const validValues = editingValues
@@ -384,8 +438,11 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                     newValues[index] = e.target.value;
                     setEditingValues(newValues);
                   }}
-                  className="text-center h-8 border-2"
+                  className="text-center h-8 border-2 text-white placeholder-gray-400"
                   style={{
+                    backgroundColor: 'oklch(0.2393 0 0)',
+                    borderColor: 'rgb(0, 0, 0)',
+                    borderRadius: '0',
                     boxShadow: 'none',
                     outline: 'none'
                   }}
@@ -397,13 +454,24 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                 <Button
                   key={preset}
                   variant={settings.quantity === preset ? 'default' : 'neutral'}
-                  className={`h-8 font-semibold border-2 transition-all ${
+                  className={`h-8 font-semibold border-2 transition-all text-white ${
                     settings.quantity === preset 
-                      ? settings.mode === 'buy' 
-                        ? 'bg-green-500 hover:bg-green-600 text-white border-green-500' 
-                        : 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+                      ? ''
                       : 'hover:border-gray-400'
                   }`}
+                  style={{
+                    backgroundColor: settings.quantity === preset 
+                      ? settings.mode === 'buy' 
+                        ? '#22c55e' 
+                        : '#ef4444'
+                      : 'oklch(0.2393 0 0)',
+                    borderColor: settings.quantity === preset 
+                      ? settings.mode === 'buy' 
+                        ? '#22c55e' 
+                        : '#ef4444'
+                      : 'rgb(0, 0, 0)',
+                    borderRadius: '0'
+                  }}
                   onClick={() => handleQuantityChange(preset)}
                 >
                   {settings.mode === 'sell' ? `${preset}%` : preset}
@@ -414,7 +482,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
         </div>
 
         {/* 현재 설정 표시 */}
-        <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-2">
+        <div className="border-2 p-2" style={{ backgroundColor: 'oklch(0.2393 0 0)', borderColor: 'rgb(0, 0, 0)', borderRadius: '0' }}>
           <div className="flex items-center justify-between text-xs gap-1">
             <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
               <TrendingDown className="h-3 w-3 text-blue-500 flex-shrink-0" />
@@ -431,7 +499,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
         <div className="">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-600">
+              <span className="text-xs font-medium text-gray-300">
                 {currentTokenName} ({currentTokenAddress ? `${currentTokenAddress.slice(0, 4)}...${currentTokenAddress.slice(-4)}` : 'N/A'})
               </span>
             </div>
@@ -446,30 +514,32 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
       </div>
 
       {/* 하단 설정값 입력 섹션 */}
-      <div className="space-y-4 pt-6 border-t border-gray-200">
+              <div className="space-y-4 pt-6 border-t border-gray-600">
         {/* 설정값 입력 */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+            <label className="text-xs font-medium text-white flex items-center gap-1">
               <TrendingDown className="h-3 w-3" />
               SLIPPAGE
             </label>
             <Input
               value={presetSlippage}
               onChange={(e) => setPresetSlippage(e.target.value)}
-              className="text-center h-8 text-lg font-semibold border-2 focus:ring-2 focus:ring-blue-500"
+              className="text-center h-8 text-lg font-semibold border-2 focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-400"
+              style={{ backgroundColor: 'oklch(0.2393 0 0)', borderColor: 'rgb(0, 0, 0)', borderRadius: '0' }}
               placeholder="50"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+            <label className="text-xs font-medium text-white flex items-center gap-1">
               <span>⛽</span>
               PRIORITY
             </label>
             <Input
               value={presetPriority}
               onChange={(e) => setPresetPriority(e.target.value)}
-              className="text-center h-8 text-lg font-semibold border-2 focus:ring-2 focus:ring-orange-500"
+              className="text-center h-8 text-lg font-semibold border-2 focus:ring-2 focus:ring-orange-500 text-white placeholder-gray-400"
+              style={{ backgroundColor: 'oklch(0.2393 0 0)', borderColor: 'rgb(0, 0, 0)', borderRadius: '0' }}
               placeholder="105"
             />
           </div>

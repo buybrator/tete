@@ -35,7 +35,6 @@ export default function ChatArea() {
   const [isPopupMode, setIsPopupMode] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState('');
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
-  const [mobile, setMobile] = useState(false);
   const [popupRoomId, setPopupRoomId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -44,16 +43,7 @@ export default function ChatArea() {
   // 채팅 메시지 hooks
   const { messages } = useChatMessages(selectedRoom);
 
-  // 화면 크기 체크
-  useEffect(() => {
-    const checkMobile = () => {
-      setMobile(window.innerWidth < 1024);
-    };
 
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   // URL 파라미터로 팝업 모드인지 확인
   useEffect(() => {
@@ -311,11 +301,11 @@ export default function ChatArea() {
           "[&::-webkit-scrollbar]:w-6",
           "[&::-webkit-scrollbar]:block",
           "[&::-webkit-scrollbar-track]:bg-[#1f1f1f]",
-          "[&::-webkit-scrollbar-track]:border-x-4",
-          "[&::-webkit-scrollbar-track]:border-x-black",
+          "[&::-webkit-scrollbar-track]:border-l-4",
+          "[&::-webkit-scrollbar-track]:border-l-black",
           "[&::-webkit-scrollbar-thumb]:bg-[#e6e6e6]",
-          "[&::-webkit-scrollbar-thumb]:border-x-4",
-          "[&::-webkit-scrollbar-thumb]:border-x-black"
+          "[&::-webkit-scrollbar-thumb]:border-l-4",
+          "[&::-webkit-scrollbar-thumb]:border-l-black"
         )}
         ref={chatContainerRef}
       >
@@ -369,11 +359,11 @@ export default function ChatArea() {
               "[&::-webkit-scrollbar]:w-6",
               "[&::-webkit-scrollbar]:block",
               "[&::-webkit-scrollbar-track]:bg-[#1f1f1f]",
-              "[&::-webkit-scrollbar-track]:border-x-4",
-              "[&::-webkit-scrollbar-track]:border-x-black",
+              "[&::-webkit-scrollbar-track]:border-l-4",
+              "[&::-webkit-scrollbar-track]:border-l-black",
               "[&::-webkit-scrollbar-thumb]:bg-[#e6e6e6]",
-              "[&::-webkit-scrollbar-thumb]:border-x-4",
-              "[&::-webkit-scrollbar-thumb]:border-x-black"
+              "[&::-webkit-scrollbar-thumb]:border-l-4",
+              "[&::-webkit-scrollbar-thumb]:border-l-black"
             )}
             ref={chatContainerRef}
           >
@@ -395,32 +385,17 @@ export default function ChatArea() {
     );
   }
 
-  // 일반 모드 - 중복 스타일 제거
-  return mobile ? (
-    <div className="mobile-chat-area">
-      <div className="flex flex-col h-full bg-[oklch(23.93%_0_0)] border-2 border-black rounded-base shadow-base overflow-hidden">
-        {/* 채팅방 정보 */}
-        {renderChatRoomInfo()}
-        
-        {/* 채팅 메시지 */}
-        {renderChatMessages()}
-        
-        {/* 채팅 입력 */}
-        {renderChatInput()}
-      </div>
-    </div>
-  ) : (
-    <div className="desktop-chat-area">
-      <div className="flex flex-col h-full bg-[oklch(23.93%_0_0)] border-2 border-black rounded-base shadow-base overflow-hidden">
-        {/* 채팅방 정보 */}
-        {renderChatRoomInfo()}
-        
-        {/* 채팅 메시지 */}
-        {renderChatMessages()}
-        
-        {/* 채팅 입력 */}
-        {renderChatInput()}
-      </div>
+  // 일반 모드
+  return (
+    <div className="flex flex-col h-full flex-1 bg-[oklch(23.93%_0_0)] border-2 border-black rounded-base overflow-hidden" style={{ boxShadow: '4px 4px 0px 0px rgba(0,0,0,1)' }}>
+      {/* 채팅방 정보 */}
+      {renderChatRoomInfo()}
+      
+      {/* 채팅 메시지 */}
+      {renderChatMessages()}
+      
+      {/* 채팅 입력 */}
+      {renderChatInput()}
     </div>
   );
 } 
