@@ -148,16 +148,16 @@ function PCChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
       {showResults && (
         <div className="absolute top-full left-0 right-0 mt-1 z-50">
           <div 
-            className="w-full text-popover-foreground border rounded-md shadow-[var(--shadow)] flex flex-col"
-            style={{ backgroundColor: 'oklch(72.27% 0.1894 50.19)' }}
+            className="w-full text-white border-2 border-black rounded-none shadow-[var(--shadow)] flex flex-col"
+            style={{ backgroundColor: 'oklch(0.2393 0 0)' }}
           >
             <div className="px-2 py-1.5 text-sm font-semibold">채팅방 목록</div>
-            <div className="h-px bg-border mx-1"></div>
+            <div className="h-px bg-black mx-1"></div>
             
             <div className="max-h-[240px] overflow-y-auto">
               {isLoading ? (
-                <div className="relative flex select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none">
-                  <span className="text-sm text-muted-foreground">
+                <div className="relative flex select-none items-center rounded-none px-2 py-1.5 text-sm outline-none">
+                  <span className="text-sm text-gray-300">
                     채팅방 로딩 중...
                   </span>
                 </div>
@@ -166,7 +166,7 @@ function PCChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
                   <div
                     key={room.id}
                     onClick={() => handleRoomSelect(room)}
-                    className="relative flex cursor-pointer select-none items-center rounded-[5px] px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground hover:border-2 hover:border-black data-[disabled]:pointer-events-none data-[disabled]:opacity-50 gap-3 border-2 border-transparent"
+                    className="relative flex cursor-pointer select-none items-center rounded-none px-2 py-1.5 text-sm outline-none transition-colors hover:bg-[oklch(0.3_0_0)] hover:text-white hover:border-2 hover:border-black data-[disabled]:pointer-events-none data-[disabled]:opacity-50 gap-3 border-2 border-transparent"
                   >
                     <TokenAvatar 
                       tokenAddress={room.id}
@@ -176,29 +176,29 @@ function PCChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
                     />
                     <div className="flex-1">
                       <div className="font-semibold">{room.name}</div>
-                      <div className="text-sm text-muted-foreground">CA: {room.id.slice(0, 8)}...</div>
+                      <div className="text-sm text-gray-300">CA: {room.id.slice(0, 8)}...</div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="relative flex select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
-                  <span className="text-sm text-muted-foreground">
+                <div className="relative flex select-none items-center rounded-none px-2 py-1.5 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                  <span className="text-sm text-gray-300">
                     &apos;{searchQuery}&apos;와 일치하는 채팅방이 없습니다.
                   </span>
                 </div>
               )}
             </div>
             
-            <div className="h-px bg-border mx-1"></div>
+            <div className="h-px bg-black mx-1"></div>
             
             <div
               onClick={handleCreateRoom}
-              className="relative flex cursor-pointer select-none items-center rounded-[5px] px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground hover:border-2 hover:border-black data-[disabled]:pointer-events-none data-[disabled]:opacity-50 gap-3 border-2 border-transparent text-blue-600 font-medium"
+              className="relative flex cursor-pointer select-none items-center rounded-none px-2 py-1.5 text-sm outline-none transition-colors hover:bg-[oklch(0.3_0_0)] hover:text-white hover:border-2 hover:border-black data-[disabled]:pointer-events-none data-[disabled]:opacity-50 gap-3 border-2 border-transparent text-white font-medium"
             >
               <span className="text-lg">➕</span>
               <div className="flex-1">
                 <div className="font-semibold">Create chat room</div>
-                <div className="text-xs text-muted-foreground">새로운 채팅방 만들기</div>
+                <div className="text-xs text-gray-300">새로운 채팅방 만들기</div>
               </div>
             </div>
           </div>
@@ -229,40 +229,94 @@ function PCWalletProfile() {
   const [tempAvatar, setTempAvatar] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 기본 아바타 배열
-  const DEFAULT_AVATARS = ['👤', '🧑', '👩', '🤵', '👩‍💼', '🧑‍💼', '👨‍💼', '🧙‍♂️', '🧙‍♀️', '🥷'];
+  // 디버깅: tempAvatar 값 변경 추적
+  useEffect(() => {
+    console.log('🔄 tempAvatar 상태 변경됨:', tempAvatar);
+  }, [tempAvatar]);
 
-  const handleDialogOpen = () => {
+  // 다이얼로그가 열릴 때마다 최신 프로필 정보로 업데이트
+  useEffect(() => {
+    if (isDialogOpen) {
+      console.log('다이얼로그 열림 - 최신 프로필 정보로 업데이트');
+      console.log('현재 nickname:', nickname, 'avatar:', avatar);
+      setTempNickname(nickname || '');
+      setTempAvatar(avatar || '👤');
+    }
+  }, [isDialogOpen, nickname, avatar]);
+
+
+
+  const handleDialogOpen = useCallback(() => {
+    console.log('프로필 편집 팝업 열기 - 현재 아바타:', avatar);
+    console.log('프로필 편집 팝업 열기 - 현재 닉네임:', nickname);
     setTempNickname(nickname || '');
-    setTempAvatar(avatar || DEFAULT_AVATARS[0]);
+    setTempAvatar(avatar || '👤');
     setIsDialogOpen(true);
-  };
+  }, [avatar, nickname]);
 
-  const handleSave = () => {
-    updateProfile({
-      nickname: tempNickname,
-      avatar: tempAvatar
-    });
-    setIsDialogOpen(false);
-  };
+  const handleSave = useCallback(async () => {
+    console.log('프로필 저장 시작 - 닉네임:', tempNickname, '아바타:', tempAvatar?.substring(0, 50) + '...');
+    
+    try {
+      await updateProfile({
+        nickname: tempNickname,
+        avatar: tempAvatar
+      });
+      console.log('✅ 프로필 저장 완료');
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error('❌ 프로필 저장 실패:', error);
+      // 에러가 발생해도 일단 팝업은 닫기
+      setIsDialogOpen(false);
+    }
+  }, [tempNickname, tempAvatar, updateProfile]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
         alert('이미지 파일만 업로드할 수 있습니다.');
+        // 파일 입력 초기화
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
         return;
       }
       
       if (file.size > 5 * 1024 * 1024) {
         alert('파일 크기는 5MB 이하여야 합니다.');
+        // 파일 입력 초기화
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
         return;
       }
       
       const reader = new FileReader();
-      reader.onload = (e) => {
-        const imageUrl = e.target?.result as string;
+      reader.onload = (event) => {
+        const imageUrl = event.target?.result as string;
+        console.log('📸 이미지 업로드 완료:', imageUrl.substring(0, 50) + '...');
+        console.log('📸 setTempAvatar 호출 전 - 현재 tempAvatar:', tempAvatar);
         setTempAvatar(imageUrl);
+        console.log('📸 setTempAvatar 호출 완료 - 새로운 값:', imageUrl.substring(0, 50) + '...');
+        
+        // 강제로 리렌더링 트리거 (개발 중 디버깅용)
+        setTimeout(() => {
+          console.log('📸 1초 후 tempAvatar 상태:', tempAvatar);
+        }, 1000);
+        
+        // 파일 입력 초기화 (같은 파일을 다시 선택할 수 있도록)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      };
+      reader.onerror = (error) => {
+        console.error('이미지 읽기 오류:', error);
+        alert('이미지를 읽는 중 오류가 발생했습니다.');
+        // 파일 입력 초기화
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -342,45 +396,91 @@ function PCWalletProfile() {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="sm:max-w-md">
+      <DialogContent 
+        className="sm:max-w-md bg-[oklch(0.2393_0_0)] border-2 border-black text-white [&>button]:border-2 [&>button]:border-black [&>button]:bg-[oklch(0.75_0.183_55.934)] [&>button]:hover:bg-[oklch(0.65_0.183_55.934)] [&>button]:shadow-[4px_4px_0px_0px_black] [&>button]:hover:shadow-none [&>button]:hover:translate-x-1 [&>button]:hover:translate-y-1 [&>button]:transition-all [&>button]:rounded-none" 
+        style={{ borderRadius: '0px' }}
+      >
         <DialogHeader>
           <DialogTitle>프로필 편집</DialogTitle>
         </DialogHeader>
         
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-base p-3 text-sm text-red-700">
+          <div className="bg-red-900 border-2 border-black rounded-none p-3 text-sm text-red-300">
             {error}
           </div>
         )}
         
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>아바타</Label>
+            <Label className="text-white">아바타</Label>
             
             <div className="flex items-center gap-4 mb-4">
               <div 
                 className="relative group cursor-pointer"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <div className="w-16 h-16 border-2 border-border bg-gray-100 flex items-center justify-center overflow-hidden">
-                  {tempAvatar.startsWith('data:') ? (
+                <div 
+                  className="w-16 h-16 border-2 border-black flex items-center justify-center overflow-hidden relative"
+                  style={{ 
+                    backgroundColor: 'oklch(0.2393 0 0)',
+                    minWidth: '64px',
+                    minHeight: '64px',
+                    maxWidth: '64px',
+                    maxHeight: '64px'
+                  }}
+                >
+                  {tempAvatar && (tempAvatar.startsWith('data:') || tempAvatar.startsWith('http')) ? (
                     <img 
                       src={tempAvatar} 
-                      alt="아바타" 
-                      className="w-full h-full object-cover"
+                      alt="아바타 미리보기" 
+                      style={{ 
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: '0px',
+                        display: 'block'
+                      }}
+                      onLoad={(e) => {
+                        console.log('✅ 미리보기 이미지 로드 성공');
+                        console.log('✅ 이미지 크기:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
+                      }}
+                      onError={(e) => {
+                        console.error('❌ 미리보기 이미지 로드 실패:', e);
+                        console.error('tempAvatar 값:', tempAvatar?.substring(0, 100));
+                      }}
                     />
                   ) : (
-                    <span className="text-2xl">{tempAvatar}</span>
+                    <span className="text-2xl text-white" style={{ display: 'block' }}>
+                      {tempAvatar || '👤'}
+                    </span>
                   )}
                 </div>
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
-                  <Upload className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div 
+                  className="absolute inset-0 flex items-center justify-center transition-all duration-200"
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0)',
+                    zIndex: 1
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
+                    const upload = e.currentTarget.querySelector('.upload-icon');
+                    if (upload) (upload as HTMLElement).style.opacity = '1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+                    const upload = e.currentTarget.querySelector('.upload-icon');
+                    if (upload) (upload as HTMLElement).style.opacity = '0';
+                  }}
+                >
+                  <Upload 
+                    className="upload-icon h-4 w-4 text-white transition-opacity" 
+                    style={{ opacity: 0 }}
+                  />
                 </div>
               </div>
               
-              <div className="text-sm text-gray-600">
-                클릭하여 이미지를 업로드하거나<br />
-                아래에서 기본 아바타를 선택하세요
+              <div className="text-sm text-gray-300">
+                클릭하여 이미지를 업로드하세요
               </div>
             </div>
 
@@ -392,45 +492,31 @@ function PCWalletProfile() {
               className="hidden"
             />
             
-            <div className="grid grid-cols-5 gap-2">
-              {DEFAULT_AVATARS.map((avatarOption) => (
-                <button
-                  key={avatarOption}
-                  onClick={() => setTempAvatar(avatarOption)}
-                  className={`p-2 rounded-base border-2 text-lg hover:bg-gray-100 transition-colors ${
-                    tempAvatar === avatarOption 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-border'
-                  }`}
-                >
-                  {avatarOption}
-                </button>
-              ))}
-            </div>
+
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="nickname">닉네임</Label>
+            <Label htmlFor="nickname" className="text-white">닉네임</Label>
             <Input
               id="nickname"
               value={tempNickname}
               onChange={(e) => setTempNickname(e.target.value)}
               placeholder={address ? `기본값: ${address.slice(0, 4)}...${address.slice(-4)}` : '닉네임을 입력하세요'}
-              className="neobrutalism-input"
+              className="border-2 border-black focus:border-black focus:ring-0 rounded-none bg-[oklch(0.2393_0_0)] text-white placeholder:text-gray-300"
             />
           </div>
 
           <div className="space-y-2">
-            <Label>지갑 주소</Label>
-            <div className="p-2 bg-gray-100 rounded-base text-sm font-mono text-gray-600 break-all">
+            <Label className="text-white">지갑 주소</Label>
+            <div className="p-2 bg-[oklch(0.2393_0_0)] border-2 border-black rounded-none text-sm font-mono text-gray-300 break-all">
               {address}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>SOL 잔고</Label>
+            <Label className="text-white">SOL 잔고</Label>
             <div className="flex items-center gap-2">
-              <div className="flex-1 p-2 bg-gray-100 rounded-base text-sm font-mono text-gray-700">
+              <div className="flex-1 p-2 bg-[oklch(0.2393_0_0)] border-2 border-black rounded-none text-sm font-mono text-gray-300">
                 {isLoadingBalance ? '로딩 중...' : formatBalance(balance)}
               </div>
               <Button
@@ -438,7 +524,7 @@ function PCWalletProfile() {
                 size="sm"
                 onClick={handleRefreshBalance}
                 disabled={isLoadingBalance}
-                className="shrink-0"
+                className="shrink-0 bg-[oklch(0.2393_0_0)] border-2 border-black rounded-none text-white hover:bg-[oklch(0.3_0_0)]"
               >
                 <RefreshCw className={`h-4 w-4 ${isLoadingBalance ? 'animate-spin' : ''}`} />
               </Button>
@@ -449,7 +535,7 @@ function PCWalletProfile() {
             <Button
               variant="reverse"
               onClick={handleDisconnectWallet}
-              className="neobrutalism-button"
+              className="bg-red-600 border-2 border-black rounded-none text-white hover:bg-red-700"
               disabled={isConnecting}
             >
               {isConnecting ? '해제 중...' : '지갑 연결 해제'}
@@ -459,13 +545,13 @@ function PCWalletProfile() {
               <Button
                 variant="neutral"
                 onClick={() => setIsDialogOpen(false)}
-                className="neobrutalism-button"
+                className="bg-[oklch(0.2393_0_0)] border-2 border-black rounded-none text-white hover:bg-[oklch(0.3_0_0)]"
               >
                 취소
               </Button>
               <Button
                 onClick={handleSave}
-                className="neobrutalism-button"
+                className="bg-green-600 border-2 border-black rounded-none text-white hover:bg-green-700"
                 disabled={isConnecting}
               >
                 저장

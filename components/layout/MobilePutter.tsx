@@ -66,21 +66,47 @@ function MobileWalletProfile() {
   // 기본 아바타 배열
   const DEFAULT_AVATARS = ['👤', '🧑', '👩', '🤵', '👩‍💼', '🧑‍💼', '👨‍💼', '🧙‍♂️', '🧙‍♀️', '🥷'];
 
+  // 디버깅: tempAvatar 값 변경 추적
+  useEffect(() => {
+    console.log('📱 모바일 tempAvatar 상태 변경됨:', tempAvatar);
+  }, [tempAvatar]);
+
+  // 다이얼로그가 열릴 때마다 최신 프로필 정보로 업데이트
+  useEffect(() => {
+    if (isDialogOpen) {
+      console.log('📱 모바일 다이얼로그 열림 - 최신 프로필 정보로 업데이트');
+      console.log('📱 현재 nickname:', nickname, 'avatar:', avatar);
+      setTempNickname(nickname || '');
+      setTempAvatar(avatar || DEFAULT_AVATARS[0]);
+    }
+  }, [isDialogOpen, nickname, avatar]);
+
   // Dialog가 열릴 때 현재 값들로 초기화
-  const handleDialogOpen = () => {
+  const handleDialogOpen = useCallback(() => {
+    console.log('📱 모바일 프로필 편집 팝업 열기 - 현재 아바타:', avatar);
+    console.log('📱 모바일 프로필 편집 팝업 열기 - 현재 닉네임:', nickname);
     setTempNickname(nickname || '');
     setTempAvatar(avatar || DEFAULT_AVATARS[0]);
     setIsDialogOpen(true);
-  };
+  }, [avatar, nickname]);
 
   // 변경사항 저장
-  const handleSave = () => {
-    updateProfile({
-      nickname: tempNickname,
-      avatar: tempAvatar
-    });
-    setIsDialogOpen(false);
-  };
+  const handleSave = useCallback(async () => {
+    console.log('📱 모바일 프로필 저장 시작 - 닉네임:', tempNickname, '아바타:', tempAvatar?.substring(0, 50) + '...');
+    
+    try {
+      await updateProfile({
+        nickname: tempNickname,
+        avatar: tempAvatar
+      });
+      console.log('✅ 모바일 프로필 저장 완료');
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error('❌ 모바일 프로필 저장 실패:', error);
+      // 에러가 발생해도 일단 팝업은 닫기
+      setIsDialogOpen(false);
+    }
+  }, [tempNickname, tempAvatar, updateProfile]);
 
   // 이미지 파일 업로드 핸들러
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,18 +114,47 @@ function MobileWalletProfile() {
     if (file) {
       if (!file.type.startsWith('image/')) {
         alert('이미지 파일만 업로드할 수 있습니다.');
+        // 파일 입력 초기화
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
         return;
       }
 
       if (file.size > 5 * 1024 * 1024) {
         alert('파일 크기는 5MB 이하여야 합니다.');
+        // 파일 입력 초기화
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
         return;
       }
 
       const reader = new FileReader();
-      reader.onload = (e) => {
-        const imageUrl = e.target?.result as string;
+      reader.onload = (event) => {
+        const imageUrl = event.target?.result as string;
+        console.log('📱 모바일 이미지 업로드 완료:', imageUrl.substring(0, 50) + '...');
+        console.log('📱 모바일 setTempAvatar 호출 전 - 현재 tempAvatar:', tempAvatar);
         setTempAvatar(imageUrl);
+        console.log('📱 모바일 setTempAvatar 호출 완료 - 새로운 값:', imageUrl.substring(0, 50) + '...');
+        
+        // 강제로 리렌더링 트리거 (개발 중 디버깅용)
+        setTimeout(() => {
+          console.log('📱 모바일 1초 후 tempAvatar 상태:', tempAvatar);
+        }, 1000);
+        
+        // 파일 입력 초기화 (같은 파일을 다시 선택할 수 있도록)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      };
+      reader.onerror = (error) => {
+        console.error('📱 모바일 이미지 읽기 오류:', error);
+        alert('이미지를 읽는 중 오류가 발생했습니다.');
+        // 파일 입력 초기화
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -135,18 +190,18 @@ function MobileWalletProfile() {
     return (
       <div className="flex flex-col items-center">
         <button 
-          className="group relative flex flex-col items-center justify-center gap-1 bg-transparent hover:bg-blue-400 text-black transition-colors duration-150 font-bold h-full px-3 py-2 border-none outline-none"
+          className="group relative flex flex-col items-center justify-center gap-1 bg-transparent hover:bg-blue-400 text-white hover:text-black transition-colors duration-150 font-bold h-full px-3 py-2 border-none outline-none"
           style={{ boxShadow: 'none', border: 'none', background: 'transparent' }}
           onClick={handleConnectWallet}
           disabled={isConnecting}
         >
-          <User className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
+          <User className="w-5 h-5 group-hover:scale-110 transition-transform duration-200 text-white group-hover:text-black" />
           <span className="text-xs uppercase tracking-wide leading-none">
             {isConnecting ? 'connecting' : 'account'}
           </span>
         </button>
         {error && (
-          <span className="text-xs text-red-500 mt-1 text-center px-2">{error}</span>
+          <span className="text-xs text-red-300 mt-1 text-center px-2">{error}</span>
         )}
       </div>
     );
@@ -157,7 +212,7 @@ function MobileWalletProfile() {
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
         <button
-          className="group relative flex flex-col items-center justify-center gap-1 bg-transparent hover:bg-green-400 text-black transition-colors duration-150 font-bold h-full px-3 py-2 border-none outline-none"
+          className="group relative flex flex-col items-center justify-center gap-1 bg-transparent hover:bg-green-400 text-white hover:text-black transition-colors duration-150 font-bold h-full px-3 py-2 border-none outline-none"
           style={{ boxShadow: 'none', border: 'none', background: 'transparent' }}
           onClick={handleDialogOpen}
           disabled={isConnecting}
@@ -190,13 +245,16 @@ function MobileWalletProfile() {
         </button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-[95vw] w-full mx-2 sm:max-w-md sm:mx-0">
+      <DialogContent 
+        className="max-w-[95vw] w-full mx-2 sm:max-w-md sm:mx-0 bg-[oklch(0.2393_0_0)] border-2 border-black text-white [&>button]:border-2 [&>button]:border-black [&>button]:bg-[oklch(0.75_0.183_55.934)] [&>button]:hover:bg-[oklch(0.65_0.183_55.934)] [&>button]:shadow-[4px_4px_0px_0px_black] [&>button]:hover:shadow-none [&>button]:hover:translate-x-1 [&>button]:hover:translate-y-1 [&>button]:transition-all [&>button]:rounded-none"
+        style={{ borderRadius: '0px' }}
+      >
         <DialogHeader>
-          <DialogTitle className="text-center">프로필 편집</DialogTitle>
+          <DialogTitle className="text-center text-white">프로필 편집</DialogTitle>
         </DialogHeader>
         
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-base p-3 text-sm text-red-700">
+          <div className="bg-red-900 border-2 border-black rounded-none p-3 text-sm text-red-300">
             {error}
           </div>
         )}
@@ -204,7 +262,7 @@ function MobileWalletProfile() {
         <div className="space-y-3">
           {/* 아바타 선택 */}
           <div className="space-y-2">
-            <Label className="text-sm">아바타</Label>
+            <Label className="text-sm text-white">아바타</Label>
             
             {/* 현재 아바타 미리보기 */}
             <div className="flex items-center gap-3 mb-3">
@@ -212,24 +270,68 @@ function MobileWalletProfile() {
                 className="relative group cursor-pointer"
                 onClick={triggerFileUpload}
               >
-                <div className="w-12 h-12 border-2 border-border bg-gray-100 flex items-center justify-center overflow-hidden">
-                  {tempAvatar.startsWith('data:') ? (
+                <div 
+                  className="w-12 h-12 border-2 border-black flex items-center justify-center overflow-hidden relative"
+                  style={{ 
+                    backgroundColor: 'oklch(0.2393 0 0)',
+                    minWidth: '48px',
+                    minHeight: '48px',
+                    maxWidth: '48px',
+                    maxHeight: '48px'
+                  }}
+                >
+                  {tempAvatar && (tempAvatar.startsWith('data:') || tempAvatar.startsWith('http')) ? (
                     <img 
                       src={tempAvatar} 
-                      alt="아바타" 
-                      className="w-full h-full object-cover"
+                      alt="아바타 미리보기" 
+                      style={{ 
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: '0px',
+                        display: 'block'
+                      }}
+                      onLoad={(e) => {
+                        console.log('✅ 모바일 미리보기 이미지 로드 성공');
+                        console.log('✅ 모바일 이미지 크기:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
+                      }}
+                      onError={(e) => {
+                        console.error('❌ 모바일 미리보기 이미지 로드 실패:', e);
+                        console.error('모바일 tempAvatar 값:', tempAvatar?.substring(0, 100));
+                      }}
                     />
                   ) : (
-                    <span className="text-lg">{tempAvatar}</span>
+                    <span className="text-lg text-white" style={{ display: 'block' }}>
+                      {tempAvatar || '👤'}
+                    </span>
                   )}
                 </div>
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
-                  <Upload className="h-3 w-3 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div 
+                  className="absolute inset-0 flex items-center justify-center transition-all duration-200"
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0)',
+                    zIndex: 1
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
+                    const upload = e.currentTarget.querySelector('.upload-icon');
+                    if (upload) (upload as HTMLElement).style.opacity = '1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+                    const upload = e.currentTarget.querySelector('.upload-icon');
+                    if (upload) (upload as HTMLElement).style.opacity = '0';
+                  }}
+                >
+                  <Upload 
+                    className="upload-icon h-3 w-3 text-white transition-opacity" 
+                    style={{ opacity: 0 }}
+                  />
                 </div>
               </div>
               
-              <div className="text-xs text-gray-600 flex-1">
-                클릭하여 이미지 업로드 또는 아래에서 선택
+              <div className="text-xs text-gray-300 flex-1">
+                클릭하여 이미지를 업로드하세요
               </div>
             </div>
 
@@ -241,50 +343,33 @@ function MobileWalletProfile() {
               onChange={handleImageUpload}
               className="hidden"
             />
-            
-            {/* 기본 아바타 선택 - 모바일에서는 4열 */}
-            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-              {DEFAULT_AVATARS.map((avatar) => (
-                <button
-                  key={avatar}
-                  onClick={() => setTempAvatar(avatar)}
-                  className={`p-2 rounded-base border-2 text-sm hover:bg-gray-100 transition-colors ${
-                    tempAvatar === avatar 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-border'
-                  }`}
-                >
-                  {avatar}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* 닉네임 입력 */}
           <div className="space-y-2">
-            <Label htmlFor="nickname" className="text-sm">닉네임</Label>
+            <Label htmlFor="nickname" className="text-sm text-white">닉네임</Label>
             <Input
               id="nickname"
               value={tempNickname}
               onChange={(e) => setTempNickname(e.target.value)}
               placeholder={address ? `기본값: ${address.slice(0, 4)}...${address.slice(-4)}` : '닉네임을 입력하세요'}
-              className="neobrutalism-input text-sm"
+              className="border-2 border-black focus:border-black focus:ring-0 rounded-none bg-[oklch(0.2393_0_0)] text-white placeholder:text-gray-300 text-sm"
             />
           </div>
 
           {/* 지갑 주소 표시 - 모바일에서는 줄바꿈 허용 */}
           <div className="space-y-2">
-            <Label className="text-sm">지갑 주소</Label>
-            <div className="p-2 bg-gray-100 rounded-base text-xs font-mono text-gray-600 break-all">
+            <Label className="text-sm text-white">지갑 주소</Label>
+            <div className="p-2 bg-[oklch(0.2393_0_0)] border-2 border-black rounded-none text-xs font-mono text-gray-300 break-all">
               {address}
             </div>
           </div>
 
           {/* SOL 잔고 표시 */}
           <div className="space-y-2">
-            <Label className="text-sm">SOL 잔고</Label>
+            <Label className="text-sm text-white">SOL 잔고</Label>
             <div className="flex items-center gap-2">
-              <div className="flex-1 p-2 bg-gray-100 rounded-base text-xs font-mono text-gray-700">
+              <div className="flex-1 p-2 bg-[oklch(0.2393_0_0)] border-2 border-black rounded-none text-xs font-mono text-gray-300">
                 {isLoadingBalance ? '로딩 중...' : formatBalance(balance)}
               </div>
               <Button
@@ -292,7 +377,7 @@ function MobileWalletProfile() {
                 size="sm"
                 onClick={handleRefreshBalance}
                 disabled={isLoadingBalance}
-                className="shrink-0 p-2"
+                className="shrink-0 bg-[oklch(0.2393_0_0)] border-2 border-black rounded-none text-white hover:bg-[oklch(0.3_0_0)] p-2"
               >
                 <RefreshCw className={`h-3 w-3 ${isLoadingBalance ? 'animate-spin' : ''}`} />
               </Button>
@@ -303,7 +388,7 @@ function MobileWalletProfile() {
           <div className="flex flex-col space-y-2 pt-2">
             <Button
               onClick={handleSave}
-              className="neobrutalism-button w-full text-sm py-2"
+              className="bg-green-600 border-2 border-black rounded-none text-white hover:bg-green-700 w-full text-sm py-2"
               disabled={isConnecting}
             >
               저장
@@ -313,14 +398,14 @@ function MobileWalletProfile() {
               <Button
                 variant="neutral"
                 onClick={() => setIsDialogOpen(false)}
-                className="neobrutalism-button flex-1 text-sm py-2"
+                className="bg-[oklch(0.2393_0_0)] border-2 border-black rounded-none text-white hover:bg-[oklch(0.3_0_0)] flex-1 text-sm py-2"
               >
                 취소
               </Button>
               <Button
                 variant="reverse"
                 onClick={handleDisconnectWallet}
-                className="neobrutalism-button flex-1 text-sm py-2"
+                className="bg-red-600 border-2 border-black rounded-none text-white hover:bg-red-700 flex-1 text-sm py-2"
                 disabled={isConnecting}
               >
                 {isConnecting ? '해제 중...' : '연결 해제'}
@@ -478,20 +563,20 @@ export default function MobilePutter() {
       <footer className="mobile-putter">
         {/* Explore */}
         <button 
-          className="group relative flex flex-col items-center justify-center gap-1 bg-transparent hover:bg-yellow-400 text-black transition-colors duration-150 font-bold h-full px-3 py-2 border-none outline-none"
+          className="group relative flex flex-col items-center justify-center gap-1 bg-transparent hover:bg-yellow-400 text-white hover:text-black transition-colors duration-150 font-bold h-full px-3 py-2 border-none outline-none"
           style={{ boxShadow: 'none', border: 'none', background: 'transparent' }}
         >
-          <Compass className="w-5 h-5 group-hover:rotate-12 transition-transform duration-200" />
+          <Compass className="w-5 h-5 group-hover:rotate-12 transition-transform duration-200 text-white group-hover:text-black" />
           <span className="text-xs uppercase tracking-wide leading-none">explore</span>
         </button>
 
         {/* Search */}
         <button 
-          className="group relative flex flex-col items-center justify-center gap-1 bg-transparent hover:bg-pink-400 text-black transition-colors duration-150 font-bold h-full px-3 py-2 border-none outline-none"
+          className="group relative flex flex-col items-center justify-center gap-1 bg-transparent hover:bg-pink-400 text-white hover:text-black transition-colors duration-150 font-bold h-full px-3 py-2 border-none outline-none"
           style={{ boxShadow: 'none', border: 'none', background: 'transparent' }}
           onClick={openSearchSidebar}
         >
-          <Search className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
+          <Search className="w-5 h-5 group-hover:scale-110 transition-transform duration-200 text-white group-hover:text-black" />
           <span className="text-xs uppercase tracking-wide leading-none">search</span>
         </button>
 
@@ -511,9 +596,9 @@ export default function MobilePutter() {
           />
           
           {/* 사이드바 */}
-          <div className="w-80 max-w-[85vw] bg-background border-l-2 border-border flex flex-col search-sidebar">
+          <div className="w-80 max-w-[85vw] bg-[oklch(0.2393_0_0)] border-l-2 border-black flex flex-col search-sidebar">
             {/* 사이드바 헤더 */}
-            <div className="flex items-center justify-between p-4 border-b-2 border-border bg-main text-main-foreground">
+            <div className="flex items-center justify-between p-4 border-b-2 border-black bg-[oklch(0.2393_0_0)] text-white">
               <h2 className="text-lg font-bold">채팅방 검색</h2>
               <Button 
                 onClick={closeSearchSidebar}
@@ -525,12 +610,12 @@ export default function MobilePutter() {
             </div>
 
             {/* 검색 입력창 */}
-            <div className="p-4 border-b border-border">
+            <div className="p-4 border-b border-black">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-300" />
                 <Input 
                   placeholder="채팅방 이름을 검색하세요..."
-                  className="neobrutalism-input pl-10"
+                  className="pl-10 border-2 border-black focus:border-black focus:ring-0 rounded-none bg-[oklch(0.2393_0_0)] text-white placeholder:text-gray-300"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoFocus
@@ -541,7 +626,7 @@ export default function MobilePutter() {
             {/* 검색 결과 목록 영역 (스크롤 가능) */}
             <div className="flex-1 p-4 search-sidebar-content">
               {isLoading ? (
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
+                <div className="flex items-center justify-center h-32 text-gray-300">
                   <div className="text-center">
                     <Search className="h-8 w-8 mx-auto mb-2 opacity-50 animate-spin" />
                     <p className="text-sm">채팅방 로딩 중...</p>
@@ -553,7 +638,7 @@ export default function MobilePutter() {
                     <button
                       key={room.id}
                       onClick={() => handleRoomSelect(room)}
-                      className="w-full p-3 text-left bg-secondary-background hover:bg-main/10 transition-colors border-2 border-border rounded-base flex items-center gap-3"
+                      className="w-full p-3 text-left bg-[oklch(0.2393_0_0)] hover:bg-[oklch(0.3_0_0)] transition-colors border-2 border-black rounded-none flex items-center gap-3"
                     >
                       <TokenAvatar 
                         tokenAddress={room.id}
@@ -562,14 +647,14 @@ export default function MobilePutter() {
                         imageUrl={room.image}
                       />
                       <div className="flex-1">
-                        <div className="font-semibold text-foreground">{room.name}</div>
-                        <div className="text-sm text-muted-foreground">CA: {room.id.slice(0, 8)}...</div>
+                        <div className="font-semibold text-white">{room.name}</div>
+                        <div className="text-sm text-gray-300">CA: {room.id.slice(0, 8)}...</div>
                       </div>
                     </button>
                   ))}
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
+                <div className="flex items-center justify-center h-32 text-gray-300">
                   <div className="text-center">
                     <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">
@@ -584,20 +669,20 @@ export default function MobilePutter() {
             </div>
 
             {/* Create chat room 고정 영역 */}
-            <div className="p-4 border-t-2 border-border bg-secondary-background/50">
+            <div className="p-4 border-t-2 border-black bg-[oklch(0.2393_0_0)]">
               <button
                 onClick={handleCreateRoom}
-                className="w-full p-3 text-left bg-blue-50 hover:bg-blue-100 transition-colors border-2 border-blue-200 rounded-base flex items-center gap-3 text-blue-600 font-medium"
+                className="w-full p-3 text-left bg-[oklch(0.2393_0_0)] hover:bg-[oklch(0.3_0_0)] transition-colors border-2 border-black rounded-none flex items-center gap-3 text-white font-medium"
               >
                 <span className="text-xl">➕</span>
-                <div className="flex-1">
-                  <div className="font-semibold">Create chat room</div>
-                  <div className="text-xs text-blue-500">새로운 채팅방 만들기</div>
-                </div>
+                                  <div className="flex-1">
+                    <div className="font-semibold">Create chat room</div>
+                    <div className="text-xs text-gray-300">새로운 채팅방 만들기</div>
+                  </div>
               </button>
               
               {/* 총 채팅방 개수 */}
-              <p className="text-xs text-muted-foreground text-center mt-2">
+              <p className="text-xs text-gray-300 text-center mt-2">
                 총 {filteredRooms.length}개의 채팅방
               </p>
             </div>

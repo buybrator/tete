@@ -240,7 +240,8 @@
   }
   
   .mobile-putter {
-    @apply h-[60px] flex justify-around items-center bg-secondary-background border-2 border-border shadow-[var(--shadow)] fixed z-30;
+    @apply h-[60px] flex justify-around items-center border-2 border-black shadow-[var(--shadow)] fixed z-30;
+    background-color: oklch(0.2393 0 0);
     border-radius: 0px;
     left: 12px;
     right: 12px;
