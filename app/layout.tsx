@@ -24,6 +24,11 @@ export const viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ko" className={inter.className}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Bitcount+Grid+Double:wght@100..900&family=Comfortaa:wght@300..700&display=swap" rel="stylesheet" />
+      </head>
       <body className="min-h-screen bg-[#f5f5dc] text-black antialiased">
         <ErrorSuppressor />
         <WalletProviderWrapper>

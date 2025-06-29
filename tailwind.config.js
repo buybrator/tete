@@ -8,6 +8,14 @@ module.exports = {
   ],
   theme: {
     extend: {
+      // 폰트 패밀리 설정
+      fontFamily: {
+        'sans': ['"Satoshi"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        'satoshi': ['"Satoshi"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        'comfortaa': ['"Comfortaa"', 'sans-serif'],
+        'bitcount': ['"Bitcount Grid Double"', 'system-ui'],
+      },
+      
       // 커스텀 컬러 팔레트
       colors: {
         // 기존 CSS 변수들을 Tailwind에서도 사용

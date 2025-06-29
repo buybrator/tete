@@ -125,8 +125,8 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                 setIsEditingPresets(true);
               }
             }}
-            className="h-8 px-3 font-medium text-sm text-white"
-            style={{ backgroundColor: 'oklch(0.2393 0 0)', borderRadius: '0', borderColor: 'rgb(0, 0, 0)' }}
+            className="px-3 font-medium text-sm text-white border"
+            style={{ backgroundColor: 'oklch(0.2393 0 0)', borderRadius: '0', borderColor: 'rgb(0, 0, 0)', height: '25px', boxShadow: '2px 2px 0px 0px rgba(0,0,0,1) !important' }}
           >
             {isEditingPresets ? <Check className="h-3 w-3" /> : <Edit className="h-3 w-3" />}
             {isEditingPresets ? ' 저장' : ' 편집'}
@@ -135,7 +135,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
           <div className="flex w-full ml-2 gap-1">
             <Button 
               variant={settings.mode === 'buy' ? 'default' : 'neutral'}
-              className={`flex-1 h-8 font-semibold transition-all text-sm ${
+              className={`flex-1 font-semibold transition-all text-sm border ${
                 settings.mode === 'buy' 
                   ? 'text-white' 
                   : 'text-white hover:text-gray-300'
@@ -143,7 +143,9 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
               style={{ 
                 backgroundColor: settings.mode === 'buy' ? '#22c55e' : 'oklch(0.2393 0 0)',
                 borderRadius: '0',
-                borderColor: 'rgb(0, 0, 0)'
+                borderColor: 'rgb(0, 0, 0)',
+                height: '25px',
+                boxShadow: '2px 2px 0px 0px rgba(0,0,0,1) !important'
               }}
               onClick={() => handleModeChange('buy')}
             >
@@ -151,7 +153,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
             </Button>
             <Button 
               variant={settings.mode === 'sell' ? 'default' : 'neutral'}
-              className={`flex-1 h-8 font-semibold transition-all text-sm ${
+              className={`flex-1 font-semibold transition-all text-sm border ${
                 settings.mode === 'sell' 
                   ? 'text-white' 
                   : 'text-white hover:text-gray-300'
@@ -159,7 +161,9 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
               style={{ 
                 backgroundColor: settings.mode === 'sell' ? '#ef4444' : 'oklch(0.2393 0 0)',
                 borderRadius: '0',
-                borderColor: 'rgb(0, 0, 0)'
+                borderColor: 'rgb(0, 0, 0)',
+                height: '25px',
+                boxShadow: '2px 2px 0px 0px rgba(0,0,0,1) !important'
               }}
               onClick={() => handleModeChange('sell')}
             >
@@ -184,13 +188,14 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                     newValues[index] = e.target.value;
                     setEditingValues(newValues);
                   }}
-                  className="text-center h-8 border-2 font-medium text-sm text-white placeholder-gray-400"
+                  className="text-center border font-medium text-sm text-white placeholder-gray-400"
                   style={{
                     backgroundColor: 'oklch(0.2393 0 0)',
                     borderColor: 'rgb(0, 0, 0)',
                     borderRadius: '0',
-                    boxShadow: 'none',
-                    outline: 'none'
+                    boxShadow: '2px 2px 0px 0px rgba(0,0,0,1) !important',
+                    outline: 'none',
+                    height: '25px'
                   }}
                   placeholder={`${index + 1}`}
                 />
@@ -202,7 +207,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                 <Badge 
                   key={preset}
                   variant={settings.quantity === preset ? 'default' : 'neutral'}
-                  className={`cursor-pointer px-2 py-2 text-center h-8 flex items-center justify-center w-full font-semibold border-2 transition-all text-sm text-white ${
+                  className={`cursor-pointer px-2 py-2 text-center flex items-center justify-center w-full font-semibold border transition-all text-sm text-white ${
                     settings.quantity === preset 
                       ? ''
                       : 'hover:border-gray-400'
@@ -218,7 +223,9 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                         ? '#22c55e' 
                         : '#ef4444'
                       : 'rgb(0, 0, 0)',
-                    borderRadius: '0'
+                    borderRadius: '0',
+                    height: '25px',
+                    boxShadow: '2px 2px 0px 0px rgba(0,0,0,1) !important'
                   }}
                   onClick={() => handleQuantityChange(preset)}
                 >
@@ -235,13 +242,14 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
             placeholder={settings.mode === 'buy' ? 'Enter SOL amount' : 'Enter percentage (%)'}
             value={settings.quantity}
             onChange={(e) => handleQuantityChange(e.target.value)}
-            className="w-full h-8 text-base font-medium border-2 text-white placeholder-gray-400"
+            className="w-full text-base font-medium border text-white placeholder-gray-400"
             style={{
               backgroundColor: 'oklch(0.2393 0 0)',
               borderColor: 'rgb(0, 0, 0)',
               borderRadius: '0',
-              boxShadow: 'none',
-              outline: 'none'
+              boxShadow: '2px 2px 0px 0px rgba(0,0,0,1) !important',
+              outline: 'none',
+              height: '25px'
             }}
           />
 
@@ -250,13 +258,14 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
         {/* 고급 설정 */}
         <Drawer open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
           <DrawerTrigger asChild>
-            <div className="w-full border-2 cursor-pointer transition-colors h-8 p-2 flex items-center"
+            <div className="w-full border cursor-pointer transition-colors p-2 flex items-center"
                  style={{
                    backgroundColor: 'oklch(0.2393 0 0)',
                    borderColor: 'rgb(0, 0, 0)',
                    borderRadius: '0',
                    boxShadow: 'none',
-                   outline: 'none'
+                   outline: 'none',
+                   height: '25px'
                  }}>
               <div className="flex items-center justify-between text-sm gap-2 w-full">
                 <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">

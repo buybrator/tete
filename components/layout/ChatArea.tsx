@@ -296,8 +296,8 @@ export default function ChatArea() {
         className={cn(
           "flex-1 overflow-y-scroll p-4 space-y-3",
           "[background-size:40px_40px]",
-          "[background-image:linear-gradient(to_right,#e4e4e7_1px,transparent_1px),linear-gradient(to_bottom,#e4e4e7_1px,transparent_1px)]",
-          "dark:[background-image:linear-gradient(to_right,#262626_1px,transparent_1px),linear-gradient(to_bottom,#262626_1px,transparent_1px)]",
+          "[background-image:linear-gradient(to_right,rgba(228,228,231,0.1)_1px,transparent_1px),linear-gradient(to_bottom,rgba(228,228,231,0.1)_1px,transparent_1px)]",
+          "dark:[background-image:linear-gradient(to_right,rgba(38,38,38,0.1)_1px,transparent_1px),linear-gradient(to_bottom,rgba(38,38,38,0.1)_1px,transparent_1px)]",
           "[&::-webkit-scrollbar]:w-6",
           "[&::-webkit-scrollbar]:block",
           "[&::-webkit-scrollbar-track]:bg-[#1f1f1f]",
@@ -354,8 +354,8 @@ export default function ChatArea() {
             className={cn(
               "flex-1 overflow-y-scroll p-3 space-y-2",
               "[background-size:40px_40px]",
-              "[background-image:linear-gradient(to_right,#e4e4e7_1px,transparent_1px),linear-gradient(to_bottom,#e4e4e7_1px,transparent_1px)]",
-              "dark:[background-image:linear-gradient(to_right,#262626_1px,transparent_1px),linear-gradient(to_bottom,#262626_1px,transparent_1px)]",
+              "[background-image:linear-gradient(to_right,rgba(228,228,231,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(228,228,231,0.05)_1px,transparent_1px)]",
+              "dark:[background-image:linear-gradient(to_right,rgba(38,38,38,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(38,38,38,0.05)_1px,transparent_1px)]",
               "[&::-webkit-scrollbar]:w-6",
               "[&::-webkit-scrollbar]:block",
               "[&::-webkit-scrollbar-track]:bg-[#1f1f1f]",
