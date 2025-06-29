@@ -297,13 +297,13 @@
     height: 100%;
   }
 
-  /* Mobile Layout (<1024px) - 중복 여백 계산 정리 */
+  /* Mobile Layout (<1024px) - 모든 간격을 12px로 통일 */
   .mobile-layout {
     @apply flex lg:hidden flex-col overflow-hidden bg-background;
     height: 100dvh; /* Dynamic viewport height만 사용 */
     padding: 12px;
-    /* 하단 고정 요소들을 위한 여백: mobile-putter(60px) + trade-drawer(175px) + 여백들(24px) */
-    padding-bottom: calc(60px + 175px + 24px); /* 259px */
+    /* 하단 고정 요소들을 위한 여백: mobile-putter(60px) + trade-drawer(140px) + 간격들(36px) */
+    padding-bottom: calc(60px + 140px + 36px); /* 236px */
     gap: 12px;
   }
   
@@ -323,7 +323,7 @@
   .mobile-main {
     @apply flex flex-col flex-1 min-h-0;
     gap: 12px;
-    /* 중복 여백 제거 - mobile-layout에서 이미 처리됨 */
+    /* 모든 간격을 12px로 통일 */
   }
   
   .mobile-chat-area {
@@ -333,12 +333,13 @@
   }
   
   .mobile-trade-drawer {
-    @apply bg-secondary-background border-2 border-border shadow-[var(--shadow)] fixed z-20;
-    height: 175px;
+    @apply border-2 border-border shadow-[var(--shadow)] fixed z-20;
+    background-color: oklch(0.2393 0 0);
+    height: 140px;
     border-radius: 0px;
     left: 12px;
     right: 12px;
-    bottom: calc(60px + 12px + 12px); /* mobile-putter + 여백들 */
+    bottom: 84px; /* mobile-putter(60px) + 간격(12px) + 여백(12px) = 84px */
     overflow: hidden;
     width: calc(100vw - 24px);
     max-width: calc(100vw - 24px);

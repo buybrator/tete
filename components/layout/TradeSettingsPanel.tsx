@@ -95,8 +95,8 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
 
   const PanelBody = mobile ? (
     // 모바일 버전
-    <div className="flex flex-col py-3 px-4 h-full" style={{ backgroundColor: 'oklch(0.2393 0 0)', color: 'white' }}>
-      <div className="flex flex-col justify-between h-full">
+    <div className="flex flex-col py-2 px-4 h-full" style={{ color: 'white' }}>
+      <div className="flex flex-col gap-2">
         {/* 편집 버튼과 BUY/SELL 토글 */}
         <div className="flex items-center justify-between w-full">
           <Button
@@ -132,7 +132,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
             {isEditingPresets ? ' 저장' : ' 편집'}
           </Button>
           
-          <div className="flex w-full ml-2 gap-1">
+          <div className="flex w-full ml-1 gap-1">
             <Button 
               variant={settings.mode === 'buy' ? 'default' : 'neutral'}
               className={`flex-1 font-semibold transition-all text-sm border ${
@@ -175,7 +175,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
         {/* 프리셋 버튼들 */}
         <div className="w-full">
           {isEditingPresets ? (
-            <div className="grid grid-cols-4 gap-2 w-full">
+            <div className="grid grid-cols-4 gap-1 w-full">
               {[0, 1, 2, 3].map((index) => (
                 <Input
                   key={index}
@@ -202,7 +202,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-2 w-full">
+            <div className="grid grid-cols-4 gap-1 w-full">
               {presets.map((preset) => (
                 <Badge 
                   key={preset}
@@ -237,7 +237,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
         </div>
 
         {/* 수량 입력 */}
-        <div className="w-full space-y-1">
+        <div className="w-full">
           <Input 
             placeholder={settings.mode === 'buy' ? 'Enter SOL amount' : 'Enter percentage (%)'}
             value={settings.quantity}
@@ -270,11 +270,11 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
               <div className="flex items-center justify-between text-sm gap-2 w-full">
                 <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
                   <TrendingDown className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                  <span className="font-medium text-sm truncate">{settings.slippage}%</span>
+                  <span className="font-medium text-sm truncate text-white">{settings.slippage}%</span>
                 </div>
                 <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
                   <Fuel className="h-4 w-4 text-orange-500 flex-shrink-0" />
-                  <span className="font-medium text-sm truncate">{settings.priorityFee}</span>
+                  <span className="font-medium text-sm truncate text-white">{settings.priorityFee}</span>
                 </div>
               </div>
             </div>
