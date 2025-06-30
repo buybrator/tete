@@ -1,4 +1,4 @@
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { OptimizedAvatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChatMessage } from '@/types';
@@ -14,28 +14,89 @@ interface UserProfile {
 }
 
 export default function ChatBubble({ message }: Props) {
-  const { avatar, tradeAmount, content, userAddress, nickname, timestamp, tradeType } = message;
+  const { avatar, tradeAmount, content, userAddress, nickname, tradeType } = message;
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [profileFetchTime, setProfileFetchTime] = useState<number>(Date.now());
 
   // 프로필 정보 조회
   useEffect(() => {
     const fetchProfile = async () => {
+      if (!userAddress) {
+        console.log('❌ ChatBubble: userAddress가 없음');
+        return;
+      }
+
+      setIsLoadingProfile(true);
+      console.log('🔄 ChatBubble: 프로필 조회 시작:', userAddress);
+      
       try {
-        const response = await fetch(`/api/profiles?wallet_address=${encodeURIComponent(userAddress)}`);
+        // 캐시 무효화를 위해 timestamp 추가
+        const cacheBuster = Date.now();
+        const response = await fetch(`/api/profiles?wallet_address=${encodeURIComponent(userAddress)}&_=${cacheBuster}`, {
+          cache: 'no-cache' // 브라우저 캐시도 무시
+        });
+        console.log('📡 ChatBubble: API 응답 상태:', response.status);
+        
+        if (!response.ok) {
+          console.error('❌ ChatBubble: API 응답 실패:', response.status, response.statusText);
+          return;
+        }
+
         const result = await response.json();
+        console.log('📥 ChatBubble: 프로필 API 응답:', result);
         
         if (result.success && result.profile) {
           setUserProfile(result.profile);
+          console.log('✅ ChatBubble: 프로필 로드 성공:', result.profile);
+        } else {
+          console.log('ℹ️ ChatBubble: 프로필이 없음');
+          setUserProfile(null);
         }
       } catch (error) {
-        console.error('프로필 조회 실패:', error);
+        console.error('❌ ChatBubble: 프로필 조회 중 오류:', error);
+        setUserProfile(null);
+      } finally {
+        setIsLoadingProfile(false);
       }
     };
 
-    if (userAddress) {
-      fetchProfile();
-    }
+    fetchProfile();
+  }, [userAddress, profileFetchTime]);
+
+  // 프로필 업데이트 감지를 위한 이벤트 리스너 추가
+  useEffect(() => {
+    const handleProfileUpdate = (event: CustomEvent) => {
+      const updatedWalletAddress = event.detail?.walletAddress;
+      
+      // 현재 메시지의 사용자 프로필이 업데이트된 경우 새로고침
+      if (updatedWalletAddress === userAddress) {
+        console.log('🔄 ChatBubble: 프로필 업데이트 감지, 새로고침:', userAddress);
+        setProfileFetchTime(Date.now());
+      }
+    };
+
+    // 전역 프로필 업데이트 이벤트 리스너
+    window.addEventListener('profileUpdated', handleProfileUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate as EventListener);
+    };
   }, [userAddress]);
+
+  // 디버깅용 로그
+  useEffect(() => {
+    console.log('🐞 ChatBubble 상태:', {
+      userAddress,
+      nickname,
+      avatar,
+      userProfile,
+      isLoadingProfile,
+      hasAvatarUrl: !!userProfile?.avatar_url,
+      profileAvatarUrl: userProfile?.avatar_url
+    });
+  }, [userAddress, nickname, avatar, userProfile, isLoadingProfile]);
+
   const amount = tradeAmount || '0';
   
   // 메시지 내용에서 이모지나 기타 자동 추가된 문구 제거
@@ -78,6 +139,12 @@ export default function ChatBubble({ message }: Props) {
 
   // 아바타 표시 로직 개선 (DB에서 조회한 프로필 우선 사용)
   const displayAvatar = () => {
+    console.log('🖼️ displayAvatar 호출:', {
+      userProfile: userProfile?.avatar_url,
+      messageAvatar: avatar,
+      userAddress
+    });
+
     // 1. DB에서 조회한 프로필 아바타 우선 사용
     if (userProfile?.avatar_url) {
       // emoji: 접두사가 있으면 제거
@@ -85,8 +152,11 @@ export default function ChatBubble({ message }: Props) {
         ? userProfile.avatar_url.replace('emoji:', '') 
         : userProfile.avatar_url;
       
+      console.log('✅ 프로필 아바타 사용:', profileAvatar);
+      
       // 이모지인 경우 AvatarImage로 표시하지 않음
       if (profileAvatar.length <= 2 && /[\u{1F300}-\u{1F9FF}]/u.test(profileAvatar)) {
+        console.log('🎭 프로필 아바타가 이모지임, null 반환');
         return null;
       }
       return profileAvatar;
@@ -94,11 +164,12 @@ export default function ChatBubble({ message }: Props) {
     
     // 2. 메시지에 포함된 아바타 사용 (fallback)
     if (avatar) {
-      if (avatar.length <= 2 && /[\u{1F300}-\u{1F9FF}]/u.test(avatar)) {
-        return null;
-      }
-      return avatar;
+      console.log('🔄 메시지 아바타 사용:', avatar);
+      return avatar.startsWith('emoji:') ? avatar.replace('emoji:', '') : avatar;
     }
+    
+    // 3. 기본값
+    console.log('🔄 기본 아바타 사용');
     return null;
   };
 
@@ -109,6 +180,12 @@ export default function ChatBubble({ message }: Props) {
 
   // 아바타 fallback 처리 (이모지용)
   const displayAvatarFallback = () => {
+    console.log('🔤 displayAvatarFallback 호출:', {
+      userProfile: userProfile?.avatar_url,
+      messageAvatar: avatar,
+      userAddress
+    });
+
     // 1. DB에서 조회한 프로필 아바타 우선
     if (userProfile?.avatar_url) {
       const profileAvatar = userProfile.avatar_url.startsWith('emoji:') 
@@ -116,17 +193,21 @@ export default function ChatBubble({ message }: Props) {
         : userProfile.avatar_url;
       
       if (profileAvatar.length <= 2 && /[\u{1F300}-\u{1F9FF}]/u.test(profileAvatar)) {
+        console.log('✅ 프로필 이모지 fallback 사용:', profileAvatar);
         return profileAvatar;
       }
     }
     
     // 2. 메시지 아바타 사용
     if (avatar && avatar.length <= 2 && /[\u{1F300}-\u{1F9FF}]/u.test(avatar)) {
+      console.log('🔄 메시지 이모지 fallback 사용:', avatar);
       return avatar;
     }
     
     // 3. 지갑 주소 기반 fallback
-    return userAddress ? userAddress.slice(2, 4).toUpperCase() : '?';
+    const fallback = userAddress ? userAddress.slice(2, 4).toUpperCase() : '?';
+    console.log('🔤 지갑주소 기반 fallback 사용:', fallback);
+    return fallback;
   };
   
   return (
@@ -134,52 +215,48 @@ export default function ChatBubble({ message }: Props) {
       <CardContent className="p-4 min-h-fit h-auto w-full">
         <div className="flex items-start gap-3">
           {/* 프로필 아바타 */}
-          <Avatar className="w-12 h-12 border-2 border-[oklch(0_0_0)]">
-            {displayAvatar() && (
-              <AvatarImage src={displayAvatar()!} alt={displayName} />
-            )}
-            <AvatarFallback className="text-sm font-bold bg-gray-100 text-[oklch(0%_0_0)]">
-              {displayAvatarFallback()}
-            </AvatarFallback>
-          </Avatar>
-          
-          <div className="flex flex-col gap-2 flex-1">
-            {/* 사용자 이름 */}
-            <div className="flex flex-col gap-1">
-              <h4 className="font-semibold text-[oklch(0%_0_0)] text-base">{displayName}</h4>
-              
-              {/* SOL 거래량 배지와 시간 */}
-              <div className="flex items-center justify-between">
-                {amount && amount !== '0' && (
-                  <Badge 
-                    variant="neutral"
-                    className={`w-fit text-xs font-semibold rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0 hover:translate-y-0 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-default transition-none ${
-                      tradeType === 'sell' 
-                        ? 'bg-red-100 text-red-700 border-[oklch(0_0_0)]' 
-                        : 'bg-green-100 text-green-700 border-[oklch(0_0_0)]'
-                    }`}
-                  >
-                    {tradeType === 'sell' ? 'SELL' : 'BUY'} {amount} SOL
-                  </Badge>
-                )}
-                
-                {/* 시간 표시 (시:분 형태) */}
-                {timestamp && (
-                  <span className="text-xs text-[oklch(0%_0_0)] ml-auto">
-                    {timestamp.toLocaleTimeString('ko-KR', { 
-                      hour: '2-digit', 
-                      minute: '2-digit',
-                      hour12: false 
-                    })}
-                  </span>
-                )}
+          <div className="relative">
+            <OptimizedAvatar
+              src={displayAvatar()}
+              fallback={displayAvatarFallback()}
+              alt={displayName}
+              className="w-12 h-12 border-2 border-[oklch(0_0_0)]"
+              priority={true}
+            />
+            {/* 로딩 인디케이터 */}
+            {isLoadingProfile && (
+              <div className="absolute inset-0 bg-black bg-opacity-20 rounded flex items-center justify-center">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               </div>
+            )}
+          </div>
+          
+          <div className="flex flex-col justify-between flex-1 h-12">
+            {/* 사용자 이름 */}
+            <div className="flex items-center gap-2">
+              <h4 className="font-semibold text-[oklch(0%_0_0)] text-base">
+                {displayName}
+                {isLoadingProfile && <span className="text-xs opacity-50"> (로딩중...)</span>}
+              </h4>
+              {amount && amount !== '0' && (
+                <Badge 
+                  variant="neutral"
+                  className={`w-fit h-5 px-2 py-0 text-xs font-semibold rounded-none border cursor-default transition-none flex items-center ${
+                    tradeType === 'sell' 
+                      ? 'bg-red-100 text-red-700 border-[oklch(0_0_0)]' 
+                      : 'bg-green-100 text-green-700 border-[oklch(0_0_0)]'
+                  }`}
+                  style={{ boxShadow: 'none' }}
+                >
+                  {tradeType === 'sell' ? 'SELL' : 'BUY'} {amount} SOL
+                </Badge>
+              )}
             </div>
             
             {/* 실제 사용자 입력 텍스트만 표시 */}
             {cleanContent(content) && (
-              <div className="mt-2 w-full overflow-hidden">
-                <p className="text-sm text-[oklch(0%_0_0)] leading-relaxed break-all min-h-fit max-w-full" style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}>
+              <div className="w-full overflow-hidden">
+                <p className="text-sm text-[oklch(0%_0_0)] leading-tight break-all line-clamp-1" style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}>
                   {cleanContent(content)}
                 </p>
               </div>

@@ -12,6 +12,15 @@ CREATE TABLE IF NOT EXISTS chat_rooms (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 사용자 프로필 테이블
+CREATE TABLE IF NOT EXISTS profiles (
+    wallet_address VARCHAR(255) PRIMARY KEY,
+    nickname VARCHAR(255),
+    avatar_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 토큰 가격 히스토리 테이블 (48개 포인트까지 저장)
 CREATE TABLE IF NOT EXISTS token_price_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

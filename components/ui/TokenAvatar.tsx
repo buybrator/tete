@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { fetchTokenMetadataWithRetry } from '@/lib/tokenMetadata';
+import { ImageCacheManager } from '@/lib/utils';
 
 interface TokenAvatarProps {
   tokenAddress: string;
@@ -57,40 +58,44 @@ export default function TokenAvatar({
     // 채팅방에서 이미지 URL이 제공되고 유효한 HTTP URL인 경우 메타데이터 조회 건너뜀
     if (imageUrl && imageUrl.startsWith('http') && !fallbackActive) {
       console.log(`✅ 채팅방 이미지 URL 사용 (Metaplex 건너뜀): ${imageUrl}`);
+      // 이미지 프리로딩
+      ImageCacheManager.preload(imageUrl);
       return;
     }
 
     const fetchMetaplexMetadata = async () => {
       try {
-        console.log(`🔍 Metaplex 토큰 메타데이터 조회 시작: ${tokenAddress}`);
-        const metadata = await fetchTokenMetadataWithRetry(tokenAddress, 2);
-        
-        if (metadata && metadata.image) {
-          console.log(`✅ Metaplex 메타데이터 조회 성공:`, metadata);
-          setMetaplexMetadata(metadata);
-          return; // Metaplex에서 성공하면 Jupiter 호출 안함
-        } else {
-          console.log(`⚠️ Metaplex에서 이미지 없음, Jupiter 시도: ${tokenAddress}`);
-        }
-      } catch (error) {
-        console.warn(`⚠️ Metaplex 조회 실패, Jupiter 시도:`, error);
-      }
+        // Metaplex와 Jupiter를 병렬로 조회
+        const [metaplexResult, jupiterResult] = await Promise.allSettled([
+          // Metaplex 조회
+          fetchTokenMetadataWithRetry(tokenAddress, 2),
+          // Jupiter Token List 조회
+          fetch('https://token.jup.ag/strict').then(res => res.json())
+        ]);
 
-      // Metaplex 실패 시 Jupiter Token List 시도 (fallback)
-      try {
-        console.log(`🪙 Jupiter Token List에서 토큰 메타데이터 조회 시작: ${tokenAddress}`);
-        const response = await fetch('https://token.jup.ag/strict');
-        const tokens = await response.json();
-        
-        const token = tokens.find((t: JupiterTokenMetadata) => t.address === tokenAddress);
-        if (token) {
-          console.log(`✅ Jupiter 토큰 메타데이터 발견:`, token);
-          setJupiterMetadata(token);
-        } else {
-          console.log(`❌ Jupiter Token List에서 토큰 메타데이터 없음: ${tokenAddress}`);
+        // Metaplex 결과 처리
+        if (metaplexResult.status === 'fulfilled' && metaplexResult.value?.image) {
+          console.log(`✅ Metaplex 메타데이터 조회 성공:`, metaplexResult.value);
+          setMetaplexMetadata(metaplexResult.value);
+          // 이미지 프리로딩
+          ImageCacheManager.preload(metaplexResult.value.image);
+        }
+
+        // Jupiter 결과 처리
+        if (jupiterResult.status === 'fulfilled') {
+          const tokens = jupiterResult.value;
+          const token = tokens.find((t: JupiterTokenMetadata) => t.address === tokenAddress);
+          if (token) {
+            console.log(`✅ Jupiter 토큰 메타데이터 발견:`, token);
+            setJupiterMetadata(token);
+            // 이미지 프리로딩
+            if (token.logoURI) {
+              ImageCacheManager.preload(token.logoURI);
+            }
+          }
         }
       } catch (error) {
-        console.log('❌ Jupiter Token List 조회 실패:', error);
+        console.error('❌ 메타데이터 조회 실패:', error);
       }
     };
 

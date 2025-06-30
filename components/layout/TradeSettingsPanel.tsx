@@ -31,26 +31,13 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
   const [presetSlippage, setPresetSlippage] = useState('30');
   const [presetPriority, setPresetPriority] = useState('0.0001');
 
-  // 현재 토큰 주소 상태 (채팅방별 토큰)
-  const [currentTokenAddress, setCurrentTokenAddress] = useState<string>('So11111111111111111111111111111111111111112'); // SOL 기본값
-  const [currentTokenName, setCurrentTokenName] = useState<string>('SOL');
-
-
-
-  // 채팅방 토큰 변경 이벤트 처리
-  useEffect(() => {
-    const handleTokenPairChanged = (event: CustomEvent) => {
-      const { contractAddress, tokenName } = event.detail;
-      if (contractAddress && contractAddress !== currentTokenAddress) {
-        setCurrentTokenAddress(contractAddress);
-        setCurrentTokenName(tokenName || '토큰');
-        console.log('트레이드 패널: 토큰 변경됨', { contractAddress, tokenName });
-      }
-    };
-
-    window.addEventListener('tokenPairChanged', handleTokenPairChanged as EventListener);
-    return () => window.removeEventListener('tokenPairChanged', handleTokenPairChanged as EventListener);
-  }, [currentTokenAddress]);
+  // TradeSettingsContext에서 현재 선택된 토큰 정보 가져오기
+  const currentTokenAddress = settings.selectedToken?.contractAddress || 'So11111111111111111111111111111111111111112'; // SOL 기본값
+  const currentTokenName = settings.selectedToken?.name || 'SOL';
+  
+  // 디버깅용 로그
+  console.log('🎯 TradeSettingsPanel - settings.selectedToken:', settings.selectedToken);
+  console.log('🎯 TradeSettingsPanel - currentTokenAddress:', currentTokenAddress);
 
   // PC 버전 프리셋 설정값들을 TradeSettingsContext에 동기화
   useEffect(() => {
@@ -95,7 +82,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
 
   const PanelBody = mobile ? (
     // 모바일 버전
-    <div className="flex flex-col py-2 px-4 h-full" style={{ color: 'white' }}>
+    <div className="flex flex-col py-2 px-4" style={{ color: 'white', boxShadow: 'none' }}>
       <div className="flex flex-col gap-2">
         {/* 편집 버튼과 BUY/SELL 토글 */}
         <div className="flex items-center justify-between w-full">
@@ -252,7 +239,6 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
               height: '25px'
             }}
           />
-
         </div>
 
         {/* 고급 설정 */}
@@ -505,15 +491,16 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
         </div>
 
         {/* 채팅방별 토큰 가격 차트 */}
-        <div className="">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-300">
-                {currentTokenName} ({currentTokenAddress ? `${currentTokenAddress.slice(0, 4)}...${currentTokenAddress.slice(-4)}` : 'N/A'})
-              </span>
-            </div>
+        <div className="border-2 border-black p-4 w-full" style={{ width: '264px', height: '256px', backgroundColor: 'oklch(0.2393 0 0)' }}>
+          {/* 토큰명 */}
+          <div className="mb-4">
+            <span className="text-sm font-medium text-white">
+              {currentTokenName} ({currentTokenAddress ? `${currentTokenAddress.slice(0, 4)}...${currentTokenAddress.slice(-4)}` : 'N/A'})
+            </span>
           </div>
-          <div className="h-20 w-full">
+          
+          {/* 차트 */}
+          <div className="h-28 w-full">
             <TokenChart 
               tokenAddress={currentTokenAddress}
               className="w-full h-full"

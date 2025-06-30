@@ -62,6 +62,7 @@ function MobileWalletProfile() {
   const [tempNickname, setTempNickname] = useState('');
   const [tempAvatar, setTempAvatar] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // 기본 아바타 배열
   const DEFAULT_AVATARS = ['👤', '🧑', '👩', '🤵', '👩‍💼', '🧑‍💼', '👨‍💼', '🧙‍♂️', '🧙‍♀️', '🥷'];
@@ -130,33 +131,51 @@ function MobileWalletProfile() {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const imageUrl = event.target?.result as string;
-        console.log('📱 모바일 이미지 업로드 완료:', imageUrl.substring(0, 50) + '...');
-        console.log('📱 모바일 setTempAvatar 호출 전 - 현재 tempAvatar:', tempAvatar);
-        setTempAvatar(imageUrl);
-        console.log('📱 모바일 setTempAvatar 호출 완료 - 새로운 값:', imageUrl.substring(0, 50) + '...');
+      // Supabase Storage에 업로드
+      handleSupabaseUpload(file);
+      
+      // 파일 입력 초기화 (같은 파일을 다시 선택할 수 있도록)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleSupabaseUpload = async (file: File) => {
+    if (!address) return;
+    
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('wallet_address', address);
+
+      const response = await fetch('/api/profiles/upload-avatar', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setTempAvatar(result.avatar_url);
+        console.log('✅ 모바일 이미지 업로드 완료:', result.avatar_url);
         
-        // 강제로 리렌더링 트리거 (개발 중 디버깅용)
-        setTimeout(() => {
-          console.log('📱 모바일 1초 후 tempAvatar 상태:', tempAvatar);
-        }, 1000);
-        
-        // 파일 입력 초기화 (같은 파일을 다시 선택할 수 있도록)
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      };
-      reader.onerror = (error) => {
-        console.error('📱 모바일 이미지 읽기 오류:', error);
-        alert('이미지를 읽는 중 오류가 발생했습니다.');
-        // 파일 입력 초기화
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      };
-      reader.readAsDataURL(file);
+        // 업로드 후 즉시 프로필 업데이트
+        await updateProfile({
+          nickname: tempNickname,
+          avatar: result.avatar_url
+        });
+        console.log('✅ 모바일 프로필 자동 업데이트 완료');
+      } else {
+        console.error('❌ 모바일 이미지 업로드 실패:', result.error);
+        alert('이미지 업로드에 실패했습니다: ' + result.error);
+      }
+    } catch (error) {
+      console.error('❌ 모바일 이미지 업로드 오류:', error);
+      alert('이미지 업로드 중 오류가 발생했습니다.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -183,6 +202,27 @@ function MobileWalletProfile() {
   const formatBalance = (balance: number | null) => {
     if (balance === null) return 'N/A';
     return `${balance.toFixed(4)} SOL`;
+  };
+
+  // 안전한 아바타 fallback 함수
+  const getDisplayAvatarFallback = () => {
+    // 이모지인지 확인 (길이가 2 이하이고 유니코드 이모지 범위)
+    if (avatar && avatar.length <= 2 && /[\u{1F300}-\u{1F9FF}]/u.test(avatar)) {
+      return avatar;
+    }
+    
+    // 닉네임이 있으면 첫 글자 사용
+    if (nickname && nickname.trim()) {
+      return nickname.charAt(0).toUpperCase();
+    }
+    
+    // 지갑 주소 기반 fallback
+    if (address) {
+      return address.slice(2, 4).toUpperCase();
+    }
+    
+    // 기본 아바타
+    return '👤';
   };
 
   // 지갑이 연결되지 않은 경우
@@ -228,7 +268,7 @@ function MobileWalletProfile() {
                 />
               ) : (
                 <AvatarFallback className="text-xs bg-white text-black">
-                  {avatar}
+                  {getDisplayAvatarFallback()}
                 </AvatarFallback>
               )}
             </Avatar>
@@ -330,8 +370,12 @@ function MobileWalletProfile() {
                 </div>
               </div>
               
-              <div className="text-xs text-gray-300 flex-1">
-                클릭하여 이미지를 업로드하세요
+              <div className="text-xs text-gray-300">
+                {isUploading ? (
+                  <span className="text-blue-400">업로드 중...</span>
+                ) : (
+                  '클릭하여 이미지 업로드'
+                )}
               </div>
             </div>
 

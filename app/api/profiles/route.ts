@@ -56,6 +56,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       profile
+    }, {
+      headers: {
+        // 프로필 데이터를 5분간 캐시
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=60'
+      }
     });
 
   } catch (error) {

@@ -63,6 +63,10 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
   // SOL 토큰 주소 (기본값)
   const SOL_MINT = 'So11111111111111111111111111111111111111112';
   const targetToken = tokenAddress || SOL_MINT;
+  
+  // 디버깅을 위한 로그
+  console.log('🎯 TokenChart props:', { tokenAddress, targetToken });
+  console.log('🎯 TokenChart - tokenAddress 타입:', typeof tokenAddress, 'length:', tokenAddress?.length);
 
   // DB에서 가격 데이터 가져오기 (실제 데이터만) - 차트용
   const fetchPriceData = async () => {
@@ -191,8 +195,15 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
       
       setIsLoading(true);
       
-      // 먼저 빈 상태로 초기화
+      // 먼저 빈 상태로 초기화 (토큰 변경 시 이전 데이터 제거)
       handleApiFailure();
+      
+      // tokenAddress가 기본값(SOL)이고 실제로는 다른 토큰을 기다리는 중이라면 로딩만 표시
+      if (!tokenAddress || targetToken === 'So11111111111111111111111111111111111111112') {
+        console.log('⏳ 토큰 주소 대기 중 (기본값 SOL), 데이터 로드 스킵');
+        setIsLoading(false);
+        return;
+      }
       
       // 🔧 백그라운드 수집기 상태 확인 및 시작
       await checkAndStartBackgroundCollector();
@@ -273,7 +284,7 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
         clearInterval(priceUpdateIntervalRef.current);
       }
     };
-  }, [targetToken]);
+  }, [targetToken, tokenAddress]); // tokenAddress도 의존성에 추가
 
   // 차트 Y축 도메인 계산 (데이터가 적을 때 전체 Y축 확장)
   const getYAxisDomain = () => {
@@ -346,23 +357,23 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
   };
 
   return (
-    <div className={`bg-white rounded-lg px-3 pt-3 pb-[90px] ${className}`}>
+    <div className={`rounded-lg px-3 pt-3 ${className}`} style={{ backgroundColor: 'oklch(0.2393 0 0)' }}>
       {/* 가격 정보 - 실시간 업데이트 */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-gray-900">
-            {historyCount > 0 ? `$${currentPrice.toFixed(6)}` : '--'}
+          <span className="text-lg font-bold text-white">
+            {historyCount > 0 && tokenAddress && targetToken !== 'So11111111111111111111111111111111111111112' ? `$${currentPrice.toFixed(6)}` : '--'}
           </span>
           <span className={`text-sm font-medium ${
-            historyCount > 0 ? (isPositive ? 'text-green-600' : 'text-red-600') : 'text-gray-400'
+            historyCount > 0 && tokenAddress && targetToken !== 'So11111111111111111111111111111111111111112' ? (isPositive ? 'text-green-400' : 'text-red-400') : 'text-gray-400'
           }`}>
-            {historyCount > 0 ? `${isPositive ? '+' : ''}${priceChange.toFixed(2)}%` : '--'}
+            {historyCount > 0 && tokenAddress && targetToken !== 'So11111111111111111111111111111111111111112' ? `${isPositive ? '+' : ''}${priceChange.toFixed(2)}%` : '--'}
           </span>
         </div>
       </div>
 
       {/* Recharts 차트 (실제 DB 데이터만) */}
-      {chartData.length > 0 && !isLoading && historyCount > 0 && lastUpdated ? (
+      {chartData.length > 0 && !isLoading && historyCount > 0 && lastUpdated && tokenAddress && targetToken !== 'So11111111111111111111111111111111111111112' ? (
         <div className="h-32 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
@@ -371,11 +382,11 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
             >
               <XAxis 
                 dataKey="time"
-                hide={false}
+                hide={true}
                 type="category"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 10, fill: '#666' }}
+                tick={false}
                 interval={chartData.length <= 2 ? 0 : "preserveStartEnd"}
               />
               <YAxis 
@@ -385,10 +396,10 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
               <Line 
                 type="monotone" 
                 dataKey="open" 
-                stroke="#2563eb" 
+                stroke="oklch(0.75 0.183 55.934)" 
                 strokeWidth={chartData.length <= 2 ? 3 : 2}
-                dot={chartData.length <= 2 ? { r: 6, stroke: '#2563eb', strokeWidth: 2, fill: '#ffffff' } : false}
-                activeDot={{ r: 4, stroke: '#2563eb', strokeWidth: 2, fill: '#ffffff' }}
+                dot={chartData.length <= 2 ? { r: 6, stroke: 'oklch(0.75 0.183 55.934)', strokeWidth: 2, fill: '#ffffff' } : false}
+                activeDot={{ r: 4, stroke: 'oklch(0.75 0.183 55.934)', strokeWidth: 2, fill: '#ffffff' }}
                 connectNulls={false}
               />
               <Tooltip

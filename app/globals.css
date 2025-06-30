@@ -302,8 +302,8 @@
     @apply flex lg:hidden flex-col overflow-hidden bg-background;
     height: 100dvh; /* Dynamic viewport height만 사용 */
     padding: 12px;
-    /* 하단 고정 요소들을 위한 여백: mobile-putter(60px) + trade-drawer(140px) + 간격들(36px) */
-    padding-bottom: calc(60px + 140px + 36px); /* 236px */
+    /* 하단 고정 요소들을 위한 여백: mobile-putter(60px) + trade-drawer(144px) + 간격들(36px) */
+    padding-bottom: calc(60px + 144px + 36px); /* 240px */
     gap: 12px;
   }
   
@@ -333,9 +333,9 @@
   }
   
   .mobile-trade-drawer {
-    @apply border-2 border-border shadow-[var(--shadow)] fixed z-20;
+    @apply border-2 border-border fixed z-20;
     background-color: oklch(0.2393 0 0);
-    height: 140px;
+    height: 144px;
     border-radius: 0px;
     left: 12px;
     right: 12px;
@@ -344,6 +344,7 @@
     width: calc(100vw - 24px);
     max-width: calc(100vw - 24px);
     box-sizing: border-box;
+    box-shadow: 4px 4px 0px 0px rgba(0,0,0,1); /* 4px 그림자 효과 */
   }
   
   .mobile-putter {

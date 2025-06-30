@@ -231,7 +231,7 @@ function ChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
 }
 
 // 지갑 프로필 컴포넌트
-function WalletProfile() {
+function WalletProfile(): React.ReactElement {
   const { 
     isConnected, 
     address, 
@@ -299,6 +299,13 @@ function WalletProfile() {
       if (result.success) {
         setTempAvatar(result.avatar_url);
         console.log('✅ 이미지 업로드 완료:', result.avatar_url);
+        
+        // 업로드 후 즉시 프로필 업데이트
+        await updateProfile({
+          nickname: tempNickname,
+          avatar: result.avatar_url
+        });
+        console.log('✅ 프로필 자동 업데이트 완료');
       } else {
         console.error('❌ 이미지 업로드 실패:', result.error);
         alert('이미지 업로드에 실패했습니다: ' + result.error);
@@ -311,10 +318,25 @@ function WalletProfile() {
     }
   };
 
-  // 현재 표시할 아바타 결정
-  const displayAvatar = () => {
-    if (!avatar) return DEFAULT_AVATARS[0];
-    return avatar; // useWallet에서 이미 emoji: 접두사를 제거했으므로 그대로 사용
+  // 안전한 아바타 fallback 함수
+  const getDisplayAvatarFallback = () => {
+    // 이모지인지 확인 (길이가 2 이하이고 유니코드 이모지 범위)
+    if (avatar && avatar.length <= 2 && /[\u{1F300}-\u{1F9FF}]/u.test(avatar)) {
+      return avatar;
+    }
+    
+    // 닉네임이 있으면 첫 글자 사용
+    if (nickname && nickname.trim()) {
+      return nickname.charAt(0).toUpperCase();
+    }
+    
+    // 지갑 주소 기반 fallback (null 체크 추가)
+    if (address && address.length > 3) {
+      return address.slice(2, 4).toUpperCase();
+    }
+    
+    // 기본 아바타
+    return '👤';
   };
 
   // 지갑이 연결되지 않은 경우
@@ -390,7 +412,7 @@ function WalletProfile() {
                 className="flex items-center justify-center bg-white text-black font-bold text-sm w-full h-full"
                 style={{ borderRadius: '0px' }}
               >
-                {displayAvatar()}
+                {getDisplayAvatarFallback()}
               </div>
             )}
           </div>
@@ -501,7 +523,7 @@ function WalletProfile() {
           </div>
 
           {/* 저장된 프로필 상태 */}
-          {profile && profile.updated_at && (
+          {profile?.updated_at && (
             <div className="text-xs text-gray-500 border-l-2 border-blue-200 pl-2">
               💾 마지막 저장: {new Date(profile.updated_at).toLocaleString('ko-KR')}
             </div>

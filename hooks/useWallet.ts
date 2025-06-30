@@ -5,6 +5,7 @@ import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { ImageCacheManager } from '@/lib/utils';
 
 export const DEFAULT_AVATARS = ['👤', '🧑', '👩', '🤵', '👩‍💼', '🧑‍💼', '👨‍💼', '🧙‍♂️', '🧙‍♀️', '🥷'];
 
@@ -98,6 +99,13 @@ export function useWallet() {
         if (result.profile) {
           setProfile(result.profile);
           console.log('✅ 기존 프로필 로드 성공:', result.profile);
+          
+          // 프로필 이미지 프리로딩
+          if (result.profile.avatar_url && 
+              (result.profile.avatar_url.startsWith('http') || 
+               result.profile.avatar_url.startsWith('data:'))) {
+            ImageCacheManager.preload(result.profile.avatar_url);
+          }
         } else {
           console.log('📝 프로필이 없어서 새로 생성');
           // 프로필이 없으면 새로 생성
@@ -178,6 +186,16 @@ export function useWallet() {
       if (result.success) {
         setProfile(result.profile);
         console.log('✅ 프로필 업데이트 성공');
+        
+        // 전역 프로필 업데이트 이벤트 발생
+        const profileUpdateEvent = new CustomEvent('profileUpdated', {
+          detail: {
+            walletAddress: address,
+            profile: result.profile
+          }
+        });
+        window.dispatchEvent(profileUpdateEvent);
+        console.log('📢 프로필 업데이트 이벤트 발생:', address);
       }
     } catch (error) {
       console.error('❌ 프로필 업데이트 실패:', error);

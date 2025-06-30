@@ -212,19 +212,22 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string | null
-          nickname: string
+          nickname: string | null
+          avatar_url: string | null
           updated_at: string | null
           wallet_address: string
         }
         Insert: {
           created_at?: string | null
-          nickname: string
+          nickname?: string | null
+          avatar_url?: string | null
           updated_at?: string | null
           wallet_address: string
         }
         Update: {
           created_at?: string | null
-          nickname?: string
+          nickname?: string | null
+          avatar_url?: string | null
           updated_at?: string | null
           wallet_address?: string
         }
