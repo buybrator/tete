@@ -1,16 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChatMessage } from '@/types';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { supabase, supabaseAdmin, MessageCache } from '@/lib/supabase';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase';
 
 const DEFAULT_AVATARS = [
   '🦊', '🐸', '🐱', '🐶', '🦁', '🐯', '🐨', '🐼'
 ];
 
-
+// 🎯 메시지 캐시 최적화 설정
+const MAX_MESSAGES_PER_ROOM = 500; // 방당 최대 메시지 수
+const CACHE_CLEANUP_INTERVAL = 5 * 60 * 1000; // 5분마다 정리
+const MESSAGE_RETENTION_TIME = 24 * 60 * 60 * 1000; // 24시간 보관
 
 // 🚀 토큰 주소 매핑 (기존 UI 호환성 + 동적 CA 지원)
 const ROOM_TOKEN_MAPPING: Record<string, string> = {
@@ -78,8 +82,6 @@ function formatMessageFromSupabase(dbMessage: MessageCache, roomId: string): Cha
     txHash: dbMessage.signature,
   };
 }
-
-
 
 // Supabase에서 메시지 가져오기 (프로필은 ChatBubble에서 개별 조회)
 async function fetchMessagesFromSupabase(roomId: string): Promise<ChatMessage[]> {
@@ -318,4 +320,14 @@ export const useChatMessages = (roomId: string) => {
       console.log(`🔍 트랜잭션 메모 (Supabase 실시간): ${signature.slice(0, 8)}...`),
     checkMyTransactions,
   };
-}; 
+};
+
+// 전역 정리 함수 (앱 종료 시 호출)
+export function cleanupChatMessages() {
+  globalMessages = [];
+  messageListeners.clear();
+  if (realtimeChannel) {
+    realtimeChannel.unsubscribe();
+    realtimeChannel = null;
+  }
+} 
