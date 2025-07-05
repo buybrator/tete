@@ -171,8 +171,7 @@ function formatMessageFromSupabase(messageData: MessageCache, roomId: string): C
     timestamp: new Date(messageData.block_time),
     roomId: roomId,
     tradeType: messageData.message_type as 'buy' | 'sell',
-    amount: messageData.quantity?.toString() || '',
-    price: messageData.price || 0,
+    tradeAmount: messageData.quantity?.toString() || '',
     txHash: messageData.signature,
     nickname: `${messageData.sender_wallet.slice(0, 4)}...${messageData.sender_wallet.slice(-4)}`,
     avatar: '🚀'
@@ -231,9 +230,12 @@ const realtimeManager = new RealtimeSubscriptionManager();
 export function useChatMessagesOptimized(roomId?: string) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [updateCounter, setUpdateCounter] = useState(0);
+  const [, forceUpdate] = useState({});
   
-  const forceUpdate = useCallback(() => setUpdateCounter(prev => prev + 1), []);
+  const triggerUpdate = useCallback(() => {
+    forceUpdate({});
+  }, []);
+  
   const messages = roomId ? messageCacheManager.getMessages(roomId) : [];
 
   const loadMessages = useCallback(async (targetRoomId: string) => {
@@ -271,7 +273,7 @@ export function useChatMessagesOptimized(roomId?: string) {
   useEffect(() => {
     if (!roomId) return;
 
-    const removeListener = messageCacheManager.addListener(roomId, forceUpdate);
+    const removeListener = messageCacheManager.addListener(roomId, triggerUpdate);
     
     realtimeManager.subscribe(roomId, (newMessage) => {
       messageCacheManager.addMessage(roomId, newMessage);
@@ -285,7 +287,7 @@ export function useChatMessagesOptimized(roomId?: string) {
       removeListener();
       realtimeManager.unsubscribe(roomId);
     };
-  }, [roomId, loadMessages, forceUpdate]);
+  }, [roomId, loadMessages, triggerUpdate]);
 
   return {
     messages,
