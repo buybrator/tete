@@ -75,17 +75,11 @@ export async function fetchTokenMetadata(
     // URI에서 JSON 메타데이터 조회
     if (!metadata.uri) {
       console.log(`❌ URI 필드가 비어있음: ${tokenAddress}`);
-      throw new TokenMetadataError(
-        'Metadata URI is empty',
-        tokenAddress,
-        'uri'
-      );
+      return null;
     }
 
     console.log(`🌐 JSON 메타데이터 조회: ${metadata.uri}`);
-    // 🚀 CORS 문제 해결을 위해 프록시 API 사용
-    const proxyUrl = `/api/token-metadata?uri=${encodeURIComponent(metadata.uri)}`;
-    const response = await fetch(proxyUrl);
+    const response = await fetch(metadata.uri);
     
     if (!response.ok) {
       throw new TokenMetadataError(
@@ -206,6 +200,12 @@ export async function fetchTokenMetadataWithRetry(
       console.log(`🔄 토큰 메타데이터 조회 시도 ${attempt}/${maxRetries}: ${tokenAddress}`);
       
       const result = await fetchTokenMetadata(tokenAddress);
+      // null이 반환되면 메타데이터가 없는 것으로 간주하고 즉시 반환
+      if (result === null) {
+        console.log(`ℹ️  토큰 메타데이터 없음: ${tokenAddress}`);
+        return null;
+      }
+      
       if (result) {
         console.log(`✅ 토큰 메타데이터 조회 성공 (시도 ${attempt}): ${tokenAddress}`);
         return result;

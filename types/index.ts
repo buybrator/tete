@@ -44,8 +44,6 @@ export interface ChatMessage {
   content: string;
   tradeType: 'buy' | 'sell';
   tradeAmount?: string;
-  amount?: string; // 거래 금액 (호환성을 위해 추가)
-  price?: number; // 토큰 가격 (호환성을 위해 추가)
   txHash?: string;
   timestamp: Date;
 }

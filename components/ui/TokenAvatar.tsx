@@ -79,6 +79,10 @@ export default function TokenAvatar({
           setMetaplexMetadata(metaplexResult.value);
           // 이미지 프리로딩
           ImageCacheManager.preload(metaplexResult.value.image);
+        } else if (metaplexResult.status === 'fulfilled' && metaplexResult.value === null) {
+          console.log(`ℹ️  Metaplex 메타데이터 없음: ${tokenAddress}`);
+        } else if (metaplexResult.status === 'rejected') {
+          console.warn(`⚠️  Metaplex 메타데이터 조회 실패:`, metaplexResult.reason);
         }
 
         // Jupiter 결과 처리
@@ -107,7 +111,16 @@ export default function TokenAvatar({
   // Jupiter Pro 스타일의 이미지 URL 생성
   const getOptimizedImageUrl = (originalUrl: string) => {
     const imageSize = iconSizes[size];
-    return `https://wsrv.nl/?w=${imageSize}&h=${imageSize}&url=${encodeURIComponent(originalUrl)}&dpr=2&quality=80`;
+    // 확장자가 없는 URL인 경우 기본 이미지 형식 지정
+    const hasExtension = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(originalUrl);
+    const optimizedUrl = `https://wsrv.nl/?w=${imageSize}&h=${imageSize}&url=${encodeURIComponent(originalUrl)}&dpr=2&quality=80`;
+    
+    // 확장자가 없는 경우 output 형식 지정
+    if (!hasExtension) {
+      return `${optimizedUrl}&output=png`;
+    }
+    
+    return optimizedUrl;
   };
 
   // 다중 이미지 소스 생성 (우선순위 순)
@@ -118,7 +131,9 @@ export default function TokenAvatar({
     if (imageUrl && !fallbackActive) {
       // URL인지 이모지인지 확인
       if (imageUrl.startsWith('http') || imageUrl.startsWith('//')) {
+        // 최적화된 URL과 원본 URL 모두 추가
         sources.push(getOptimizedImageUrl(imageUrl));
+        sources.push(imageUrl); // 원본 URL도 fallback으로 추가
         console.log(`🎯 채팅방 이미지 URL 사용: ${imageUrl}`);
       } else {
         // 이모지나 기타 텍스트인 경우 fallback 활성화
@@ -130,13 +145,17 @@ export default function TokenAvatar({
     
     // 2. Metaplex 메타데이터의 이미지 URL (우선순위 2)
     if ((fallbackActive || !imageUrl || !imageUrl.startsWith('http')) && metaplexMetadata?.image) {
+      // 최적화된 URL과 원본 URL 모두 추가
       sources.push(getOptimizedImageUrl(metaplexMetadata.image));
+      sources.push(metaplexMetadata.image); // 원본 URL도 fallback으로 추가
       console.log(`🎯 Metaplex 이미지 URL 사용: ${metaplexMetadata.image}`);
     }
     
     // 3. Jupiter Token List의 logoURI (우선순위 3)
     if ((fallbackActive || !imageUrl || !imageUrl.startsWith('http')) && jupiterMetadata?.logoURI) {
+      // 최적화된 URL과 원본 URL 모두 추가
       sources.push(getOptimizedImageUrl(jupiterMetadata.logoURI));
+      sources.push(jupiterMetadata.logoURI); // 원본 URL도 fallback으로 추가
       console.log(`🪙 Jupiter 이미지 URL 사용: ${jupiterMetadata.logoURI}`);
     }
     
@@ -144,12 +163,21 @@ export default function TokenAvatar({
     if (fallbackActive || !imageUrl || !imageUrl.startsWith('http')) {
       const jupiterStaticUrl = `https://static.jup.ag/images/${tokenAddress}.png`;
       sources.push(getOptimizedImageUrl(jupiterStaticUrl));
+      sources.push(jupiterStaticUrl); // 원본 URL도 추가
     }
     
-    // 5. Solana Token List (GitHub) (우선순위 5)
+    // 5. Jupiter Create Static Images (확장자 없는 URL 직접 시도)
+    if (fallbackActive || !imageUrl || !imageUrl.startsWith('http')) {
+      const jupiterCreateStaticUrl = `https://static-create.jup.ag/images/${tokenAddress}`;
+      sources.push(getOptimizedImageUrl(jupiterCreateStaticUrl));
+      sources.push(jupiterCreateStaticUrl); // 원본 URL도 추가
+    }
+    
+    // 6. Solana Token List (GitHub) (우선순위 6)
     if (fallbackActive || !imageUrl || !imageUrl.startsWith('http')) {
       const solanaTokenListUrl = `https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/${tokenAddress}/logo.png`;
       sources.push(getOptimizedImageUrl(solanaTokenListUrl));
+      sources.push(solanaTokenListUrl); // 원본 URL도 추가
     }
     
     console.log(`🔗 이미지 소스 리스트:`, sources);

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { useChatMessages, addMessage } from '@/hooks/useChatMessages';
-import { useMemo as useMemoHook } from '@/hooks/useMemo';
+import { useMemo } from '@/hooks/useMemo';
 import { useTradeSettings } from '@/contexts/TradeSettingsContext';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Loader2 } from 'lucide-react';
@@ -53,7 +53,7 @@ export default function ChatInput({ roomId }: Props) {
     sendChatMessage,
     error,
     clearError,
-  } = useMemoHook();
+  } = useMemo();
 
   // Solana 연결 설정
   const connection = new Connection(

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useMemo as useMemoHook } from '@/hooks/useMemo';
+import { useMemo } from '@/hooks/useMemo';
 import { SUPPORTED_PROTOCOLS, SupportedProtocol, MessageType } from '@/lib/memo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +27,7 @@ export default function TestMemoPage() {
     formatMessage,
     isReady,
     clearError,
-  } = useMemoHook();
+  } = useMemo();
 
   // 상태 관리
   const [chatMessage, setChatMessage] = useState('안녕하세요! TradeChat에서 첫 메시지입니다 🚀');
