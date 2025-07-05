@@ -123,6 +123,11 @@ export default function TokenAvatar({
     return optimizedUrl;
   };
 
+  // CORS 문제가 있는 URL을 위한 프록시 URL 생성
+  const getProxiedImageUrl = (originalUrl: string) => {
+    return `/api/image-proxy?url=${encodeURIComponent(originalUrl)}`;
+  };
+
   // 다중 이미지 소스 생성 (우선순위 순)
   const getImageSources = () => {
     const sources: string[] = [];
@@ -131,8 +136,9 @@ export default function TokenAvatar({
     if (imageUrl && !fallbackActive) {
       // URL인지 이모지인지 확인
       if (imageUrl.startsWith('http') || imageUrl.startsWith('//')) {
-        // 최적화된 URL과 원본 URL 모두 추가
+        // 최적화된 URL, 프록시 URL, 원본 URL 순으로 추가
         sources.push(getOptimizedImageUrl(imageUrl));
+        sources.push(getProxiedImageUrl(imageUrl));
         sources.push(imageUrl); // 원본 URL도 fallback으로 추가
         console.log(`🎯 채팅방 이미지 URL 사용: ${imageUrl}`);
       } else {
@@ -145,16 +151,18 @@ export default function TokenAvatar({
     
     // 2. Metaplex 메타데이터의 이미지 URL (우선순위 2)
     if ((fallbackActive || !imageUrl || !imageUrl.startsWith('http')) && metaplexMetadata?.image) {
-      // 최적화된 URL과 원본 URL 모두 추가
+      // 최적화된 URL, 프록시 URL, 원본 URL 순으로 추가
       sources.push(getOptimizedImageUrl(metaplexMetadata.image));
+      sources.push(getProxiedImageUrl(metaplexMetadata.image));
       sources.push(metaplexMetadata.image); // 원본 URL도 fallback으로 추가
       console.log(`🎯 Metaplex 이미지 URL 사용: ${metaplexMetadata.image}`);
     }
     
     // 3. Jupiter Token List의 logoURI (우선순위 3)
     if ((fallbackActive || !imageUrl || !imageUrl.startsWith('http')) && jupiterMetadata?.logoURI) {
-      // 최적화된 URL과 원본 URL 모두 추가
+      // 최적화된 URL, 프록시 URL, 원본 URL 순으로 추가
       sources.push(getOptimizedImageUrl(jupiterMetadata.logoURI));
+      sources.push(getProxiedImageUrl(jupiterMetadata.logoURI));
       sources.push(jupiterMetadata.logoURI); // 원본 URL도 fallback으로 추가
       console.log(`🪙 Jupiter 이미지 URL 사용: ${jupiterMetadata.logoURI}`);
     }
@@ -163,6 +171,7 @@ export default function TokenAvatar({
     if (fallbackActive || !imageUrl || !imageUrl.startsWith('http')) {
       const jupiterStaticUrl = `https://static.jup.ag/images/${tokenAddress}.png`;
       sources.push(getOptimizedImageUrl(jupiterStaticUrl));
+      sources.push(getProxiedImageUrl(jupiterStaticUrl));
       sources.push(jupiterStaticUrl); // 원본 URL도 추가
     }
     
@@ -170,6 +179,7 @@ export default function TokenAvatar({
     if (fallbackActive || !imageUrl || !imageUrl.startsWith('http')) {
       const jupiterCreateStaticUrl = `https://static-create.jup.ag/images/${tokenAddress}`;
       sources.push(getOptimizedImageUrl(jupiterCreateStaticUrl));
+      sources.push(getProxiedImageUrl(jupiterCreateStaticUrl));
       sources.push(jupiterCreateStaticUrl); // 원본 URL도 추가
     }
     
@@ -177,6 +187,7 @@ export default function TokenAvatar({
     if (fallbackActive || !imageUrl || !imageUrl.startsWith('http')) {
       const solanaTokenListUrl = `https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/${tokenAddress}/logo.png`;
       sources.push(getOptimizedImageUrl(solanaTokenListUrl));
+      sources.push(getProxiedImageUrl(solanaTokenListUrl));
       sources.push(solanaTokenListUrl); // 원본 URL도 추가
     }
     

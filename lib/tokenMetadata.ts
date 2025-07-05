@@ -95,22 +95,10 @@ export async function fetchTokenMetadata(
     const jsonMetadata = await response.json();
     console.log(`✅ JSON 메타데이터 조회 성공:`, jsonMetadata);
 
-    // 이미지 URL 검증 (있는 경우에만)
-    let imageUrl = jsonMetadata.image;
+    // 이미지 URL을 그대로 사용 (검증은 TokenAvatar에서 처리)
+    const imageUrl = jsonMetadata.image;
     if (imageUrl) {
-      try {
-        // 이미지 URL 접근 가능 여부 확인
-        const imageResponse = await fetch(imageUrl, { method: 'HEAD' });
-        if (!imageResponse.ok) {
-          console.warn(`⚠️  이미지 URL 접근 불가: ${imageUrl}`);
-          imageUrl = undefined;
-        } else {
-          console.log(`✅ 이미지 URL 검증 완료: ${imageUrl}`);
-        }
-      } catch (error) {
-        console.warn(`⚠️  이미지 URL 검증 실패: ${imageUrl}`, error);
-        imageUrl = undefined;
-      }
+      console.log(`🖼️  이미지 URL 발견: ${imageUrl}`);
     }
 
     // 결과 반환
