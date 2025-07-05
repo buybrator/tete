@@ -79,7 +79,10 @@ export async function fetchTokenMetadata(
     }
 
     console.log(`🌐 JSON 메타데이터 조회: ${metadata.uri}`);
-    const response = await fetch(metadata.uri);
+    
+    // CORS 문제를 해결하기 위해 우리의 API 엔드포인트 사용
+    const apiUrl = `/api/token-metadata?uri=${encodeURIComponent(metadata.uri)}`;
+    const response = await fetch(apiUrl);
     
     if (!response.ok) {
       throw new TokenMetadataError(
