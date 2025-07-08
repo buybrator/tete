@@ -31,7 +31,12 @@
       "Bash(export PATH=\"$HOME/.local/bin:$PATH\")",
       "Bash(claudelytics:*)",
       "Bash(~/.local/bin/claudelytics:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(ssh:*)",
+      "Bash(cat:*)",
+      "Bash(git pull:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   },
