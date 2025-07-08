@@ -3,10 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 // 🚀 검증된 안정적인 RPC 엔드포인트만 선별
 const RPC_ENDPOINTS = [
   // Tier 1: 사용자 지정 Alchemy RPC (최우선)
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL || process.env.NEXT_PUBLIC_RPC_URL || 'https://solana-mainnet.g.alchemy.com/v2/CLIspK_3J2GVAuweafRIUoHzWjyn07rz',
+  'https://solana-mainnet.g.alchemy.com/v2/CLIspK_3J2GVAuweafRIUoHzWjyn07rz',
   
-  // Tier 2: 공식 솔라나 (백업용)
-  'https://api.mainnet-beta.solana.com',
+  // Tier 2: 환경 변수 백업
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL || process.env.NEXT_PUBLIC_RPC_URL,
   
   // Tier 3: 검증된 무료 서비스들
   'https://rpc.ankr.com/solana',
@@ -14,7 +14,10 @@ const RPC_ENDPOINTS = [
   
   // Tier 4: 백업용 (응답 속도는 느리지만 안정적)
   'https://mainnet.rpcpool.com',
-];
+  
+  // Tier 5: 공식 솔라나 (마지막 백업용 - 제한이 있음)
+  'https://api.mainnet-beta.solana.com',
+].filter(Boolean); // undefined 값 제거
 
 let currentEndpointIndex = 0;
 let lastSuccessfulEndpoint: string | null = null;

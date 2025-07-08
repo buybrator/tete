@@ -36,7 +36,8 @@
       "Bash(ssh:*)",
       "Bash(cat:*)",
       "Bash(git pull:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "mcp__supabase__search_docs"
     ],
     "deny": []
   },

@@ -7,6 +7,9 @@ export type SolanaNetwork = 'mainnet' | 'devnet' | 'testnet';
 const getMainnetRpcEndpoints = () => {
   const customRpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
   const baseEndpoints = [
+    'https://solana-mainnet.g.alchemy.com/v2/CLIspK_3J2GVAuweafRIUoHzWjyn07rz', // Alchemy RPC (우선)
+    'https://rpc.ankr.com/solana', // Ankr
+    'https://mainnet.rpcpool.com', // RPC Pool
     'https://api.mainnet-beta.solana.com', // 공식 RPC (백업용)
     'https://solana-api.projectserum.com', // Project Serum (무료)
     'https://api.metaplex.solana.com', // Metaplex (무료)
