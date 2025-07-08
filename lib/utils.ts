@@ -22,7 +22,7 @@ export function preloadImage(src: string): Promise<void> {
  */
 export async function preloadImages(srcs: string[]): Promise<void> {
   const promises = srcs.map(src => preloadImage(src).catch(() => {
-    console.warn(`Failed to preload image: ${src}`);
+    // 이미지 프리로드 실패는 무시
   }));
   await Promise.all(promises);
 }
@@ -40,7 +40,7 @@ export class ImageCacheManager {
       await preloadImage(src);
       this.cache.set(src, true);
     } catch {
-      console.warn(`Failed to cache image: ${src}`);
+      // 이미지 캐시 실패는 무시
     }
   }
   

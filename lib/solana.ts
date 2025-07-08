@@ -60,7 +60,6 @@ export const MEMO_PROGRAM_ID = new PublicKey(
 export function getCurrentNetwork(): SolanaNetwork {
   const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK as SolanaNetwork;
   if (!network || !['mainnet', 'devnet', 'testnet'].includes(network)) {
-    console.log('🔧 Using default network: mainnet');
     return 'mainnet'; // devnet 대신 mainnet 기본값으로 변경
   }
   return network;
@@ -75,12 +74,10 @@ export function createSolanaConnection(network?: SolanaNetwork): Connection {
   if (typeof window !== 'undefined') {
     // 브라우저 환경: 프록시 우선, 실패 시 직접 연결
     endpoint = `${window.location.origin}/api/solana-rpc`;
-    console.log(`🚀 Creating Solana connection via browser proxy: ${endpoint} (${currentNetwork})`);
   } else {
     // 서버 환경: 직접 연결
     const config = NETWORK_CONFIG[currentNetwork];
     endpoint = config.url;
-    console.log(`🚀 Creating Solana connection via server: ${endpoint} (${currentNetwork})`);
   }
   
   // 단순한 Connection 생성
@@ -99,8 +96,6 @@ export function createSolanaConnection(network?: SolanaNetwork): Connection {
 export function createDirectConnection(network?: SolanaNetwork): Connection {
   const currentNetwork = network || getCurrentNetwork();
   const config = NETWORK_CONFIG[currentNetwork];
-  
-  console.log(`🔄 Creating direct connection to: ${config.url} (${currentNetwork})`);
   
   return new Connection(config.url, {
     commitment: 'confirmed',
@@ -135,11 +130,8 @@ export async function getStableConnection(network?: SolanaNetwork): Promise<Conn
       connectionCache.network === currentNetwork && 
       connectionCache.isHealthy && 
       (now - connectionCache.lastChecked) < CACHE_DURATION) {
-    console.log('✨ 캐시된 연결 재사용');
     return connectionCache.connection;
   }
-  
-  console.log('🔄 새로운 연결 생성 중...');
   
   try {
     // 1차: 프록시 연결 시도
@@ -161,11 +153,9 @@ export async function getStableConnection(network?: SolanaNetwork): Promise<Conn
       network: currentNetwork
     };
     
-    console.log('✅ 프록시 연결 성공 (캐시됨)');
     return proxyConnection;
     
   } catch (error) {
-    console.warn('⚠️ 프록시 연결 실패, 직접 연결 시도:', error);
     
     try {
       // 2차: 직접 연결 시도
@@ -187,11 +177,9 @@ export async function getStableConnection(network?: SolanaNetwork): Promise<Conn
         network: currentNetwork
       };
       
-      console.log('✅ 직접 연결 성공 (캐시됨)');
       return directConnection;
       
     } catch (directError) {
-      console.error('❌ 모든 연결 방식 실패:', directError);
       
       // 캐시 무효화
       const oldCache = connectionCache;
@@ -199,7 +187,6 @@ export async function getStableConnection(network?: SolanaNetwork): Promise<Conn
       
       // 기존 연결이라도 반환 (최후의 수단)
       if (oldCache?.connection) {
-        console.log('🔄 기존 캐시된 연결 사용 (비상용)');
         return oldCache.connection;
       }
       
@@ -218,11 +205,9 @@ export async function getBlockhashConnection(network?: SolanaNetwork): Promise<C
     
     // 블록해시 테스트
     await proxyConnection.getLatestBlockhash('finalized');
-    console.log('✅ 프록시 블록해시 연결 성공');
     return proxyConnection;
     
   } catch (proxyError) {
-    console.warn('⚠️ 프록시 블록해시 실패, 직접 연결 시도:', proxyError);
     
     // 2차: 직접 연결 시도
     try {
@@ -230,11 +215,9 @@ export async function getBlockhashConnection(network?: SolanaNetwork): Promise<C
       
       // 블록해시 테스트
       await directConnection.getLatestBlockhash('finalized');
-      console.log('✅ 직접 블록해시 연결 성공');
       return directConnection;
       
     } catch (directError) {
-      console.error('❌ 모든 블록해시 연결 실패:', directError);
       throw new Error(`블록해시 조회 불가: ${directError instanceof Error ? directError.message : String(directError)}`);
     }
   }
@@ -242,13 +225,11 @@ export async function getBlockhashConnection(network?: SolanaNetwork): Promise<C
 
 // 캐시 무효화 함수 (문제 발생 시 사용)
 export function invalidateConnectionCache(): void {
-  console.log('🗑️ 연결 캐시 무효화');
   connectionCache = null;
 }
 
 // RPC 엔드포인트 자동 선택 (이제 프록시에서 처리되므로 단순화)
 export async function findHealthyRpcEndpoint(network: SolanaNetwork): Promise<string | null> {
-  console.log(`🔍 Using proxy for ${network}, no direct endpoint testing needed`);
   return '/api/solana-rpc';
 }
 
@@ -272,7 +253,6 @@ export async function getNetworkStats(conn?: Connection) {
       },
     };
   } catch (error) {
-    console.error('Failed to get network stats:', error);
     throw error;
   }
 }
@@ -335,7 +315,6 @@ export function getSolanaConnection(): Connection {
 
 // 네트워크 전환
 export function switchNetwork(network: SolanaNetwork): Connection {
-  console.log(`🔄 Switching to ${network} network...`);
   connection = createSolanaConnection(network);
   return connection;
 }
@@ -366,7 +345,6 @@ export async function checkSolanaConnection(conn?: Connection): Promise<{
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.warn(`⚠️ 연결 확인 실패 (${currentNetwork}):`, errorMessage);
     
     return {
       connected: false,
@@ -386,7 +364,6 @@ export async function getAccountBalance(
     const balance = await solanaConnection.getBalance(publicKey);
     return balance / LAMPORTS_PER_SOL;
   } catch (error) {
-    console.error('Failed to get account balance:', error);
     throw error;
   }
 }
@@ -401,7 +378,6 @@ export async function getAccountInfo(
     const accountInfo = await solanaConnection.getAccountInfo(publicKey);
     return accountInfo;
   } catch (error) {
-    console.error('Failed to get account info:', error);
     throw error;
   }
 }
@@ -413,7 +389,6 @@ export async function getLatestBlockhash(conn?: Connection) {
     const latestBlockHash = await solanaConnection.getLatestBlockhash();
     return latestBlockHash;
   } catch (error) {
-    console.error('Failed to get latest blockhash:', error);
     throw error;
   }
 }
@@ -427,8 +402,7 @@ export async function confirmTransaction(
     const solanaConnection = conn || getSolanaConnection();
     const result = await solanaConnection.confirmTransaction(signature);
     return !result.value.err;
-  } catch (error) {
-    console.error('Failed to confirm transaction:', error);
+  } catch {
     return false;
   }
 }

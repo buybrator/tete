@@ -44,8 +44,7 @@ export default function TestMemoPage() {
     try {
       await sendChatMessage(chatMessage);
       setChatMessage('');
-    } catch (err) {
-      console.error('채팅 메시지 전송 실패:', err);
+    } catch {
     }
   };
 
@@ -60,8 +59,7 @@ export default function TestMemoPage() {
       } else {
         await sendSellMessage(tokenSymbol, qty, prc, protocol);
       }
-    } catch (err) {
-      console.error('거래 메시지 전송 실패:', err);
+    } catch {
     }
   };
 
@@ -86,8 +84,7 @@ export default function TestMemoPage() {
     try {
       await navigator.clipboard.writeText(text);
       alert('복사되었습니다!');
-    } catch (err) {
-      console.error('복사 실패:', err);
+    } catch {
     }
   };
 

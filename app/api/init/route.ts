@@ -12,7 +12,6 @@ export async function GET() {
 
     if (response.ok) {
       const result = await response.json();
-      console.log('🚀 서버 초기화: 백그라운드 가격 수집기 활성화됨');
       
       return NextResponse.json({
         success: true,
@@ -23,8 +22,6 @@ export async function GET() {
       throw new Error(`백그라운드 수집기 초기화 실패: ${response.status}`);
     }
   } catch (error) {
-    console.error('❌ 서버 초기화 실패:', error);
-    
     return NextResponse.json({
       success: false,
       message: '서버 초기화 중 오류가 발생했습니다.',

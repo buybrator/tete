@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rg:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)",
+      "Bash(npm run build:*)",
+      "Bash(node:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run lint)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npx eslint:*)",
+      "Bash(npm ls:*)",
+      "Bash(ls:*)",
+      "Bash(timeout 10 npm run dev:*)",
+      "Bash(npm prune:*)",
+      "Bash(curl:*)",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__get_logs"
+    ],
+    "deny": []
+  },
+  "enabledMcpjsonServers": [
+    "filesystem",
+    "git",
+    "postgres",
+    "supabase",
+    "context7",
+    "firecrawl-mcp",
+    "server-sequential-thinking",
+    "browsermcp"
+  ]
+}

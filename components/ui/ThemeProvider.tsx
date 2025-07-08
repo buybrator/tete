@@ -40,8 +40,7 @@ export function ThemeProvider({
         setCurrentTheme(theme);
         setIsDark(darkMode);
       }
-    } catch (error) {
-      console.warn('Failed to load theme from localStorage:', error);
+    } catch {
     }
   }, [storageKey]);
 
@@ -55,8 +54,7 @@ export function ThemeProvider({
         theme: currentTheme,
         isDark
       }));
-    } catch (error) {
-      console.warn('Failed to save theme to localStorage:', error);
+    } catch {
     }
   }, [currentTheme, isDark, customTheme, storageKey]);
 

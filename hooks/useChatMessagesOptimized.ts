@@ -65,7 +65,6 @@ class MessageCacheManager {
     }
 
     if (cleanedRooms > 0) {
-      console.log(`🧹 메시지 캐시 정리: ${cleanedRooms}개 방`);
     }
   }
 
@@ -129,7 +128,6 @@ class MessageCacheManager {
         try {
           listener();
         } catch (error) {
-          console.error('리스너 실행 오류:', error);
         }
       });
     }

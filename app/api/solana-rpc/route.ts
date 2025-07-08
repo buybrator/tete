@@ -100,7 +100,6 @@ function isBlacklisted(endpoint: string): boolean {
   if (now > failure.blockedUntil) {
     // 차단 해제 시간이 지났으면 블랙리스트에서 제거
     failureBlacklist.delete(endpoint);
-    console.log(`✅ ${endpoint} 블랙리스트 해제`);
     return false;
   }
   
@@ -122,11 +121,9 @@ function addToBlacklist(endpoint: string, error: ErrorWithDetails): void {
     failureCount
   });
   
-  console.log(`🚫 ${endpoint} 블랙리스트 추가: ${failureType} (${cooldown / 60000}분간, ${failureCount}회 실패)`);
   
   // 성공 캐시 무효화
   if (lastSuccessfulEndpoint === endpoint) {
-    console.log('🗑️ 실패로 인한 성공 캐시 무효화');
     lastSuccessfulEndpoint = null;
     lastSuccessTime = 0;
   }
@@ -140,7 +137,6 @@ function getPreferredEndpoint(): string | null {
   if (lastSuccessfulEndpoint && 
       (now - lastSuccessTime) < SUCCESS_CACHE_DURATION &&
       !isBlacklisted(lastSuccessfulEndpoint)) {
-    console.log(`🎯 최근 성공 엔드포인트 재사용: ${lastSuccessfulEndpoint}`);
     return lastSuccessfulEndpoint;
   }
   
@@ -149,13 +145,11 @@ function getPreferredEndpoint(): string | null {
     const endpoint = RPC_ENDPOINTS[(currentEndpointIndex + i) % RPC_ENDPOINTS.length];
     if (!isBlacklisted(endpoint)) {
       currentEndpointIndex = (currentEndpointIndex + i) % RPC_ENDPOINTS.length;
-      console.log(`🔄 건강한 엔드포인트 선택: ${endpoint}`);
       return endpoint;
     }
   }
   
   // 모든 엔드포인트가 블랙리스트에 있다면 null 반환
-  console.error('🚫 모든 엔드포인트가 블랙리스트 상태, 요청 중단');
   return null;
 }
 
@@ -174,7 +168,6 @@ async function makeRpcRequest(body: unknown, retryCount = 0): Promise<unknown> {
     if (blockhashCache && 
         (now - blockhashCache.cachedAt) < BLOCKHASH_CACHE_DURATION &&
         !isBlacklisted(blockhashCache.endpoint)) {
-      console.log(`🎯 캐시된 블록해시 사용: ${blockhashCache.blockhash} (${blockhashCache.endpoint})`);
       return {
         jsonrpc: '2.0',
         id: requestBody.id,
@@ -226,13 +219,11 @@ async function makeRpcRequest(body: unknown, retryCount = 0): Promise<unknown> {
   // 백오프 지연 적용 (첫 번째 시도는 제외)
   if (retryCount > 0) {
     const delay = getBackoffDelay(retryCount);
-    console.log(`⏳ ${delay}ms 대기 후 재시도...`);
     await new Promise(resolve => setTimeout(resolve, delay));
   }
   
   try {
     requestCount++;
-    console.log(`🚀 RPC 요청 #${requestCount} (시도 ${retryCount + 1}/${MAX_RETRIES}): ${endpoint}`);
     
     // 타임아웃 10초로 단축 (빠른 실패)
     const controller = new AbortController();
@@ -265,7 +256,6 @@ async function makeRpcRequest(body: unknown, retryCount = 0): Promise<unknown> {
       throw rpcError;
     }
 
-    console.log(`✅ RPC 성공: ${endpoint}`);
     
     // 🎯 getLatestBlockhash 응답 캐싱
     if (requestBody?.method === 'getLatestBlockhash' && data.result?.value) {
@@ -275,7 +265,6 @@ async function makeRpcRequest(body: unknown, retryCount = 0): Promise<unknown> {
         cachedAt: Date.now(),
         endpoint: endpoint
       };
-      console.log(`💾 블록해시 캐시 저장: ${blockhashCache.blockhash} (${endpoint})`);
     }
     
     // 성공 정보 캐시
@@ -285,7 +274,6 @@ async function makeRpcRequest(body: unknown, retryCount = 0): Promise<unknown> {
     return data;
     
   } catch (error) {
-    console.error(`❌ RPC 실패 (${endpoint}):`, error);
     
     // 모든 실패를 블랙리스트에 추가
     addToBlacklist(endpoint, error as ErrorWithDetails);
@@ -301,14 +289,12 @@ async function makeRpcRequest(body: unknown, retryCount = 0): Promise<unknown> {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log(`📡 RPC 프록시 요청: ${body.method} (요청 #${requestCount + 1})`);
     
     const result = await makeRpcRequest(body);
     
     return NextResponse.json(result);
     
   } catch (error) {
-    console.error('RPC 프록시 최종 오류:', error);
     
     return NextResponse.json(
       { 

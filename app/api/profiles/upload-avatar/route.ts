@@ -11,15 +11,8 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File;
     const walletAddress = formData.get('wallet_address') as string;
 
-    console.log('📤 아바타 업로드 요청:', { 
-      fileName: file?.name, 
-      fileSize: file?.size, 
-      fileType: file?.type,
-      walletAddress 
-    });
 
     if (!file) {
-      console.error('❌ 파일이 제공되지 않음');
       return NextResponse.json(
         { error: 'No file provided' },
         { status: 400 }
@@ -27,7 +20,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (!walletAddress) {
-      console.error('❌ 지갑 주소가 누락됨');
       return NextResponse.json(
         { error: 'Wallet address is required' },
         { status: 400 }
@@ -78,8 +70,7 @@ export async function POST(request: NextRequest) {
           await supabaseAdmin.storage.from('avatars').remove(filesToDelete);
         }
       }
-    } catch (cleanupError) {
-      console.warn('Failed to cleanup old avatar files:', cleanupError);
+    } catch {
       // 기존 파일 삭제 실패는 무시하고 계속 진행
     }
 
@@ -92,7 +83,6 @@ export async function POST(request: NextRequest) {
       });
 
     if (uploadError) {
-      console.error('Storage upload error:', uploadError);
       return NextResponse.json(
         { error: 'Failed to upload image' },
         { status: 500 }
@@ -106,7 +96,38 @@ export async function POST(request: NextRequest) {
 
     const publicUrl = urlData.publicUrl;
 
-    console.log('✅ 아바타 업로드 성공:', { publicUrl, filePath });
+    // 프로필 테이블의 avatar_url 업데이트
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .upsert(
+        {
+          wallet_address: walletAddress,
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString()
+        },
+        {
+          onConflict: 'wallet_address',
+          ignoreDuplicates: false
+        }
+      );
+
+    if (profileError) {
+      // 이미지는 업로드되었지만 프로필 업데이트 실패
+      console.error('Failed to update profile:', profileError);
+      return NextResponse.json(
+        { 
+          error: 'Image uploaded but failed to update profile',
+          avatar_url: publicUrl,
+          details: profileError.message 
+        },
+        { status: 500 }
+      );
+    }
+
+    console.log('Successfully updated profile with avatar:', {
+      wallet_address: walletAddress,
+      avatar_url: publicUrl
+    });
 
     return NextResponse.json({
       success: true,
@@ -115,7 +136,6 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Avatar upload error:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

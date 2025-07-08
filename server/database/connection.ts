@@ -33,7 +33,8 @@ class DatabaseConnection {
       statement_timeout: 30000, // 30초 쿼리 타임아웃
       query_timeout: 30000,
       keepAlive: true,
-      keepAliveInitialDelayMillis: 10000
+      keepAliveInitialDelayMillis: 10000,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     });
 
     // Redis 클라이언트 초기화 (캐싱용)
@@ -49,47 +50,54 @@ class DatabaseConnection {
   private async setupRedisCache() {
     try {
       this.redisClient = createClient({
-        url: process.env.REDIS_URL || 'redis://localhost:6379'
+        url: process.env.REDIS_URL || 'redis://localhost:6379',
+        socket: {
+          reconnectStrategy: (retries) => Math.min(retries * 50, 1000)
+        }
       });
       
       this.redisClient.on('error', (err) => {
-        console.warn('Redis 클라이언트 오류:', err);
+        // Redis 클라이언트 오류 처리
       });
       
       await this.redisClient.connect();
-      console.log('✅ Redis 캐시 연결 성공');
+      // Redis 캐시 연결 성공
     } catch (error) {
-      console.warn('⚠️ Redis 캐시 연결 실패 (계속 진행):', error);
+      // Redis 캐시 연결 실패 (계속 진행)
       this.redisClient = null;
     }
   }
 
   private setupPoolMonitoring() {
     // 5분마다 연결 풀 상태 로깅
-    setInterval(() => {
-      const stats = {
-        total: this.pool.totalCount,
-        idle: this.pool.idleCount,
-        waiting: this.pool.waitingCount
-      };
-      
-      if (stats.waiting > 0) {
-        console.warn('⚠️ DB 연결 대기 중:', stats);
+    setInterval(async () => {
+      try {
+        const stats = {
+          totalCount: this.pool.totalCount,
+          idleCount: this.pool.idleCount,
+          waitingCount: this.pool.waitingCount
+        };
+        
+        if (stats.waitingCount > 0) {
+          // DB 연결 대기 중
+        }
+        
+        if (stats.totalCount > 15) {
+          // DB 연결 수 높음
+        }
+      } catch {
+        // 모니터링 오류는 무시
       }
-      
-      if (stats.total > 40) {
-        console.warn('🔴 DB 연결 수 높음:', stats);
-      }
-    }, 5 * 60 * 1000);
+    }, 30000); // 30초마다
   }
 
   private async testConnection() {
     try {
       const client = await this.pool.connect();
-      console.log('✅ PostgreSQL 연결 성공');
+      // PostgreSQL 연결 성공
       client.release();
     } catch (error) {
-      console.error('❌ PostgreSQL 연결 실패:', error);
+      // PostgreSQL 연결 실패
     }
   }
 
@@ -100,11 +108,11 @@ class DatabaseConnection {
       try {
         const cached = await this.redisClient.get(cacheKey);
         if (cached) {
-          console.log('🎯 캐시 히트:', cacheKey);
+          // 🎯 캐시 히트:
           return JSON.parse(cached);
         }
       } catch (error) {
-        console.warn('캐시 조회 실패:', error);
+        // 캐시 조회 실패:
       }
     }
 
@@ -115,9 +123,9 @@ class DatabaseConnection {
     if (this.redisClient && result.rowCount && result.rowCount > 0) {
       try {
         await this.redisClient.setEx(cacheKey, cacheTime, JSON.stringify(result));
-        console.log('💾 결과 캐싱:', cacheKey);
+        // 💾 결과 캐싱:
       } catch (error) {
-        console.warn('캐싱 실패:', error);
+        // 캐싱 실패:
       }
     }
 
@@ -149,7 +157,7 @@ class DatabaseConnection {
       ${conflictClause || ''}
     `;
 
-    console.log(`🚀 배치 INSERT: ${data.length}개 레코드`);
+    // 🚀 배치 INSERT:
     return this.query(query, params);
   }
 
@@ -164,14 +172,15 @@ class DatabaseConnection {
       
       // 느린 쿼리 경고
       if (duration > 1000) {
-        console.warn('🐌 느린 쿼리 감지:', { text: text.substring(0, 100), duration, rows: res.rowCount });
+        // 느린 쿼리 감지
       } else {
-        console.log('🔍 SQL 실행:', { duration, rows: res.rowCount });
+        // 🔍 SQL 실행:
       }
       
       return res;
     } catch (error) {
-      console.error('❌ SQL 실행 오류:', { text: text.substring(0, 100), error });
+      const duration = Date.now() - start;
+      // SQL 실행 오류
       throw error;
     } finally {
       if (client) {
@@ -191,10 +200,10 @@ class DatabaseConnection {
         const keys = await this.redisClient.keys(pattern);
         if (keys.length > 0) {
           await this.redisClient.del(keys);
-          console.log(`🗑️ 캐시 무효화: ${keys.length}개`);
+          // ��️ 캐시 무효화:
         }
       } catch (error) {
-        console.warn('캐시 무효화 실패:', error);
+        // 캐시 무효화 실패:
       }
     }
   }

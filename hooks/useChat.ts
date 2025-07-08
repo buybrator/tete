@@ -69,13 +69,11 @@ export function useChat() {
   // 특정 채팅방 메시지 조회 (useChatMessages에서 관리하므로 간소화)
   const fetchMessages = useCallback(async (roomId: string, page = 1) => {
     // useChatMessages에서 직접 관리하므로 여기서는 처리하지 않음
-    console.log(`📨 메시지 조회는 useChatMessages에서 관리됨: ${roomId}`);
   }, []);
 
   // 메시지 전송 (useChatMessages에서 관리)
   const sendMessage = useCallback(async (roomId: string, content: string, tradeType: 'buy' | 'sell', tradeAmount?: string) => {
     // useChatMessages에서 직접 관리하므로 여기서는 처리하지 않음
-    console.log(`📤 메시지 전송은 useChatMessages에서 관리됨: ${roomId}`);
   }, []);
 
   // 채팅방 생성
@@ -147,7 +145,6 @@ export function useChat() {
   // WebSocket 연결 설정 (useChatMessages에서 관리하므로 비활성화)
   const connectWebSocket = useCallback(() => {
     // Socket.IO는 useChatMessages에서 관리
-    console.log('🔌 WebSocket 연결은 useChatMessages에서 관리됩니다');
   }, []);
 
   // 컴포넌트 마운트 시 초기 데이터 로드
@@ -164,7 +161,6 @@ export function useChat() {
   useEffect(() => {
     if (activeRoomId && !messages[activeRoomId]) {
       // useChatMessages에서 자동으로 처리됨
-      console.log(`🔄 채팅방 변경: ${activeRoomId}`);
     }
   }, [activeRoomId, messages]);
 

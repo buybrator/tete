@@ -227,11 +227,9 @@ export async function sendMemoTransactionWithRetry(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const signature = await sendMemoTransaction(connection, transaction);
-      console.log(`메모 트랜잭션 성공 (시도 ${attempt + 1}/${maxRetries + 1}):`, signature);
       return signature;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('알 수 없는 오류');
-      console.warn(`메모 트랜잭션 시도 ${attempt + 1} 실패:`, lastError.message);
       
       // 마지막 시도가 아니면 잠시 대기
       if (attempt < maxRetries) {
@@ -279,7 +277,6 @@ export async function extractMemoFromTransaction(
     const memoData = Buffer.from(memoInstruction.data);
     return memoData.toString('utf8');
   } catch {
-    console.error('메모 추출 실패:');
     return null;
   }
 }

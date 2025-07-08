@@ -29,8 +29,7 @@ export function verifyJWT(token: string): { walletAddress: string } | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload
     return { walletAddress: decoded.walletAddress }
-  } catch (error) {
-    console.error('JWT verification failed:', error)
+  } catch {
     return null
   }
 }
@@ -55,8 +54,7 @@ export function verifyWalletSignature(
     
     // 서명 검증
     return nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes)
-  } catch (error) {
-    console.error('Signature verification failed:', error)
+  } catch {
     return false
   }
 }
@@ -64,22 +62,15 @@ export function verifyWalletSignature(
 // 사용자 프로필 생성 또는 업데이트 (RLS 우회 버전)
 export async function createOrUpdateProfile(walletAddress: string, nickname?: string) {
   try {
-    console.log('=== createOrUpdateProfile 시작 ===');
-    console.log('walletAddress:', walletAddress);
-    console.log('nickname:', nickname);
-    
     // 서버 사이드에서는 일반 supabase 클라이언트 사용 (RLS 우회 시도)
     const { supabase } = await import('./supabase')
     
     // 매우 간단한 upsert 시도 (RLS가 비활성화되어 있다면 작동해야 함)
-    console.log('프로필 upsert 시도 중...');
     const profileData = {
       wallet_address: walletAddress,
       nickname: nickname || `User_${walletAddress.slice(0, 8)}`,
       updated_at: new Date().toISOString()
     };
-    
-    console.log('삽입할 프로필 데이터:', profileData);
     
     const { data, error } = await supabase
       .from('profiles')
@@ -90,10 +81,7 @@ export async function createOrUpdateProfile(walletAddress: string, nickname?: st
       .select()
       .single()
 
-    console.log('프로필 upsert 결과:', { data, error });
-
     if (error) {
-      console.error('Upsert 실패, 직접 insert 시도...');
       
       // upsert가 실패하면 직접 insert 시도
       const { data: insertData, error: insertError } = await supabase
@@ -102,10 +90,7 @@ export async function createOrUpdateProfile(walletAddress: string, nickname?: st
         .select()
         .single()
         
-      console.log('직접 insert 결과:', { insertData, insertError });
-      
       if (insertError) {
-        console.error('직접 insert도 실패:', insertError);
         // 에러가 있어도 가짜 프로필 데이터를 반환하여 인증 플로우 계속 진행
         return {
           wallet_address: walletAddress,
@@ -119,15 +104,8 @@ export async function createOrUpdateProfile(walletAddress: string, nickname?: st
     }
     
     return data
-  } catch (error) {
-    console.error('=== createOrUpdateProfile 에러 ===');
-    console.error('에러 타입:', typeof error);
-    console.error('에러 메시지:', error instanceof Error ? error.message : String(error));
-    console.error('에러 스택:', error instanceof Error ? error.stack : 'No stack');
-    console.error('Full 에러 객체:', error);
-    
+  } catch {
     // 에러가 발생해도 인증 플로우를 계속 진행하기 위해 가짜 프로필 반환
-    console.log('에러 발생으로 인한 가짜 프로필 반환');
     return {
       wallet_address: walletAddress,
       nickname: nickname || `User_${walletAddress.slice(0, 8)}`,
@@ -168,7 +146,6 @@ export async function createSupabaseSession(walletAddress: string) {
 
     return data
   } catch (error) {
-    console.error('Supabase session creation failed:', error)
     throw error
   }
 } 

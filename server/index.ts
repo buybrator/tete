@@ -42,9 +42,7 @@ async function setupRedisAdapter() {
     await subClient.connect();
     
     io.adapter(createAdapter(pubClient, subClient));
-    console.log('✅ Redis Adapter 연결 성공');
-  } catch (error) {
-    console.error('❌ Redis Adapter 연결 실패:', error);
+  } catch {
     // Redis 없어도 기본 동작 가능
   }
 }
@@ -79,7 +77,7 @@ async function startServer() {
   await setupRedisAdapter();
   
   server.listen(PORT, () => {
-    console.log(`🚀 서버 시작: http://localhost:${PORT} (PID: ${process.pid})`);
+    // 서버 시작 로그 제거됨
   });
 }
 
@@ -87,15 +85,14 @@ startServer();
 
 // 우아한 종료
 process.on('SIGTERM', async () => {
-  console.log('🛑 서버 종료 중...');
   
   try {
     await pubClient.quit();
     await subClient.quit();
     await db.close();
     server.close();
-  } catch (error) {
-    console.error('종료 중 오류:', error);
+  } catch {
+    // 종료 중 오류 처리 로그 제거됨
   }
   
   process.exit(0);

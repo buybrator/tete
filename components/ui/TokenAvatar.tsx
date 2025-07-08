@@ -29,7 +29,6 @@ export default function TokenAvatar({
   className = '',
   imageUrl // 채팅방에서 전달받은 이미지 URL
 }: TokenAvatarProps) {
-  console.log(`🎯 TokenAvatar 렌더링:`, { tokenAddress, tokenName, size, imageUrl });
   
   const [imageError, setImageError] = useState(false);
   const [metaplexMetadata, setMetaplexMetadata] = useState<{
@@ -57,7 +56,6 @@ export default function TokenAvatar({
   useEffect(() => {
     // 채팅방에서 이미지 URL이 제공되고 유효한 HTTP URL인 경우 메타데이터 조회 건너뜀
     if (imageUrl && imageUrl.startsWith('http') && !fallbackActive) {
-      console.log(`✅ 채팅방 이미지 URL 사용 (Metaplex 건너뜀): ${imageUrl}`);
       // 이미지 프리로딩
       ImageCacheManager.preload(imageUrl);
       return;
@@ -75,14 +73,11 @@ export default function TokenAvatar({
 
         // Metaplex 결과 처리
         if (metaplexResult.status === 'fulfilled' && metaplexResult.value?.image) {
-          console.log(`✅ Metaplex 메타데이터 조회 성공:`, metaplexResult.value);
           setMetaplexMetadata(metaplexResult.value);
           // 이미지 프리로딩
           ImageCacheManager.preload(metaplexResult.value.image);
         } else if (metaplexResult.status === 'fulfilled' && metaplexResult.value === null) {
-          console.log(`ℹ️  Metaplex 메타데이터 없음: ${tokenAddress}`);
         } else if (metaplexResult.status === 'rejected') {
-          console.warn(`⚠️  Metaplex 메타데이터 조회 실패:`, metaplexResult.reason);
         }
 
         // Jupiter 결과 처리
@@ -90,7 +85,6 @@ export default function TokenAvatar({
           const tokens = jupiterResult.value;
           const token = tokens.find((t: JupiterTokenMetadata) => t.address === tokenAddress);
           if (token) {
-            console.log(`✅ Jupiter 토큰 메타데이터 발견:`, token);
             setJupiterMetadata(token);
             // 이미지 프리로딩
             if (token.logoURI) {
@@ -98,8 +92,7 @@ export default function TokenAvatar({
             }
           }
         }
-      } catch (error) {
-        console.error('❌ 메타데이터 조회 실패:', error);
+      } catch {
       }
     };
 
@@ -140,10 +133,8 @@ export default function TokenAvatar({
         sources.push(getOptimizedImageUrl(imageUrl));
         sources.push(getProxiedImageUrl(imageUrl));
         sources.push(imageUrl); // 원본 URL도 fallback으로 추가
-        console.log(`🎯 채팅방 이미지 URL 사용: ${imageUrl}`);
       } else {
         // 이모지나 기타 텍스트인 경우 fallback 활성화
-        console.log(`🎭 이모지 감지, fallback 활성화: ${imageUrl}`);
         setFallbackActive(true);
         return []; // 이모지는 이미지로 처리하지 않고 fallback으로
       }
@@ -155,7 +146,6 @@ export default function TokenAvatar({
       sources.push(getOptimizedImageUrl(metaplexMetadata.image));
       sources.push(getProxiedImageUrl(metaplexMetadata.image));
       sources.push(metaplexMetadata.image); // 원본 URL도 fallback으로 추가
-      console.log(`🎯 Metaplex 이미지 URL 사용: ${metaplexMetadata.image}`);
     }
     
     // 3. Jupiter Token List의 logoURI (우선순위 3)
@@ -164,7 +154,6 @@ export default function TokenAvatar({
       sources.push(getOptimizedImageUrl(jupiterMetadata.logoURI));
       sources.push(getProxiedImageUrl(jupiterMetadata.logoURI));
       sources.push(jupiterMetadata.logoURI); // 원본 URL도 fallback으로 추가
-      console.log(`🪙 Jupiter 이미지 URL 사용: ${jupiterMetadata.logoURI}`);
     }
     
     // 4. Jupiter Static Images API (우선순위 4)
@@ -191,7 +180,6 @@ export default function TokenAvatar({
       sources.push(solanaTokenListUrl); // 원본 URL도 추가
     }
     
-    console.log(`🔗 이미지 소스 리스트:`, sources);
     return sources;
   };
 
@@ -205,20 +193,16 @@ export default function TokenAvatar({
   }, [imageSources.length, imageUrl, fallbackActive, metaplexMetadata, jupiterMetadata]);
 
   const handleImageError = () => {
-    console.log(`❌ 이미지 로딩 실패 [${currentUrlIndex}]: ${imageSources[currentUrlIndex]}`);
     
     // 채팅방 이미지가 실패하면 fallback 활성화
     if (!fallbackActive && imageUrl && imageUrl.startsWith('http')) {
-      console.log(`🔄 채팅방 이미지 실패, fallback 모드 활성화`);
       setFallbackActive(true);
       return;
     }
     
     if (currentUrlIndex < imageSources.length - 1) {
       setCurrentUrlIndex(prev => prev + 1);
-      console.log(`🔄 다음 이미지 소스 시도 [${currentUrlIndex + 1}]: ${imageSources[currentUrlIndex + 1]}`);
     } else {
-      console.log(`❌ 모든 이미지 소스 실패. 폴백 표시: ${getAvatarFallback(tokenName)}`);
       setImageError(true);
     }
   };
@@ -244,14 +228,6 @@ export default function TokenAvatar({
   // 현재 사용할 이미지 URL 결정
   const currentImageUrl = imageSources.length > 0 ? imageSources[currentUrlIndex] : undefined;
 
-  console.log(`🖼️  최종 렌더링:`, {
-    currentImageUrl,
-    fallback: getAvatarFallback(tokenName),
-    imageError,
-    fallbackActive,
-    metaplexImage: metaplexMetadata?.image,
-    jupiterImage: jupiterMetadata?.logoURI
-  });
 
   return (
     <Avatar className={`${sizeClasses[size]} ${className}`}>

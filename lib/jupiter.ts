@@ -121,10 +121,8 @@ export class JupiterService {
     // 🎯 플랫폼 수수료 추가 (2025년 1월 업데이트)
     if (platformFeeBps && platformFeeBps > 0) {
       url.searchParams.append('platformFeeBps', platformFeeBps.toString());
-      console.log(`💰 플랫폼 수수료 설정: ${platformFeeBps} bps (${platformFeeBps / 100}%)`);
     }
 
-    console.log(`🔍 Jupiter Quote 요청: ${url.toString()}`);
 
     try {
       const response = await fetch(url.toString());
@@ -135,17 +133,10 @@ export class JupiterService {
       }
 
       const quote = await response.json() as JupiterQuote;
-      console.log(`✅ Jupiter Quote 성공:`, {
-        input: `${quote.inAmount} ${quote.inputMint}`,
-        output: `${quote.outAmount} ${quote.outputMint}`,
-        priceImpact: `${quote.priceImpactPct}%`,
-        platformFee: quote.platformFee ? `${quote.platformFee.amount} (${quote.platformFee.feeBps} bps)` : 'None',
-      });
 
       return quote;
       
     } catch (error) {
-      console.error(`❌ Jupiter Quote 실패:`, error);
       throw error;
     }
   }
@@ -198,23 +189,13 @@ export class JupiterService {
     // 🎯 수수료 계정 추가 (2025년 1월 업데이트 - Referral Program 불필요)
     if (feeAccount) {
       requestBody.feeAccount = feeAccount;
-      console.log(`💰 수수료 계정 설정: ${feeAccount}`);
     }
 
     // 🎯 목적지 토큰 계정 (결제용)
     if (destinationTokenAccount) {
       requestBody.destinationTokenAccount = destinationTokenAccount;
-      console.log(`🎯 목적지 토큰 계정: ${destinationTokenAccount}`);
     }
 
-    console.log(`🔄 Jupiter Swap 트랜잭션 요청:`, {
-      userPublicKey,
-      inputMint: quote.inputMint,
-      outputMint: quote.outputMint,
-      amount: quote.inAmount,
-      feeAccount: feeAccount || 'None',
-      platformFee: quote.platformFee ? `${quote.platformFee.feeBps} bps` : 'None',
-    });
 
     try {
       const response = await fetch(this.swapUrl, {
@@ -232,16 +213,10 @@ export class JupiterService {
 
       const swapResponse = await response.json() as JupiterSwapResponse;
       
-      console.log(`✅ Jupiter Swap 트랜잭션 생성 성공:`, {
-        prioritizationFee: swapResponse.prioritizationFeeLamports,
-        computeUnitLimit: swapResponse.computeUnitLimit,
-        dynamicSlippage: swapResponse.dynamicSlippageReport?.slippageBps,
-      });
 
       return swapResponse;
       
     } catch (error) {
-      console.error(`❌ Jupiter Swap 실패:`, error);
       throw error;
     }
   }
@@ -285,7 +260,6 @@ export class JupiterService {
       };
       
     } catch (error) {
-      console.error(`❌ 스왑 시뮬레이션 실패:`, error);
       throw error;
     }
   }
@@ -306,8 +280,7 @@ export class JupiterService {
       
       return outputAmount / inputAmount;
       
-    } catch (error) {
-      console.error(`❌ 가격 조회 실패:`, error);
+    } catch {
       return 0;
     }
   }
@@ -337,13 +310,6 @@ export class JupiterService {
       priorityLevel = 'high',
     } = params;
 
-    console.log(`🎯 수수료 포함 스왑 실행 시작:`, {
-      inputMint,
-      outputMint,
-      amount,
-      platformFeeBps: `${platformFeeBps} bps (${platformFeeBps / 100}%)`,
-      feeAccount,
-    });
 
     try {
       // 1. 수수료 포함 견적 요청
@@ -372,16 +338,10 @@ export class JupiterService {
         },
       });
 
-      console.log(`✅ 수수료 포함 스왑 준비 완료:`, {
-        expectedOutput: quote.outAmount,
-        platformFee: quote.platformFee?.amount,
-        priorityFee: swapTransaction.prioritizationFeeLamports,
-      });
 
       return { quote, swapTransaction };
 
     } catch (error) {
-      console.error(`❌ 수수료 포함 스왑 실행 실패:`, error);
       throw error;
     }
   }

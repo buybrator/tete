@@ -32,11 +32,9 @@ const getTokenAddressFromRoomId = (roomId: string): string | null => {
   
   // CA 형식인지 확인 (Solana CA는 44자 Base58)
   if (roomId && roomId.length >= 32 && roomId.length <= 44) {
-    console.log(`🎯 CA를 roomId로 직접 사용: ${roomId}`);
     return roomId;
   }
   
-  console.error(`❌ 유효하지 않은 roomId: ${roomId}`);
   return null;
 };
 
@@ -88,7 +86,6 @@ async function fetchMessagesFromSupabase(roomId: string): Promise<ChatMessage[]>
   try {
     const tokenAddress = getTokenAddressFromRoomId(roomId);
     if (!tokenAddress) {
-      console.error(`❌ 알 수 없는 roomId: ${roomId}`);
       return [];
     }
 
@@ -100,19 +97,16 @@ async function fetchMessagesFromSupabase(roomId: string): Promise<ChatMessage[]>
       .limit(100);
 
     if (error) {
-      console.error('❌ Supabase 메시지 조회 실패:', error);
       return [];
     }
 
     if (!data || data.length === 0) {
-      console.log('📭 해당 룸에 메시지가 없습니다:', roomId);
       return [];
     }
 
-    console.log(`✅ Supabase에서 ${data.length}개 메시지 로드됨:`, roomId);
+    // Supabase에서 메시지 로드됨
     return data.map(msg => formatMessageFromSupabase(msg, roomId));
   } catch (error) {
-    console.error('❌ 메시지 조회 실패:', error);
     return [];
   }
 }
@@ -130,20 +124,11 @@ const saveMessageToSupabase = async (roomId: string, messageData: {
   try {
     const tokenAddress = getTokenAddressFromRoomId(roomId);
     if (!tokenAddress) {
-      console.error(`❌ 알 수 없는 roomId: ${roomId}`);
       return null;
     }
 
     // 트랜잭션 해시가 없으면 임시 생성
     const signature = messageData.tx_hash || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    console.log('📤 Supabase 저장 시도:', {
-      signature,
-      token_address: tokenAddress,
-      sender_wallet: messageData.user_address,
-      message_type: messageData.trade_type.toUpperCase(),
-      content: messageData.content
-    });
 
     const { data, error } = await supabaseAdmin
       .from('message_cache')
@@ -161,11 +146,8 @@ const saveMessageToSupabase = async (roomId: string, messageData: {
       .single();
 
     if (error) {
-      console.error('❌ Supabase 메시지 저장 실패:', error);
       throw new Error(`Supabase 저장 실패: ${error.message} (코드: ${error.code})`);
     }
-
-    console.log('✅ Supabase 메시지 저장 성공:', data);
     
     // 성공 시 로컬 상태에도 즉시 추가
     const newMessage = formatMessageFromSupabase(data, roomId);
@@ -174,7 +156,6 @@ const saveMessageToSupabase = async (roomId: string, messageData: {
     
     return newMessage;
   } catch (error) {
-    console.error('❌ 메시지 저장 실패:', error);
     throw error; // 오류를 다시 throw하여 호출자가 처리하도록
   }
 };
@@ -187,7 +168,6 @@ const setupRealtimeSubscription = (roomId: string) => {
 
   const tokenAddress = getTokenAddressFromRoomId(roomId);
   if (!tokenAddress) {
-    console.error(`❌ 실시간 구독 실패 - 알 수 없는 roomId: ${roomId}`);
     return;
   }
 
@@ -202,7 +182,6 @@ const setupRealtimeSubscription = (roomId: string) => {
         filter: `token_address=eq.${tokenAddress}`
       },
       (payload) => {
-        console.log('🔔 실시간 메시지 수신:', payload);
         const newMessage = formatMessageFromSupabase(payload.new as MessageCache, roomId);
         
         // 중복 제거
@@ -212,9 +191,7 @@ const setupRealtimeSubscription = (roomId: string) => {
         }
       }
     )
-    .subscribe((status) => {
-      console.log('🔔 Realtime 구독 상태:', status);
-    });
+    .subscribe();
 };
 
 export const addMessage = (roomId: string, message: Omit<ChatMessage, 'id' | 'timestamp' | 'roomId'>) => {
@@ -265,12 +242,11 @@ export const useChatMessages = (roomId: string) => {
 
     const loadMessages = async () => {
       try {
-        console.log(`📚 메시지 로드 시작: ${roomId}`);
         globalMessages = await fetchMessagesFromSupabase(roomId);
         notifyListeners();
         setupRealtimeSubscription(roomId);
       } catch (error) {
-        console.error('❌ 메시지 로드 실패:', error);
+        // Handle error silently
       }
     };
 
@@ -286,7 +262,6 @@ export const useChatMessages = (roomId: string) => {
 
   const sendMessage = useCallback((content: string) => {
     if (!publicKey || !isClient || !connected) {
-      console.warn('⚠️ 지갑이 연결되지 않았습니다.');
       return;
     }
 
@@ -299,16 +274,13 @@ export const useChatMessages = (roomId: string) => {
       avatar: '🎉',
     };
 
-    console.log(`📤 Supabase로 메시지 전송:`, messageData);
     saveMessageToSupabase(roomId, messageData);
   }, [roomId, isClient, connected, publicKey]);
 
   const checkMyTransactions = useCallback(() => {
     if (!publicKey) {
-      console.warn('⚠️ 지갑이 연결되지 않았습니다.');
       return;
     }
-    console.log('📝 Supabase 실시간 시스템 활성화됨');
   }, []);
 
   return {
@@ -317,7 +289,7 @@ export const useChatMessages = (roomId: string) => {
     addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp' | 'roomId'>) => 
       roomId && isClient ? addMessage(roomId, message) : null,
     addMemoFromTransaction: (signature: string) => 
-      console.log(`🔍 트랜잭션 메모 (Supabase 실시간): ${signature.slice(0, 8)}...`),
+      null,
     checkMyTransactions,
   };
 };

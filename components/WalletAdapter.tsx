@@ -43,10 +43,6 @@ export default function WalletAdapter({
 
   useEffect(() => {
     setHasMounted(true);
-    console.log('🏗️ WalletAdapter 마운트됨');
-    console.log('🔍 연결 상태:', isConnected);
-    console.log('🔑 주소:', address);
-    console.log('💼 지갑:', wallet?.adapter?.name);
   }, [isConnected, address, wallet?.adapter?.name]);
 
   // 주소 복사
@@ -55,8 +51,7 @@ export default function WalletAdapter({
       try {
         await navigator.clipboard.writeText(address);
         alert('주소가 복사되었습니다!');
-      } catch (error) {
-        console.error('주소 복사 실패:', error);
+      } catch {
         alert('주소 복사에 실패했습니다');
       }
     }

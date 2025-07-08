@@ -59,7 +59,6 @@ export default function TestSolanaPage() {
         setDebugInfo(prev => prev + '🚨 403 오류 감지! RPC 엔드포인트 문제입니다.\n');
       }
       
-      console.error('RPC Debug Error:', error);
     }
   };
 

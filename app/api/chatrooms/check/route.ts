@@ -26,14 +26,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Supabase에서 중복 체크
-    const { data: existingRoom, error } = await supabaseAdmin
+    const { data: existingRoom, error: dbError } = await supabaseAdmin
       .from('chat_rooms')
       .select('token_address')
       .eq('token_address', contractAddress.trim())
       .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = No rows found
-      console.error('중복 체크 오류:', error);
+    if (dbError && dbError.code !== 'PGRST116') { // PGRST116 = No rows found
       return NextResponse.json(
         { success: false, error: '중복 체크 중 데이터베이스 오류가 발생했습니다.' },
         { status: 500 }
@@ -50,8 +49,7 @@ export async function GET(request: NextRequest) {
         : '사용 가능한 컨트랙트 주소입니다.'
     });
 
-  } catch (error) {
-    console.error('중복 체크 오류:', error);
+  } catch {
     return NextResponse.json(
       { success: false, error: '중복 체크 중 오류가 발생했습니다.' },
       { status: 500 }

@@ -69,12 +69,10 @@ export function useSolana() {
           const networkStats = await getNetworkStats(conn);
           setStats(networkStats);
         } catch (error) {
-          console.warn('Failed to get network stats:', error);
         }
       }
 
     } catch (error) {
-      console.error('Failed to initialize Solana connection:', error);
       setStatus({
         connected: false,
         network: getCurrentNetwork(),
@@ -106,7 +104,6 @@ export function useSolana() {
           const networkStats = await getNetworkStats(newConnection);
           setStats(networkStats);
         } catch (error) {
-          console.warn('Failed to get network stats after network change:', error);
         }
       }
 
@@ -124,7 +121,6 @@ export function useSolana() {
       }
 
     } catch (error) {
-      console.error('Failed to change network:', error);
       setStatus(prev => ({
         ...prev,
         loading: false,
@@ -146,7 +142,6 @@ export function useSolana() {
       const networkStats = await getNetworkStats(connection);
       setStats(networkStats);
     } catch (error) {
-      console.error('Failed to refresh network stats:', error);
     }
   }, [connection, status.connected]);
 
@@ -158,7 +153,6 @@ export function useSolana() {
   // 연결 상태 모니터링 시작 제거 (필요시에만 수동 확인)
   useEffect(() => {
     if (connection && status.connected) {
-      console.log('✅ 연결 모니터 준비됨 - 수동 확인만 가능');
       // 🚫 자동 모니터링 제거 - 필요시에만 수동으로 확인
       monitorRef.current = new SolanaConnectionMonitor(connection);
       

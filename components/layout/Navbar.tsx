@@ -6,20 +6,20 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { useWallet } from '@/hooks/useWallet'; // 원래대로 복구
-// useWalletModal 제거 - 직접 연결 구현
-import ClientOnly from '@/components/ClientOnly'; // Hydration 에러 방지용
+import { useWallet } from '@/hooks/useWallet'; // Restored to original
+// Removed useWalletModal - direct connection implementation
+import ClientOnly from '@/components/ClientOnly'; // Prevent hydration errors
 import TokenAvatar from '@/components/ui/TokenAvatar';
 import CreateChatRoomDialog from './CreateChatRoomDialog';
 
-// Mock 채팅방 데이터 (실제로는 API에서 가져옴)
+// Mock chatroom data (actually fetched from API)
 const mockRooms = [
-  { id: 'sol-usdc', name: 'SOL/USDC', image: '💰', description: 'Solana USDC 거래' },
-  { id: 'bonk', name: 'BONK', image: '🐕', description: 'BONK 밈코인 거래' },
-  { id: 'wif', name: 'WIF', image: '🧢', description: 'Dogwifhat 거래' },
-  { id: 'jup', name: 'JUP', image: '🪐', description: 'Jupiter 거래' },
-  { id: 'ray', name: 'RAY', image: '⚡', description: 'Raydium 거래' },
-  { id: 'samo', name: 'SAMO', image: '🐕‍🦺', description: 'Samoyed 거래' },
+  { id: 'sol-usdc', name: 'SOL/USDC', image: '💰', description: 'Solana USDC trading' },
+  { id: 'bonk', name: 'BONK', image: '🐕', description: 'BONK memecoin trading' },
+  { id: 'wif', name: 'WIF', image: '🧢', description: 'Dogwifhat trading' },
+  { id: 'jup', name: 'JUP', image: '🪐', description: 'Jupiter trading' },
+  { id: 'ray', name: 'RAY', image: '⚡', description: 'Raydium trading' },
+  { id: 'samo', name: 'SAMO', image: '🐕‍🦺', description: 'Samoyed trading' },
 ];
 
 interface ChatRoom {
@@ -29,7 +29,7 @@ interface ChatRoom {
   description: string;
 }
 
-// API에서 받아오는 채팅방 타입
+// Chatroom type received from API
 interface ApiChatRoom {
   id: string;
   contractAddress: string;
@@ -38,7 +38,7 @@ interface ApiChatRoom {
   transactionSignature: string;
   createdAt: string;
   isActive: boolean;
-  image?: string; // 토큰 메타데이터에서 가져온 이미지 URL
+  image?: string; // Image URL fetched from token metadata
 }
 
 interface ChatRoomSearchProps {
@@ -52,51 +52,51 @@ function ChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
   const [apiRooms, setApiRooms] = useState<ChatRoom[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 실제 채팅방 데이터 로드
+  // Load actual chatroom data
   const loadChatrooms = useCallback(async () => {
     setIsLoading(true);
     try {
-      console.log('🔄 채팅방 목록 로딩 시작...');
+      // 채팅방 목록 로드 시작
       const response = await fetch('/api/chatrooms');
       const data = await response.json();
       
       if (data.success) {
-        console.log('✅ 채팅방 목록 로딩 성공:', data.chatrooms);
-        // API 데이터를 UI 형식으로 변환
+        // 채팅방 목록 로드 성공
+        // Convert API data to UI format
         const formattedRooms = data.chatrooms.map((room: ApiChatRoom) => ({
           id: room.contractAddress,
           name: room.name,
-          image: room.image || '🪙', // 토큰 이미지 URL 또는 기본 이모지
+                      image: room.image || '🪙', // Token image URL or default emoji
           description: `CA: ${room.contractAddress.slice(0, 8)}...`
         }));
         setApiRooms(formattedRooms);
-        console.log('🎯 포맷된 채팅방 목록:', formattedRooms);
+                  // 포맷된 채팅방 목록
       }
-    } catch (error) {
-      console.error('❌ 채팅방 로드 오류:', error);
-      // 오류 시 목 데이터 유지
+        } catch {
+      // 채팅방 로드 오류
+              // Keep mock data on error
       setApiRooms(mockRooms);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // 컴포넌트 마운트 시 데이터 로드
+      // Load data on component mount
   useEffect(() => {
     loadChatrooms();
   }, [loadChatrooms]);
 
-  // 채팅방 생성 이벤트 리스너
+      // Chatroom creation event listener
   useEffect(() => {
     const handleChatroomCreated = () => {
-      loadChatrooms(); // 새 채팅방 생성 시 목록 새로고침
+              loadChatrooms(); // Refresh list when new chatroom is created
     };
 
     window.addEventListener('chatroomCreated', handleChatroomCreated);
     return () => window.removeEventListener('chatroomCreated', handleChatroomCreated);
   }, [loadChatrooms]);
 
-  // 검색된 채팅방 목록 (API 데이터 우선, 없으면 목 데이터)
+      // Searched chatroom list (API data first, fallback to mock data)
   const allRooms = apiRooms.length > 0 ? apiRooms : mockRooms;
   const filteredRooms = useMemo(() => {
     if (!searchQuery.trim()) return allRooms.slice(0, 5);
@@ -110,32 +110,32 @@ function ChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
       .slice(0, 5);
   }, [searchQuery, allRooms]);
 
-  // 채팅방 선택 핸들러
+      // Chatroom selection handler
   const handleRoomSelect = useCallback((room: typeof mockRooms[0]) => {
-    setShowResults(false); // 결과 목록 숨기기
+    setShowResults(false); // Hide results list
     onRoomSelect?.(room.id);
-    console.log('선택된 채팅방:', room.id);
+    // 채팅방 선택됨
   }, [onRoomSelect]);
 
-  // Create room 핸들러
+  // Create room handler
   const handleCreateRoom = useCallback(() => {
-    setShowResults(false); // 결과 목록 숨기기
+    setShowResults(false); // Hide results list
     onCreateRoom?.();
   }, [onCreateRoom]);
 
-  // 검색 입력 핸들러
+  // Search input handler
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
     setShowResults(true);
   }, []);
 
-  // 입력창 포커스 핸들러
+  // Input focus handler
   const handleFocus = useCallback(() => {
     setShowResults(true);
   }, []);
 
-  // 결과 목록 외부 클릭 시 숨기기
+  // Hide results list on outside click
   const searchRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -150,11 +150,11 @@ function ChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
 
   return (
     <div ref={searchRef} className="relative w-full max-w-md">
-      {/* 통합 검색 입력창 */}
+      {/* Integrated search input */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input 
-          placeholder="채팅방 검색 및 선택..."
+          placeholder="Search and select chatroom..."
           className="neobrutalism-input pl-10"
           value={searchQuery}
           onChange={handleSearchChange}
@@ -162,23 +162,23 @@ function ChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
         />
       </div>
 
-      {/* 검색 결과 드롭다운 */}
+              {/* Search results dropdown */}
       {showResults && (
         <div className="absolute top-full left-0 right-0 mt-1 z-50">
           <div 
             className="w-full text-popover-foreground border rounded-md shadow-[var(--shadow)] flex flex-col"
             style={{ backgroundColor: 'oklch(72.27% 0.1894 50.19)' }}
           >
-            {/* 헤더 */}
-            <div className="px-2 py-1.5 text-sm font-semibold">채팅방 목록</div>
+            {/* Header */}
+                          <div className="px-2 py-1.5 text-sm font-semibold">Chatroom List</div>
             <div className="h-px bg-border mx-1"></div>
             
-            {/* 채팅방 목록 영역 (5개까지, 스크롤 가능) */}
+                          {/* Chatroom list area (up to 5, scrollable) */}
             <div className="max-h-[240px] overflow-y-auto">
               {isLoading ? (
                 <div className="relative flex select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none">
                   <span className="text-sm text-muted-foreground">
-                    채팅방 로딩 중...
+                    Loading chatrooms...
                   </span>
                 </div>
               ) : filteredRooms.length > 0 ? (
@@ -203,16 +203,16 @@ function ChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
               ) : (
                 <div className="relative flex select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                   <span className="text-sm text-muted-foreground">
-                    &apos;{searchQuery}&apos;와 일치하는 채팅방이 없습니다.
+                    No chatrooms match &apos;{searchQuery}&apos;.
                   </span>
                 </div>
               )}
             </div>
             
-            {/* 구분선 */}
+            {/* Separator */}
             <div className="h-px bg-border mx-1"></div>
             
-            {/* Create chat room 옵션 (항상 고정) */}
+                          {/* Create chat room option (always fixed) */}
             <div
               onClick={handleCreateRoom}
               className="relative flex cursor-pointer select-none items-center rounded-[5px] px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground hover:border-2 hover:border-black data-[disabled]:pointer-events-none data-[disabled]:opacity-50 gap-3 border-2 border-transparent text-blue-600 font-medium"
@@ -220,7 +220,7 @@ function ChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
               <span className="text-lg">➕</span>
               <div className="flex-1">
                 <div className="font-semibold">Create chat room</div>
-                <div className="text-xs text-muted-foreground">새로운 채팅방 만들기</div>
+                <div className="text-xs text-muted-foreground">Create new chatroom</div>
               </div>
             </div>
           </div>
@@ -230,7 +230,7 @@ function ChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
   );
 }
 
-// 지갑 프로필 컴포넌트
+// Wallet profile component
 function WalletProfile(): React.ReactElement {
   const { 
     isConnected, 
@@ -251,16 +251,16 @@ function WalletProfile(): React.ReactElement {
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Dialog가 열릴 때 현재 값들로 초기화
+  // Initialize with current values when Dialog opens
   useEffect(() => {
     if (isDialogOpen && isConnected) {
       setTempNickname(nickname || '');
-      // 아바타 설정 (useWallet에서 이미 처리됨)
+      // Avatar setting (already handled in useWallet)
       setTempAvatar(avatar || DEFAULT_AVATARS[0]);
     }
   }, [isDialogOpen, nickname, avatar, isConnected]);
 
-  // 변경사항 저장
+  // Save changes
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -269,16 +269,16 @@ function WalletProfile(): React.ReactElement {
         avatar: tempAvatar
       });
       setIsDialogOpen(false);
-      console.log('✅ 프로필 저장 완료');
-    } catch (error) {
-      console.error('❌ 프로필 저장 오류:', error);
-      alert('프로필 저장 중 오류가 발생했습니다.');
+              // 프로필 저장 완료
+          } catch {
+        // 프로필 저장 오류
+      alert('An error occurred while saving profile.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  // 이미지 업로드 처리
+  // Image upload handling
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !address) return;
@@ -298,53 +298,53 @@ function WalletProfile(): React.ReactElement {
 
       if (result.success) {
         setTempAvatar(result.avatar_url);
-        console.log('✅ 이미지 업로드 완료:', result.avatar_url);
+        // 이미지 업로드 완료
         
-        // 업로드 후 즉시 프로필 업데이트
+        // Update profile immediately after upload
         await updateProfile({
           nickname: tempNickname,
           avatar: result.avatar_url
         });
-        console.log('✅ 프로필 자동 업데이트 완료');
-      } else {
-        console.error('❌ 이미지 업로드 실패:', result.error);
-        alert('이미지 업로드에 실패했습니다: ' + result.error);
+                  // 프로필 자동 업데이트 완료
+              } else {
+          // 이미지 업로드 실패
+        alert('Image upload failed: ' + result.error);
       }
-    } catch (error) {
-      console.error('❌ 이미지 업로드 오류:', error);
-      alert('이미지 업로드 중 오류가 발생했습니다.');
+          } catch {
+        // 이미지 업로드 오류
+      alert('An error occurred during image upload.');
     } finally {
       setIsUploading(false);
     }
   };
 
-  // 안전한 아바타 fallback 함수
+  // Safe avatar fallback function
   const getDisplayAvatarFallback = () => {
-    // 이모지인지 확인 (길이가 2 이하이고 유니코드 이모지 범위)
+    // Check if emoji (length 2 or less and Unicode emoji range)
     if (avatar && avatar.length <= 2 && /[\u{1F300}-\u{1F9FF}]/u.test(avatar)) {
       return avatar;
     }
     
-    // 닉네임이 있으면 첫 글자 사용
+    // Use first character of nickname if available
     if (nickname && nickname.trim()) {
       return nickname.charAt(0).toUpperCase();
     }
     
-    // 지갑 주소 기반 fallback (null 체크 추가)
+    // Wallet address-based fallback (added null check)
     if (address && address.length > 3) {
       return address.slice(2, 4).toUpperCase();
     }
     
-    // 기본 아바타
+    // Default avatar
     return '👤';
   };
 
-  // 지갑이 연결되지 않은 경우
+      // If wallet is not connected
   if (!isConnected) {
     return (
       <ClientOnly fallback={
         <Button className="neobrutalism-button" disabled>
-          지갑 연결
+          Connect Wallet
         </Button>
       }>
         <Button 
@@ -355,13 +355,13 @@ function WalletProfile(): React.ReactElement {
           }}
           onClick={connectWallet}
         >
-          지갑 연결
+          Connect Wallet
         </Button>
       </ClientOnly>
     );
   }
 
-  // 지갑이 연결된 경우
+  // If wallet is connected
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
@@ -397,12 +397,11 @@ function WalletProfile(): React.ReactElement {
             {avatar?.startsWith('data:') || avatar?.startsWith('http') ? (
               <img 
                 src={avatar} 
-                alt="아바타" 
+                alt="Avatar" 
                 className="w-full h-full object-cover"
                 style={{ borderRadius: '0px' }}
                 onError={(e) => {
-                  console.error('❌ 아바타 이미지 로드 실패:', avatar);
-                  // 이미지 로드 실패 시 기본 아바타로 대체
+                  // Replace with default avatar on image load failure
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
                 }}
@@ -421,7 +420,7 @@ function WalletProfile(): React.ReactElement {
               ? nickname 
               : address 
                 ? `${address.slice(0, 4)}...${address.slice(-4)}` 
-                : '지갑 연결됨'
+                : 'Wallet Connected'
             }
           </span>
         </Button>
@@ -429,15 +428,15 @@ function WalletProfile(): React.ReactElement {
       
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>프로필 편집</DialogTitle>
+          <DialogTitle>Edit Profile</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
-          {/* 아바타 선택 */}
+          {/* Avatar selection */}
           <div className="space-y-2">
-            <Label>아바타</Label>
+                          <Label>Avatar</Label>
             
-            {/* 현재 아바타 미리보기 */}
+                          {/* Current avatar preview */}
             <div className="flex items-center gap-4 mb-4">
               <div 
                 className="relative group cursor-pointer"
@@ -447,7 +446,7 @@ function WalletProfile(): React.ReactElement {
                   {tempAvatar.startsWith('data:') || tempAvatar.startsWith('http') ? (
                     <img 
                       src={tempAvatar} 
-                      alt="아바타" 
+                      alt="Avatar" 
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -465,17 +464,17 @@ function WalletProfile(): React.ReactElement {
               
               <div className="text-sm text-gray-600">
                 {isUploading ? (
-                  <span className="text-blue-600">이미지 업로드 중...</span>
+                  <span className="text-blue-600">Uploading image...</span>
                 ) : (
                   <>
-                    클릭하여 이미지를 업로드하거나<br />
-                    아래에서 기본 아바타를 선택하세요
+                    Click to upload image or<br />
+                    select a default avatar below
                   </>
                 )}
               </div>
             </div>
 
-            {/* 숨겨진 파일 입력 */}
+            {/* Hidden file input */}
             <input
               ref={fileInputRef}
               type="file"
@@ -484,7 +483,7 @@ function WalletProfile(): React.ReactElement {
               className="hidden"
             />
             
-            {/* 기본 아바타 선택 */}
+            {/* Default avatar selection */}
             <div className="grid grid-cols-5 gap-2">
               {DEFAULT_AVATARS.map((avatar) => (
                 <button
@@ -502,34 +501,34 @@ function WalletProfile(): React.ReactElement {
             </div>
           </div>
 
-          {/* 닉네임 입력 */}
+          {/* Nickname input */}
           <div className="space-y-2">
-            <Label htmlFor="nickname">닉네임</Label>
+            <Label htmlFor="nickname">Nickname</Label>
             <Input
               id="nickname"
               value={tempNickname}
               onChange={(e) => setTempNickname(e.target.value)}
-              placeholder={address ? `기본값: ${address.slice(0, 4)}...${address.slice(-4)}` : '닉네임을 입력하세요'}
+              placeholder={address ? `Default: ${address.slice(0, 4)}...${address.slice(-4)}` : 'Enter nickname'}
               className="neobrutalism-input"
             />
           </div>
 
-          {/* 지갑 주소 표시 */}
+          {/* Wallet address display */}
           <div className="space-y-2">
-            <Label>지갑 주소</Label>
+            <Label>Wallet Address</Label>
             <div className="p-2 bg-gray-100 rounded-base text-sm font-mono text-gray-600">
               {address}
             </div>
           </div>
 
-          {/* 저장된 프로필 상태 */}
+          {/* Saved profile status */}
           {profile?.updated_at && (
             <div className="text-xs text-gray-500 border-l-2 border-blue-200 pl-2">
-              💾 마지막 저장: {new Date(profile.updated_at).toLocaleString('ko-KR')}
+              💾 Last saved: {new Date(profile.updated_at).toLocaleString('en-US')}
             </div>
           )}
 
-          {/* 버튼들 */}
+          {/* Buttons */}
           <div className="flex justify-between space-x-2">
             <Button
               variant="reverse"
@@ -537,7 +536,7 @@ function WalletProfile(): React.ReactElement {
               className="neobrutalism-button"
               disabled={isSaving}
             >
-              지갑 연결 해제
+              Disconnect Wallet
             </Button>
 
             <div className="flex space-x-2">
@@ -547,7 +546,7 @@ function WalletProfile(): React.ReactElement {
                 className="neobrutalism-button"
                 disabled={isSaving}
               >
-                취소
+                Cancel
               </Button>
               <Button
                 onClick={handleSave}
@@ -557,10 +556,10 @@ function WalletProfile(): React.ReactElement {
                 {isSaving ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                    저장 중...
+                    Saving...
                   </div>
                 ) : (
-                  '저장'
+                  'Save'
                 )}
               </Button>
             </div>
@@ -575,28 +574,28 @@ export default function Navbar() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const handleRoomSelect = useCallback((roomId: string) => {
-    // 채팅방 선택 시 처리 로직
-    console.log('네비게이션에서 채팅방 선택:', roomId);
+    // Chatroom selection handler
+    // 네비게이션에서 채팅방 선택됨
     
-    // ChatArea로 메시지 전송하여 선택된 방으로 변경
+    // Send message to ChatArea to change to selected room
     window.dispatchEvent(new CustomEvent('roomSelected', { 
       detail: { roomId } 
     }));
   }, []);
 
   const handleCreateRoom = useCallback(() => {
-    // 채팅방 생성 dialog 열기
+    // Open chatroom creation dialog
     setIsCreateDialogOpen(true);
   }, []);
 
   const navContent = (
     <>
-      {/* 로고 */}
+      {/* Logo */}
       <div className="navbar-logo">
         🚀 TradeChat
       </div>
 
-      {/* 채팅방 검색 (Desktop 중앙) */}
+      {/* Chatroom search (Desktop center) */}
       <div className="navbar-center hidden lg:flex">
         <ChatRoomSearch 
           onRoomSelect={handleRoomSelect} 
@@ -604,13 +603,13 @@ export default function Navbar() {
         />
       </div>
 
-      {/* 우측 컨트롤 영역 */}
+      {/* Right control area */}
       <div className="navbar-right hidden lg:flex items-center space-x-3">
-        {/* 지갑 연결 */}
+        {/* Wallet connection */}
         <WalletProfile />
       </div>
 
-      {/* 채팅방 생성 Dialog */}
+      {/* Chatroom creation Dialog */}
       <CreateChatRoomDialog 
         open={isCreateDialogOpen} 
         onOpenChange={setIsCreateDialogOpen} 

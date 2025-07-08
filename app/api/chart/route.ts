@@ -45,7 +45,6 @@ export async function GET(request: NextRequest) {
 
     const { timeframe, aggregate } = getTimeframe(period);
     
-    console.log(`🔄 GeckoTerminal API 호출: ${poolAddress}, timeframe: ${timeframe}`);
     
     // GeckoTerminal API v2 호출
     const url = `${GECKOTERMINAL_API_BASE}/networks/solana/pools/${poolAddress}/ohlcv/${timeframe}?aggregate=${aggregate}&before_timestamp=${Math.floor(Date.now() / 1000)}&limit=100`;
@@ -58,16 +57,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      console.error(`❌ GeckoTerminal API 에러: ${response.status} ${response.statusText}`);
       throw new Error(`API error: ${response.status}`);
     }
 
     const result = await response.json();
-    
-    console.log(`✅ API 응답 받음:`, { 
-      dataLength: result.data?.attributes?.ohlcv_list?.length,
-      meta: result.meta 
-    });
 
     if (!result.data?.attributes?.ohlcv_list) {
       throw new Error('No OHLCV data found');
@@ -80,7 +73,6 @@ export async function GET(request: NextRequest) {
       price: ohlcv[4], // Close price 사용
     }));
 
-    console.log(`✅ 차트 데이터 변환 완료: ${chartData.length}개 포인트`);
 
     return NextResponse.json({
       success: true,
@@ -94,8 +86,6 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('🚨 차트 API 에러:', error);
-    
     return NextResponse.json(
       { 
         error: error instanceof Error ? error.message : 'Failed to fetch chart data',

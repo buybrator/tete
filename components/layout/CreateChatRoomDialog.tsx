@@ -32,7 +32,7 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
   
   const { isConnected, address } = useWallet();
 
-  // 컨트랙트 주소 중복 체크 (디바운싱)
+  // Contract address duplicate check (debouncing)
   useEffect(() => {
     if (!contractAddress.trim() || contractAddress.length < 32) {
       setDuplicateError('');
@@ -50,8 +50,7 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
         if (data.success && data.exists) {
           setDuplicateError(data.message);
         }
-      } catch (error) {
-        console.error('중복 체크 오류:', error);
+      } catch {
       } finally {
         setIsDuplicateChecking(false);
       }
@@ -63,25 +62,25 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
 
   const handleCreate = async () => {
     if (!roomName.trim() || !contractAddress.trim()) {
-      alert('채팅방 이름과 컨트랙트 주소를 모두 입력해주세요.');
+      alert('Please enter both chatroom name and contract address.');
       return;
     }
 
     if (!isConnected || !address) {
-      alert('지갑을 먼저 연결해주세요.');
+      alert('Please connect your wallet first.');
       return;
     }
 
     if (duplicateError) {
-      alert('이미 존재하는 컨트랙트 주소입니다.');
+      alert('This contract address already exists.');
       return;
     }
 
-    // 기본적인 Solana 주소 형식 검증
+    // Basic Solana address format validation
     try {
       new PublicKey(contractAddress.trim());
     } catch {
-      alert('올바른 Solana 컨트랙트 주소 형식이 아닙니다.');
+              alert('Invalid Solana contract address format.');
       return;
     }
 
@@ -89,16 +88,16 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
     setStep('payment');
 
     try {
-      // 1단계: Solana 트랜잭션 실행
+      // Step 1: Execute Solana transaction
       const transactionSignature = await sendPaymentTransaction();
       
       if (!transactionSignature) {
-        throw new Error('트랜잭션이 취소되었거나 실패했습니다.');
+        throw new Error('Transaction was cancelled or failed.');
       }
 
       setStep('creating');
 
-      // 2단계: 백엔드에 채팅방 생성 요청
+              // Step 2: Request chatroom creation to backend
       const response = await fetch('/api/chatrooms', {
         method: 'POST',
         headers: {
@@ -115,25 +114,24 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || '채팅방 생성에 실패했습니다.');
+        throw new Error(data.error || 'Failed to create chatroom.');
       }
 
-      alert(`"${roomName}" 채팅방이 성공적으로 생성되었습니다!\n트랜잭션: ${transactionSignature}`);
+      alert(`"${roomName}" chatroom created successfully!\nTransaction: ${transactionSignature}`);
       
-      // 성공 시 초기화
+      // Reset on success
       onOpenChange(false);
       setRoomName('');
       setContractAddress('');
       setStep('input');
 
-      // 채팅방 목록 새로고침 이벤트 발송
+      // Send chatroom list refresh event
       window.dispatchEvent(new CustomEvent('chatroomCreated', { 
         detail: { chatroom: data.chatroom } 
       }));
 
     } catch (error) {
-      console.error('채팅방 생성 오류:', error);
-      alert(error instanceof Error ? error.message : '채팅방 생성 중 오류가 발생했습니다.');
+      alert(error instanceof Error ? error.message : 'An error occurred while creating the chatroom.');
       setStep('input');
     } finally {
       setIsLoading(false);
@@ -146,7 +144,7 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
       const fromPubkey = new PublicKey(address!);
       const toPubkey = new PublicKey(PAYMENT_WALLET);
       
-      // 트랜잭션 생성
+      // Create transaction
       const transaction = new Transaction().add(
         SystemProgram.transfer({
           fromPubkey,
@@ -155,29 +153,27 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
         })
       );
 
-      // 최신 블록해시 가져오기
+      // Get latest blockhash
       const { blockhash } = await connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = fromPubkey;
 
-      // 지갑 어댑터 사용
+      // Use wallet adapter
       if (typeof window !== 'undefined' && window.solana) {
-        // 트랜잭션 서명
+        // Sign transaction
         const signedTransaction = await window.solana.signTransaction(transaction) as Transaction;
         
-        // 서명된 트랜잭션 전송
+        // Send signed transaction
         const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
           skipPreflight: false,
           preflightCommitment: 'confirmed'
         });
 
-        console.log(`🚀 채팅방 생성 트랜잭션 전송 완료: ${signature}`);
-        console.log('⏳ 트랜잭션 확인 대기 중...');
         
-        // 🎯 Swap과 동일한 polling 방식으로 트랜잭션 확인 (WebSocket 없음)
+        // 🎯 Transaction confirmation using same polling method as Swap (no WebSocket)
         let confirmed = false;
         let attempts = 0;
-        const maxAttempts = 15; // 15초로 단축
+                  const maxAttempts = 15; // Reduced to 15 seconds
         
         while (!confirmed && attempts < maxAttempts) {
           try {
@@ -188,14 +184,12 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
             
             if (txInfo) {
               if (txInfo.meta?.err) {
-                throw new Error(`트랜잭션 실패: ${JSON.stringify(txInfo.meta.err)}`);
+                throw new Error(`Transaction failed: ${JSON.stringify(txInfo.meta.err)}`);
               }
-              console.log('✅ 트랜잭션 확정 완료!');
               confirmed = true;
               break;
             }
           } catch {
-            console.log(`⏳ 확인 중... (${attempts + 1}/${maxAttempts})`);
           }
           
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -203,22 +197,20 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
         }
         
         if (!confirmed) {
-          console.warn('⚠️ 트랜잭션 확인 타임아웃, 하지만 성공했을 가능성 높음');
-          // 타임아웃이어도 트랜잭션은 성공했을 가능성이 높으므로 계속 진행
+          // Continue even if timeout, as transaction likely succeeded
         }
 
         return signature;
       } else {
-        throw new Error('Solana 지갑을 찾을 수 없습니다.');
+        throw new Error('Solana wallet not found.');
       }
 
     } catch (error) {
-      console.error('트랜잭션 오류:', error);
       if (error instanceof Error && (
         error.message.includes('User rejected') || 
         error.message.includes('User denied')
       )) {
-        return null; // 사용자가 취소한 경우
+        return null; // User cancelled
       }
       throw error;
     }
@@ -244,72 +236,72 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {step === 'input' && '새로운 채팅방 만들기'}
-            {step === 'payment' && '결제 진행 중...'}
-            {step === 'creating' && '채팅방 생성 중...'}
+            {step === 'input' && 'Create New Chatroom'}
+            {step === 'payment' && 'Processing Payment...'}
+            {step === 'creating' && 'Creating Chatroom...'}
           </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
           {step === 'input' && (
             <>
-              {/* 지갑 연결 상태 */}
+              {/* Wallet connection status */}
               {!isConnected && (
                 <div className="p-3 bg-yellow-100 border border-yellow-400 rounded-md">
                   <p className="text-sm text-yellow-700">
-                    ⚠️ 채팅방을 생성하려면 지갑을 먼저 연결해주세요.
+                    ⚠️ Please connect your wallet first to create a chatroom.
                   </p>
                 </div>
               )}
 
-              {/* 결제 안내 */}
+              {/* Payment information */}
               <div className="p-3 bg-blue-100 border border-blue-400 rounded-md">
                 <p className="text-sm text-blue-700">
-                  💰 채팅방 생성 비용: <strong>0.001 SOL</strong>
+                  💰 Chatroom creation fee: <strong>0.001 SOL</strong>
                 </p>
               </div>
 
-              {/* 채팅방 이름 */}
+              {/* Chatroom name */}
               <div className="space-y-2">
-                <Label htmlFor="roomName">채팅방 이름 *</Label>
+                <Label htmlFor="roomName">Chatroom Name *</Label>
                 <Input
                   id="roomName"
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}
-                  placeholder="예: SOL/USDC 거래방"
+                  placeholder="e.g., SOL/USDC Trading Room"
                   className="neobrutalism-input"
                   maxLength={50}
                   disabled={isLoading}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {roomName.length}/50자
+  {roomName.length}/50 characters
                 </p>
               </div>
 
-              {/* 컨트랙트 주소 입력 */}
+              {/* Contract address input */}
               <div className="space-y-2">
-                <Label htmlFor="contractAddress">컨트랙트 주소 (CA) *</Label>
+                <Label htmlFor="contractAddress">Contract Address (CA) *</Label>
                 <Input
                   id="contractAddress"
                   value={contractAddress}
                   onChange={(e) => setContractAddress(e.target.value)}
-                  placeholder="예: So11111111111111111111111111111111111111112"
+                  placeholder="e.g., So11111111111111111111111111111111111111112"
                   className="neobrutalism-input font-mono text-sm"
                   maxLength={44}
                   disabled={isLoading}
                 />
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">
-                    Solana 토큰의 컨트랙트 주소를 입력하세요 ({contractAddress.length}/44자)
+                    Enter the Solana token contract address ({contractAddress.length}/44 characters)
                   </p>
                   {isDuplicateChecking && (
-                    <p className="text-xs text-blue-600">중복 확인 중...</p>
+                    <p className="text-xs text-blue-600">Checking for duplicates...</p>
                   )}
                   {duplicateError && (
                     <p className="text-xs text-red-600">❌ {duplicateError}</p>
                   )}
                   {contractAddress.length >= 32 && !duplicateError && !isDuplicateChecking && (
-                    <p className="text-xs text-green-600">✅ 사용 가능한 주소입니다</p>
+                    <p className="text-xs text-green-600">✅ Address is available</p>
                   )}
                 </div>
               </div>
@@ -319,12 +311,12 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
           {step === 'payment' && (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-lg font-medium">결제 진행 중</p>
+              <p className="text-lg font-medium">Processing Payment</p>
               <p className="text-sm text-muted-foreground">
-                지갑에서 트랜잭션을 승인해주세요...
+                Please approve the transaction in your wallet...
               </p>
               <p className="text-xs text-muted-foreground mt-2">
-                전송 금액: 0.001 SOL
+                Amount: 0.001 SOL
               </p>
             </div>
           )}
@@ -332,14 +324,14 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
           {step === 'creating' && (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-              <p className="text-lg font-medium">채팅방 생성 중</p>
+              <p className="text-lg font-medium">Creating Chatroom</p>
               <p className="text-sm text-muted-foreground">
-                잠시만 기다려주세요...
+                Please wait a moment...
               </p>
             </div>
           )}
 
-          {/* 버튼들 */}
+          {/* Buttons */}
           {step === 'input' && (
             <div className="flex space-x-2 pt-4">
               <Button
@@ -348,14 +340,14 @@ export default function CreateChatRoomDialog({ open, onOpenChange }: CreateChatR
                 className="neobrutalism-button flex-1"
                 disabled={isLoading}
               >
-                취소
+                Cancel
               </Button>
               <Button
                 onClick={handleCreate}
                 className="neobrutalism-button flex-1"
                 disabled={!canCreate || isLoading}
               >
-                {isLoading ? '처리 중...' : '0.001 SOL 결제 후 생성'}
+                {isLoading ? 'Processing...' : 'Pay 0.001 SOL & Create'}
               </Button>
             </div>
           )}

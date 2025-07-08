@@ -28,7 +28,6 @@ export class TokenPriceService {
       );
       
       if (!response.ok) {
-        console.warn('Jupiter API 응답 실패:', response.status);
         return null;
       }
 
@@ -40,8 +39,7 @@ export class TokenPriceService {
       }
       
       return null;
-    } catch (error) {
-      console.error('Jupiter 가격 조회 실패:', error);
+    } catch {
       return null;
     }
   }
@@ -51,12 +49,10 @@ export class TokenPriceService {
    */
   async updateTokenPrice(tokenAddress: string): Promise<boolean> {
     try {
-      console.log(`💰 토큰 가격 업데이트 시작: ${tokenAddress}`);
       
       // Jupiter API에서 현재 가격 조회
       const currentPrice = await this.fetchJupiterPrice(tokenAddress);
       if (!currentPrice) {
-        console.warn('가격 데이터를 가져올 수 없습니다');
         return false;
       }
 
@@ -86,11 +82,9 @@ export class TokenPriceService {
           .eq('id', existingData.id);
 
         if (error) {
-          console.error('가격 업데이트 실패:', error);
           return false;
         }
 
-        console.log(`✅ 기존 OHLC 데이터 업데이트 완료: ${tokenAddress} @ ${currentPrice}`);
       } else {
         // 새로운 데이터 삽입
         const newData: TokenPriceHistoryInsert = {
@@ -109,16 +103,13 @@ export class TokenPriceService {
           .insert(newData);
 
         if (error) {
-          console.error('새 가격 데이터 삽입 실패:', error);
           return false;
         }
 
-        console.log(`✅ 새 가격 데이터 삽입 완료: ${tokenAddress} @ ${currentPrice}`);
       }
 
       return true;
-    } catch (error) {
-      console.error('토큰 가격 업데이트 오류:', error);
+    } catch {
       return false;
     }
   }
@@ -136,14 +127,12 @@ export class TokenPriceService {
         .limit(48);
 
       if (error) {
-        console.error('가격 히스토리 조회 실패:', error);
         return [];
       }
 
       // 시간순으로 정렬 (오래된 것부터)
       return (data || []).reverse();
-    } catch (error) {
-      console.error('가격 히스토리 조회 오류:', error);
+    } catch {
       return [];
     }
   }
@@ -167,8 +156,7 @@ export class TokenPriceService {
       }
 
       return data.price;
-    } catch (error) {
-      console.error('최신 가격 조회 오류:', error);
+    } catch {
       return null;
     }
   }
@@ -177,13 +165,11 @@ export class TokenPriceService {
    * 여러 토큰의 가격을 일괄 업데이트합니다
    */
   async updateMultipleTokenPrices(tokenAddresses: string[]): Promise<void> {
-    console.log(`🔄 ${tokenAddresses.length}개 토큰 가격 일괄 업데이트 시작`);
     
     const promises = tokenAddresses.map(address => this.updateTokenPrice(address));
     const results = await Promise.allSettled(promises);
     
     const successful = results.filter(result => result.status === 'fulfilled' && result.value).length;
-    console.log(`✅ 가격 업데이트 완료: ${successful}/${tokenAddresses.length}`);
   }
 
   /**
@@ -212,12 +198,9 @@ export class TokenPriceService {
         .not('id', 'in', `(${keepIds.map(id => `'${id}'`).join(',')})`);
 
       if (error) {
-        console.error('오래된 데이터 정리 실패:', error);
       } else {
-        console.log(`🧹 오래된 가격 데이터 정리 완료: ${tokenAddress}`);
       }
-    } catch (error) {
-      console.error('데이터 정리 오류:', error);
+    } catch {
     }
   }
 

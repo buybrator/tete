@@ -7,13 +7,12 @@ import { fetchTokenMetadataWithRetry } from '@/lib/tokenMetadata';
 // GET: 모든 채팅방 조회
 export async function GET() {
   try {
-    const { data: chatrooms, error } = await supabaseAdmin
+    const { data: chatrooms, error: dbError } = await supabaseAdmin
       .from('chat_rooms')
       .select('id, name, description, image, token_address, created_by, member_count, is_active, created_at, updated_at')
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('채팅방 조회 오류:', error);
+    if (dbError) {
       return NextResponse.json(
         { success: false, error: '채팅방 조회 중 오류가 발생했습니다.' },
         { status: 500 }
@@ -36,8 +35,7 @@ export async function GET() {
       success: true,
       chatrooms: formattedChatrooms
     });
-  } catch (error) {
-    console.error('채팅방 조회 오류:', error);
+  } catch {
     return NextResponse.json(
       { success: false, error: '채팅방 조회 중 오류가 발생했습니다.' },
       { status: 500 }
@@ -84,7 +82,6 @@ export async function POST(request: NextRequest) {
     }
 
     // 🎯 토큰 메타데이터 조회 (이미지 URL 추출)
-    console.log(`🔍 토큰 메타데이터 조회 시작: ${contractAddress}`);
     let tokenImageUrl: string | null = null;
     let tokenName = name; // 기본값으로 사용자 입력 이름 사용
     
@@ -98,16 +95,8 @@ export async function POST(request: NextRequest) {
         if (metadata.name && metadata.name.trim() && metadata.name.trim() !== 'Unknown') {
           tokenName = metadata.name.trim();
         }
-        console.log(`✅ 토큰 메타데이터 조회 성공:`, {
-          name: tokenName,
-          symbol: metadata.symbol,
-          image: tokenImageUrl
-        });
-      } else {
-        console.warn(`⚠️  토큰 메타데이터 조회 실패, 기본값 사용: ${contractAddress}`);
       }
-    } catch (error) {
-      console.error(`❌ 토큰 메타데이터 조회 중 오류:`, error);
+    } catch {
       // 메타데이터 조회 실패해도 채팅방 생성은 계속 진행
     }
 
@@ -121,8 +110,6 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-    } else {
-      console.log('🚧 개발 환경: 트랜잭션 검증 건너뜀');
     }
 
     // 새 채팅방을 Supabase에 저장 (토큰 이미지 URL 포함)
@@ -135,8 +122,6 @@ export async function POST(request: NextRequest) {
       created_at: new Date().toISOString()
     };
 
-    console.log(`💾 채팅방 생성 데이터:`, newChatroom);
-
     const { data: insertedRoom, error: insertError } = await supabaseAdmin
       .from('chat_rooms')
       .insert(newChatroom)
@@ -144,14 +129,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError) {
-      console.error('채팅방 삽입 오류:', insertError);
       return NextResponse.json(
         { success: false, error: '채팅방 생성 중 데이터베이스 오류가 발생했습니다.' },
         { status: 500 }
       );
     }
-
-    console.log('✅ 새 채팅방 생성 완료:', insertedRoom);
 
     // 응답 형식을 프론트엔드에 맞게 변환
     const responseRoom = {
@@ -171,8 +153,7 @@ export async function POST(request: NextRequest) {
       message: '채팅방이 성공적으로 생성되었습니다.'
     });
 
-  } catch (error) {
-    console.error('채팅방 생성 오류:', error);
+  } catch {
     return NextResponse.json(
       { success: false, error: '채팅방 생성 중 오류가 발생했습니다.' },
       { status: 500 }
@@ -192,8 +173,6 @@ async function verifyTransaction(
     let attempts = 0;
     const maxAttempts = 10; // 최대 10회 시도
     
-    console.log(`🔍 트랜잭션 검증 시작: ${signature}`);
-    
     while (!transaction && attempts < maxAttempts) {
       try {
         transaction = await connection.getTransaction(signature, {
@@ -202,11 +181,9 @@ async function verifyTransaction(
         });
         
         if (transaction) {
-          console.log(`✅ 트랜잭션 발견 (${attempts + 1}회 시도)`);
           break;
         }
       } catch {
-        console.log(`⏳ 트랜잭션 검색 중... (${attempts + 1}/${maxAttempts})`);
       }
       
       attempts++;
@@ -216,23 +193,19 @@ async function verifyTransaction(
     }
 
     if (!transaction) {
-      console.log('❌ 트랜잭션을 찾을 수 없습니다:', signature);
       return false;
     }
 
     // 트랜잭션이 성공했는지 확인
     if (transaction.meta?.err) {
-      console.log('❌ 트랜잭션이 실패했습니다:', transaction.meta.err);
       return false;
     }
 
     // ✅ 간단한 검증: 트랜잭션이 존재하고 성공했으면 유효한 것으로 간주
     // 메인넷에서 트랜잭션이 확정되었다면 이미 수수료를 지불했다는 의미
-    console.log('✅ 트랜잭션 검증 성공:', signature);
     return true;
 
-  } catch (error) {
-    console.error('❌ 트랜잭션 검증 오류:', error);
+  } catch {
     return false;
   }
 } 

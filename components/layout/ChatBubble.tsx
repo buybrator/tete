@@ -19,42 +19,34 @@ export default function ChatBubble({ message }: Props) {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [profileFetchTime, setProfileFetchTime] = useState<number>(Date.now());
 
-  // 프로필 정보 조회
+  // Profile information lookup
   useEffect(() => {
     const fetchProfile = async () => {
       if (!userAddress) {
-        console.log('❌ ChatBubble: userAddress가 없음');
         return;
       }
 
       setIsLoadingProfile(true);
-      console.log('🔄 ChatBubble: 프로필 조회 시작:', userAddress);
       
       try {
-        // 캐시 무효화를 위해 timestamp 추가
+                  // Add timestamp for cache invalidation
         const cacheBuster = Date.now();
         const response = await fetch(`/api/profiles?wallet_address=${encodeURIComponent(userAddress)}&_=${cacheBuster}`, {
-          cache: 'no-cache' // 브라우저 캐시도 무시
+                      cache: 'no-cache' // Also ignore browser cache
         });
-        console.log('📡 ChatBubble: API 응답 상태:', response.status);
         
         if (!response.ok) {
-          console.error('❌ ChatBubble: API 응답 실패:', response.status, response.statusText);
           return;
         }
 
         const result = await response.json();
-        console.log('📥 ChatBubble: 프로필 API 응답:', result);
         
         if (result.success && result.profile) {
           setUserProfile(result.profile);
-          console.log('✅ ChatBubble: 프로필 로드 성공:', result.profile);
         } else {
-          console.log('ℹ️ ChatBubble: 프로필이 없음');
           setUserProfile(null);
         }
-      } catch (error) {
-        console.error('❌ ChatBubble: 프로필 조회 중 오류:', error);
+      } catch {
         setUserProfile(null);
       } finally {
         setIsLoadingProfile(false);
@@ -64,19 +56,18 @@ export default function ChatBubble({ message }: Props) {
     fetchProfile();
   }, [userAddress, profileFetchTime]);
 
-  // 프로필 업데이트 감지를 위한 이벤트 리스너 추가
+      // Add event listener to detect profile updates
   useEffect(() => {
     const handleProfileUpdate = (event: CustomEvent) => {
       const updatedWalletAddress = event.detail?.walletAddress;
       
-      // 현재 메시지의 사용자 프로필이 업데이트된 경우 새로고침
+              // Refresh if the current message user's profile was updated
       if (updatedWalletAddress === userAddress) {
-        console.log('🔄 ChatBubble: 프로필 업데이트 감지, 새로고침:', userAddress);
         setProfileFetchTime(Date.now());
       }
     };
 
-    // 전역 프로필 업데이트 이벤트 리스너
+          // Global profile update event listener
     window.addEventListener('profileUpdated', handleProfileUpdate as EventListener);
 
     return () => {
@@ -84,92 +75,68 @@ export default function ChatBubble({ message }: Props) {
     };
   }, [userAddress]);
 
-  // 디버깅용 로그
-  useEffect(() => {
-    console.log('🐞 ChatBubble 상태:', {
-      userAddress,
-      nickname,
-      avatar,
-      userProfile,
-      isLoadingProfile,
-      hasAvatarUrl: !!userProfile?.avatar_url,
-      profileAvatarUrl: userProfile?.avatar_url
-    });
-  }, [userAddress, nickname, avatar, userProfile, isLoadingProfile]);
-
   const amount = tradeAmount || '0';
   
-  // 메시지 내용에서 이모지나 기타 자동 추가된 문구 제거
+      // Remove emojis and other auto-added phrases from message content
   const cleanContent = (text: string): string => {
     if (!text) return '';
     
-    // 거래 관련 자동 생성 텍스트 패턴들을 모두 제거
+          // Remove all trade-related auto-generated text patterns
     return text
-      // 1. 시작/끝 이모지 제거
+              // 1. Remove start/end emojis
       .replace(/^(🚀|📈|📉|💰|⚡|🎯|🔥|💎|🌙|🟢|🔴|💸|📊|🎉|🎯|🦄|⭐|✨)\s*/g, '')
       .replace(/\s*(🚀|📈|📉|💰|⚡|🎯|🔥|💎|🌙|🟢|🔴|💸|📊|🎉|🎯|🦄|⭐|✨)$/g, '')
       
-      // 2. "BUY/SELL 수량 완료!" 패턴 제거
-      .replace(/\s*(BUY|SELL|買入|賣出|매수|매도)\s*수량\s*완료!?\s*/gi, '')
+              // 2. Remove "BUY/SELL quantity completed!" patterns
+      .replace(/\s*(BUY|SELL|買入|賣出|매수|매도)\s*quantity\s*completed!?\s*/gi, '')
       .replace(/\s*(BUY|SELL)\s*\w+\s*0\.001\s*SOL\s*→\s*[\d,]+\.?\d*\s*\w+/gi, '')
       
-      // 3. "±숫자 SOL" 패턴 제거
+              // 3. Remove "±number SOL" patterns
       .replace(/(\+|-|＋|－)?\s*\d+(\.\d+)?\s*SOL/gi, '')
       
-      // 4. "숫자 SOL → 숫자 토큰" 패턴 제거
+              // 4. Remove "number SOL → number token" patterns
       .replace(/\d+(\.\d+)?\s*SOL\s*→\s*[\d,]+\.?\d*\s*\w+/gi, '')
       
-      // 5. 거래 관련 자동 텍스트 제거
+              // 5. Remove trade-related auto text
       .replace(/(bought|sold|매수|매도|구매|판매|purchased|acquired)\s*\d+(\.\d+)?\s*(SOL|sol)/gi, '')
       
-      // 6. "수량 안내" 텍스트 제거
-      .replace(/\s*수량\s*안내\s*/gi, '')
+              // 6. Remove "quantity guide" text
+      .replace(/\s*quantity\s*guide\s*/gi, '')
       
-      // 7. 화살표와 토큰 변환 정보 제거
+              // 7. Remove arrow and token conversion info
       .replace(/\s*→\s*[\d,]+\.?\d*\s*\w+/g, '')
       
-      // 8. 콜론과 숫자들 제거 (거래 ID 등)
+              // 8. Remove colons and numbers (transaction IDs etc.)
       .replace(/:\s*[\d,]+\.?\d*/g, '')
       
-      // 9. 중복 공백 및 특수문자 정리
+              // 9. Clean up duplicate spaces and special characters
       .replace(/\s+/g, ' ')
       .replace(/[:\-_=]+/g, '')
       .trim();
   };
 
-  // 아바타 표시 로직 개선 (DB에서 조회한 프로필 우선 사용)
+      // Improved avatar display logic (prioritize profile from DB)
   const displayAvatar = () => {
-    console.log('🖼️ displayAvatar 호출:', {
-      userProfile: userProfile?.avatar_url,
-      messageAvatar: avatar,
-      userAddress
-    });
-
-    // 1. DB에서 조회한 프로필 아바타 우선 사용
+          // 1. Prioritize profile avatar from DB
     if (userProfile?.avatar_url) {
-      // emoji: 접두사가 있으면 제거
+              // emoji: remove prefix if present
       const profileAvatar = userProfile.avatar_url.startsWith('emoji:') 
         ? userProfile.avatar_url.replace('emoji:', '') 
         : userProfile.avatar_url;
       
-      console.log('✅ 프로필 아바타 사용:', profileAvatar);
-      
-      // 이모지인 경우 AvatarImage로 표시하지 않음
+              // Don't display emojis with AvatarImage
       if (profileAvatar.length <= 2 && /[\u{1F300}-\u{1F9FF}]/u.test(profileAvatar)) {
-        console.log('🎭 프로필 아바타가 이모지임, null 반환');
         return null;
       }
       return profileAvatar;
     }
     
-    // 2. 메시지에 포함된 아바타 사용 (fallback)
+          // 2. Use avatar included in message (fallback)
     if (avatar) {
-      console.log('🔄 메시지 아바타 사용:', avatar);
       return avatar.startsWith('emoji:') ? avatar.replace('emoji:', '') : avatar;
     }
     
     // 3. 기본값
-    console.log('🔄 기본 아바타 사용');
     return null;
   };
 
@@ -180,12 +147,6 @@ export default function ChatBubble({ message }: Props) {
 
   // 아바타 fallback 처리 (이모지용)
   const displayAvatarFallback = () => {
-    console.log('🔤 displayAvatarFallback 호출:', {
-      userProfile: userProfile?.avatar_url,
-      messageAvatar: avatar,
-      userAddress
-    });
-
     // 1. DB에서 조회한 프로필 아바타 우선
     if (userProfile?.avatar_url) {
       const profileAvatar = userProfile.avatar_url.startsWith('emoji:') 
@@ -193,20 +154,17 @@ export default function ChatBubble({ message }: Props) {
         : userProfile.avatar_url;
       
       if (profileAvatar.length <= 2 && /[\u{1F300}-\u{1F9FF}]/u.test(profileAvatar)) {
-        console.log('✅ 프로필 이모지 fallback 사용:', profileAvatar);
         return profileAvatar;
       }
     }
     
     // 2. 메시지 아바타 사용
     if (avatar && avatar.length <= 2 && /[\u{1F300}-\u{1F9FF}]/u.test(avatar)) {
-      console.log('🔄 메시지 이모지 fallback 사용:', avatar);
       return avatar;
     }
     
     // 3. 지갑 주소 기반 fallback
     const fallback = userAddress ? userAddress.slice(2, 4).toUpperCase() : '?';
-    console.log('🔤 지갑주소 기반 fallback 사용:', fallback);
     return fallback;
   };
   

@@ -9,7 +9,7 @@ import { useChatMessages } from '@/hooks/useChatMessages';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-// 채팅방 데이터 타입 정의 (백엔드 연동 고려)
+// Chatroom data type definition (considering backend integration)
 interface ChatRoom {
   id: string;
   name: string;
@@ -19,7 +19,7 @@ interface ChatRoom {
   unreadCount?: number;
 }
 
-// API에서 받아오는 채팅방 타입
+// Chatroom type received from API
 interface ApiChatRoom {
   id: string;
   name: string;
@@ -28,7 +28,7 @@ interface ApiChatRoom {
   transactionSignature: string;
   createdAt: string;
   isActive: boolean;
-  image?: string; // 토큰 메타데이터에서 가져온 이미지 URL
+  image?: string; // Image URL fetched from token metadata
 }
 
 export default function ChatArea() {
@@ -40,12 +40,12 @@ export default function ChatArea() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
-  // 채팅 메시지 hooks
+  // Chat message hooks
   const { messages } = useChatMessages(selectedRoom);
 
 
 
-  // URL 파라미터로 팝업 모드인지 확인
+      // Check if popup mode via URL parameter
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const popup = urlParams.get('popup') === 'true';
@@ -53,42 +53,37 @@ export default function ChatArea() {
     
     setIsPopupMode(popup);
     
-    // 팝업 모드이고 특정 방이 지정된 경우
+          // If popup mode and specific room is specified
     if (popup && roomParam) {
-      console.log('🎯 팝업 모드: 지정된 채팅방 ID:', roomParam);
       setPopupRoomId(roomParam);
     }
-  }, []); // 의존성 배열을 빈 배열로 유지하여 마운트 시에만 실행
+      }, []); // Keep dependency array empty to execute only on mount
 
-  // 실제 채팅방 데이터 로드
+      // Load actual chatroom data
   const loadChatrooms = useCallback(async () => {
     try {
-      console.log('🏠 채팅방 목록 로딩 시작 (ChatArea)...');
       const response = await fetch('/api/chatrooms');
       const data = await response.json();
       
-      console.log('🏠 ChatArea API 응답:', data);
       
       if (data.success && data.chatrooms) {
-        // API 데이터를 UI 형식으로 변환
+                  // Convert API data to UI format
         const formattedRooms: ChatRoom[] = data.chatrooms.map((room: ApiChatRoom) => ({
           id: room.contractAddress,
           name: room.name,
-          image: room.image || '🪙', // 토큰 이미지 URL 또는 기본 이모지
+                      image: room.image || '🪙', // Token image URL or default emoji
           contractAddress: room.contractAddress
         }));
         
-        console.log('🏠 ChatArea 포맷된 채팅방:', formattedRooms);
         setChatRooms(formattedRooms);
         
-        // 팝업 모드이고 지정된 방이 있는 경우
+                  // If popup mode and specific room exists
         if (isPopupMode && popupRoomId) {
           const targetRoom = formattedRooms.find(room => room.contractAddress === popupRoomId);
           if (targetRoom) {
-            console.log('🎯 팝업 모드: 채팅방 찾음:', targetRoom);
             setSelectedRoom(targetRoom.id);
             
-            // 토큰 쌍 변경 이벤트
+            // Token pair change event
             window.dispatchEvent(new CustomEvent('tokenPairChanged', {
               detail: { 
                 contractAddress: targetRoom.contractAddress,
@@ -96,15 +91,14 @@ export default function ChatArea() {
               }
             }));
           } else {
-            console.warn('⚠️ 팝업 모드: 지정된 채팅방을 찾을 수 없음:', popupRoomId);
           }
         } 
-        // 팝업 모드가 아닐 때만 기본 선택 채팅방 설정
+        // Set default selected chatroom only when not in popup mode
         else if (!isPopupMode && formattedRooms.length > 0 && !selectedRoom) {
           const firstRoom = formattedRooms[0];
           setSelectedRoom(firstRoom.id);
           
-          // 토큰 쌍 변경 이벤트
+          // Token pair change event
           window.dispatchEvent(new CustomEvent('tokenPairChanged', {
             detail: { 
               contractAddress: firstRoom.contractAddress,
@@ -115,23 +109,22 @@ export default function ChatArea() {
       } else {
         setChatRooms([]);
       }
-    } catch (error) {
-      console.error('❌ ChatArea 채팅방 로드 오류:', error);
+    } catch {
       setChatRooms([]);
     }
   }, [selectedRoom, isPopupMode, popupRoomId]);
 
-  // 컴포넌트 마운트 시 데이터 로드
+  // Load data on component mount
   useEffect(() => {
     loadChatrooms();
   }, [loadChatrooms]);
 
-  // 새 채팅방 생성 이벤트 리스너
+  // New chatroom creation event listener
   useEffect(() => {
     const handleChatroomCreated = (event: CustomEvent) => {
-      loadChatrooms(); // 새 채팅방 생성 시 목록 새로고침
+      loadChatrooms(); // Refresh list when new chatroom is created
       
-      // 팝업 모드가 아닐 때만 새로 생성된 채팅방으로 자동 전환
+      // Auto-switch to newly created chatroom only when not in popup mode
       if (!isPopupMode && event.detail?.chatroom?.contractAddress) {
         setSelectedRoom(event.detail.chatroom.contractAddress);
         window.dispatchEvent(new CustomEvent('tokenPairChanged', {
@@ -147,17 +140,17 @@ export default function ChatArea() {
     return () => window.removeEventListener('chatroomCreated', handleChatroomCreated as EventListener);
   }, [loadChatrooms, isPopupMode]);
 
-  // 외부에서 채팅방 선택 이벤트 처리
+  // Handle chatroom selection events from external sources
   useEffect(() => {
     const handleRoomSelected = (event: CustomEvent) => {
-      // 팝업 모드에서는 방 변경 무시
+      // Ignore room changes in popup mode
       if (isPopupMode) return;
       
       const { roomId } = event.detail;
       if (roomId && roomId !== selectedRoom) {
         setSelectedRoom(roomId);
         
-        // 토큰 쌍 변경 이벤트
+        // Token pair change event
         const room = chatRooms.find(r => r.id === roomId);
         if (room) {
           window.dispatchEvent(new CustomEvent('tokenPairChanged', {
@@ -174,33 +167,32 @@ export default function ChatArea() {
     return () => window.removeEventListener('roomSelected', handleRoomSelected as EventListener);
   }, [selectedRoom, chatRooms, isPopupMode]);
 
-  // 메시지 스크롤 관리
+  // Message scroll management
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
 
-  // 메시지 전송은 ChatInput에서 직접 처리하므로 제거
+  // Message sending is handled directly by ChatInput, so removed
 
-  // 클립보드 복사 함수
+  // Clipboard copy function
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("CA 주소가 복사되었습니다");
-    } catch (err) {
-      console.error('클립보드 복사 실패:', err);
-      toast.error("복사에 실패했습니다");
+      toast.success("CA address copied to clipboard");
+    } catch {
+      toast.error("Copy failed");
     }
   };
 
-  // 채팅방 정보 렌더링
+  // Render chatroom information
   const renderChatRoomInfo = () => {
     const currentRoom = chatRooms.find(room => room.id === selectedRoom);
     
     if (!currentRoom) return null;
 
-    // 팝업 모드일 때는 간소화된 헤더
+    // Simplified header for popup mode
     if (isPopupMode) {
       return (
         <div className="flex items-center justify-between p-2 bg-[oklch(25%_0_0)] border-b border-[oklch(0%_0_0)] shadow-[0px_4px_0px_0px_rgba(0,0,0,1)] relative z-10">
@@ -220,7 +212,7 @@ export default function ChatArea() {
                 <button 
                   onClick={() => copyToClipboard(currentRoom.contractAddress)}
                   className="p-1 hover:bg-[oklch(0.2393_0_0)] rounded-none transition-all bg-[oklch(0.2393_0_0)] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px]"
-                  title="CA 주소 복사"
+                  title="Copy CA address"
                 >
                   <Copy size={10} className="text-white" />
                 </button>
@@ -249,7 +241,7 @@ export default function ChatArea() {
               <button 
                 onClick={() => copyToClipboard(currentRoom.contractAddress)}
                 className="p-1 hover:bg-[oklch(0.2393_0_0)] rounded-none transition-all bg-[oklch(0.2393_0_0)] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px]"
-                title="CA 주소 복사"
+                title="Copy CA address"
               >
                 <Copy size={12} className="text-white" />
               </button>
@@ -272,7 +264,7 @@ export default function ChatArea() {
                 );
               }}
               className="p-2 hover:bg-[oklch(0.2393_0_0)] rounded-none transition-all bg-[oklch(0.2393_0_0)] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px]"
-              title="OBS 채팅창 팝업"
+              title="OBS Chat Popup"
             >
               <MessageSquare size={16} className="text-white" />
             </button>
@@ -281,12 +273,12 @@ export default function ChatArea() {
     );
   };
 
-  // 채팅 메시지 영역 렌더링
+  // Render chat message area
   const renderChatMessages = () => {
     if (!selectedRoom) {
       return (
         <div className="flex-1 flex items-center justify-center text-gray-500">
-          <span>채팅방을 선택해주세요</span>
+          <span>Please select a chatroom</span>
         </div>
       );
     }
@@ -312,7 +304,7 @@ export default function ChatArea() {
         <div>
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full text-gray-500">
-              <span>아직 메시지가 없습니다. 첫 메시지를 보내보세요!</span>
+                              <span>No messages yet. Send the first message!</span>
             </div>
           ) : (
             messages.map((message) => (
@@ -325,9 +317,9 @@ export default function ChatArea() {
     );
   };
 
-  // 채팅 입력 영역
+  // Chat input area
   const renderChatInput = () => {
-    // 팝업 모드일 때는 입력창 제거 (OBS 브라우저 소스용)
+    // Remove input area in popup mode (for OBS browser source)
     if (isPopupMode) {
       return null;
     }
@@ -341,15 +333,15 @@ export default function ChatArea() {
     );
   };
 
-  // 팝업 모드일 때
+      // When in popup mode
   if (isPopupMode) {
     return (
       <div className="h-screen w-screen bg-transparent">
         <div className="flex flex-col h-full bg-[oklch(23.93%_0_0)] backdrop-blur-sm overflow-hidden">
-          {/* 채팅방 정보 - 간소화 */}
+          {/* Chatroom info - simplified */}
           {renderChatRoomInfo()}
           
-          {/* 채팅 메시지 - 스타일 조정 */}
+          {/* Chat messages - style adjusted */}
           <div 
             className={cn(
               "flex-1 overflow-y-scroll p-3 space-y-2",
@@ -370,7 +362,7 @@ export default function ChatArea() {
             <div>
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-                  <span>메시지를 기다리는 중...</span>
+                  <span>Waiting for messages...</span>
                 </div>
               ) : (
                 messages.map((message) => (
@@ -385,16 +377,16 @@ export default function ChatArea() {
     );
   }
 
-  // 일반 모드
+      // Normal mode
   return (
     <div className="flex flex-col h-full flex-1 bg-[oklch(23.93%_0_0)] border-2 border-black rounded-base overflow-hidden" style={{ boxShadow: '4px 4px 0px 0px rgba(0,0,0,1)' }}>
-      {/* 채팅방 정보 */}
+              {/* Chatroom info */}
       {renderChatRoomInfo()}
       
-      {/* 채팅 메시지 */}
+              {/* Chat messages */}
       {renderChatMessages()}
       
-      {/* 채팅 입력 */}
+              {/* Chat input */}
       {renderChatInput()}
     </div>
   );

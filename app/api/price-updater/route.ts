@@ -4,15 +4,11 @@ import { tokenPriceService, DEFAULT_TOKENS } from '@/lib/tokenPriceService';
 // 🔄 토큰 가격 업데이트 API 엔드포인트
 export async function POST(request: NextRequest) {
   try {
-    console.log('🚀 가격 업데이트 API 호출됨');
-    
     const body = await request.json().catch(() => ({}));
     const { tokens } = body;
     
     // 업데이트할 토큰 목록 결정
     const tokensToUpdate = tokens && Array.isArray(tokens) ? tokens : DEFAULT_TOKENS;
-    
-    console.log(`📊 ${tokensToUpdate.length}개 토큰 가격 업데이트 시작:`, tokensToUpdate);
     
     // 모든 토큰의 가격을 병렬로 업데이트
     await tokenPriceService.updateMultipleTokenPrices(tokensToUpdate);
@@ -25,8 +21,6 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error) {
-    console.error('❌ 가격 업데이트 API 오류:', error);
-    
     return NextResponse.json({
       success: false,
       error: '가격 업데이트 중 오류가 발생했습니다',
@@ -41,7 +35,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const tokenAddress = searchParams.get('token') || DEFAULT_TOKENS[0];
     
-    console.log(`📊 토큰 가격 조회: ${tokenAddress}`);
     
     // 가격 히스토리 조회
     const priceHistory = await tokenPriceService.getTokenPriceHistory(tokenAddress);
@@ -72,8 +65,6 @@ export async function GET(request: NextRequest) {
     });
     
   } catch (error) {
-    console.error('❌ 가격 조회 API 오류:', error);
-    
     return NextResponse.json({
       success: false,
       error: '가격 조회 중 오류가 발생했습니다',

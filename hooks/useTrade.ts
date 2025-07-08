@@ -105,7 +105,6 @@ export function useTrade() {
       // const data = await response.json();
       
       // Mock 데이터는 이미 설정됨
-      console.log('거래 내역 조회:', executions.slice(0, limit));
     } catch (err) {
       setError(err instanceof Error ? err.message : '거래 내역 조회에 실패했습니다.');
     }
@@ -116,7 +115,6 @@ export function useTrade() {
     try {
       localStorage.setItem('tradeSettings', JSON.stringify(settings));
     } catch (err) {
-      console.error('설정 저장 실패:', err);
     }
   }, [settings]);
 
@@ -128,7 +126,6 @@ export function useTrade() {
         setSettings(prev => ({ ...prev, ...savedSettings }));
       }
     } catch (err) {
-      console.error('설정 로드 실패:', err);
     }
   }, []);
 

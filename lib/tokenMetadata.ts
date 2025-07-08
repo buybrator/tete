@@ -49,8 +49,6 @@ export async function fetchTokenMetadata(
   tokenAddress: string
 ): Promise<TokenMetadata | null> {
   try {
-    console.log(`🔍 토큰 메타데이터 조회 시작: ${tokenAddress}`);
-
     // RPC URL 설정
     const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://solana-mainnet.g.alchemy.com/v2/CLIspK_3J2GVAuweafRIUoHzWjyn07rz';
     
@@ -62,23 +60,14 @@ export async function fetchTokenMetadata(
 
     // 메타데이터 PDA 계산
     const metadataAddress = findMetadataPda(umi, { mint: mintPublicKey });
-    console.log(`📍 메타데이터 PDA: ${metadataAddress[0]}`);
 
     // 메타데이터 조회
     const metadata = await fetchMetadata(umi, metadataAddress[0]);
-    console.log(`✅ 메타데이터 조회 성공:`, {
-      name: metadata.name,
-      symbol: metadata.symbol,
-      uri: metadata.uri
-    });
 
     // URI에서 JSON 메타데이터 조회
     if (!metadata.uri) {
-      console.log(`❌ URI 필드가 비어있음: ${tokenAddress}`);
       return null;
     }
-
-    console.log(`🌐 JSON 메타데이터 조회: ${metadata.uri}`);
     
     // CORS 문제를 해결하기 위해 우리의 API 엔드포인트 사용
     const apiUrl = `/api/token-metadata?uri=${encodeURIComponent(metadata.uri)}`;
@@ -93,13 +82,9 @@ export async function fetchTokenMetadata(
     }
 
     const jsonMetadata = await response.json();
-    console.log(`✅ JSON 메타데이터 조회 성공:`, jsonMetadata);
 
     // 이미지 URL을 그대로 사용 (검증은 TokenAvatar에서 처리)
     const imageUrl = jsonMetadata.image;
-    if (imageUrl) {
-      console.log(`🖼️  이미지 URL 발견: ${imageUrl}`);
-    }
 
     // 결과 반환
     const result: TokenMetadata = {
@@ -114,12 +99,9 @@ export async function fetchTokenMetadata(
       properties: jsonMetadata.properties
     };
 
-    console.log(`🎉 토큰 메타데이터 조회 완료:`, result);
     return result;
 
   } catch (error) {
-    console.error(`❌ 토큰 메타데이터 조회 실패 [${tokenAddress}]:`, error);
-    
     if (error instanceof TokenMetadataError) {
       throw error;
     }
@@ -140,19 +122,15 @@ export async function fetchTokenMetadata(
  */
 export async function convertImageToBlob(imageUrl: string): Promise<Blob | null> {
   try {
-    console.log(`🖼️  이미지 Blob 변환 시작: ${imageUrl}`);
-    
     const response = await fetch(imageUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch image: ${response.status}`);
     }
 
     const blob = await response.blob();
-    console.log(`✅ 이미지 Blob 변환 완료: ${blob.size} bytes, ${blob.type}`);
     
     return blob;
-  } catch (error) {
-    console.error(`❌ 이미지 Blob 변환 실패:`, error);
+  } catch {
     return null;
   }
 }
@@ -168,8 +146,7 @@ export async function getTokenImageUrl(
   try {
     const metadata = await fetchTokenMetadata(tokenAddress);
     return metadata?.image || null;
-  } catch (error) {
-    console.error(`❌ 토큰 이미지 URL 조회 실패 [${tokenAddress}]:`, error);
+  } catch {
     return null;
   }
 }
@@ -188,33 +165,26 @@ export async function fetchTokenMetadataWithRetry(
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`🔄 토큰 메타데이터 조회 시도 ${attempt}/${maxRetries}: ${tokenAddress}`);
-      
       const result = await fetchTokenMetadata(tokenAddress);
       // null이 반환되면 메타데이터가 없는 것으로 간주하고 즉시 반환
       if (result === null) {
-        console.log(`ℹ️  토큰 메타데이터 없음: ${tokenAddress}`);
         return null;
       }
       
       if (result) {
-        console.log(`✅ 토큰 메타데이터 조회 성공 (시도 ${attempt}): ${tokenAddress}`);
         return result;
       }
     } catch (error) {
       lastError = error as Error;
-      console.warn(`⚠️  토큰 메타데이터 조회 실패 (시도 ${attempt}): ${error}`);
       
       if (attempt < maxRetries) {
         // 지수 백오프: 1초, 2초, 4초...
         const delay = Math.pow(2, attempt - 1) * 1000;
-        console.log(`⏳ ${delay}ms 대기 후 재시도...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
 
-  console.error(`❌ 모든 재시도 실패. 토큰: ${tokenAddress}`, lastError);
   return null;
 }
 

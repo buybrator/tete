@@ -119,7 +119,7 @@ export function middleware(request: NextRequest) {
     
     if (!rateLimit.allowed) {
       response.headers.set('Retry-After', Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString());
-      console.warn(`🚫 Rate Limit 초과: ${ip} - ${category} (${pathname})`);
+      // Rate limit 로그 제거됨
     }
     
     return response;

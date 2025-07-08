@@ -61,87 +61,56 @@ export default function TestWalletAdapterPage() {
 
   // 지갑 상태 변화 모니터링
   useEffect(() => {
-    console.log('🔄 지갑 상태 변화 감지:', {
-      isConnected,
-      solanaConnected,
-      publicKey: publicKey?.toString(),
-      walletName,
-      wallet: wallet?.adapter?.name,
-      walletConnected,
-      walletAddress,
-    });
   }, [isConnected, solanaConnected, publicKey, walletName, wallet, walletConnected, walletAddress]);
 
   // 안전한 연결 해제 핸들러
   const handleSafeDisconnect = async () => {
     try {
-      console.log('🔌 연결 해제 시도 중...');
       await disconnect();
-      console.log('✅ 연결 해제 성공');
-    } catch (error) {
-      console.error('❌ 연결 해제 실패:', error);
+    } catch {
     }
   };
 
   // Solana 어댑터 직접 연결 해제
   const handleSolanaDisconnect = async () => {
     try {
-      console.log('🔌 Solana 어댑터 직접 연결 해제 시도...');
       if (solanaDisconnect && typeof solanaDisconnect === 'function') {
         await solanaDisconnect();
-        console.log('✅ Solana 어댑터 연결 해제 성공');
       }
-    } catch (error) {
-      console.error('❌ Solana 어댑터 연결 해제 실패:', error);
+    } catch {
     }
   };
 
   // 직접 연결 시도
   const handleDirectConnect = async () => {
     try {
-      console.log('🔗 직접 연결 시도...');
       if (solanaConnect && typeof solanaConnect === 'function') {
         await solanaConnect();
-        console.log('✅ 직접 연결 성공');
       }
-    } catch (error) {
-      console.error('❌ 직접 연결 실패:', error);
+    } catch {
     }
   };
 
   // 특정 지갑 선택 후 즉시 연결
   const handleSelectPhantom = async () => {
     try {
-      console.log('👻 Phantom 지갑 선택 및 연결 시도...');
       const phantomWallet = wallets.find(w => w.adapter.name === 'Phantom');
       if (phantomWallet) {
-        console.log('📋 Phantom 지갑 찾음:', phantomWallet.adapter.name);
-        
         // 1단계: 지갑 선택
         select(phantomWallet.adapter.name);
-        console.log('✅ Phantom 지갑 선택 완료');
         
         // 2단계: 잠깐 기다린 후 연결 시도
         setTimeout(async () => {
           try {
-            console.log('🔗 Phantom 지갑 연결 시도...');
             if (solanaConnect && typeof solanaConnect === 'function') {
               await solanaConnect();
-              console.log('✅ Phantom 지갑 연결 성공!');
-            } else {
-              console.error('❌ solanaConnect 함수를 찾을 수 없음');
             }
-          } catch (connectError) {
-            console.error('❌ Phantom 지갑 연결 실패:', connectError);
+          } catch {
           }
         }, 500); // 500ms 후 연결 시도
         
-      } else {
-        console.error('❌ Phantom 지갑을 찾을 수 없음');
-        console.log('📋 사용 가능한 지갑들:', wallets.map(w => w.adapter.name));
       }
-    } catch (error) {
-      console.error('❌ Phantom 지갑 선택 실패:', error);
+    } catch {
     }
   };
 
@@ -156,22 +125,12 @@ export default function TestWalletAdapterPage() {
     const hasPhantom = !!(windowWithWallets.phantom?.solana?.isPhantom || windowWithWallets.solana?.isPhantom);
     const hasSolflare = !!windowWithWallets.solflare;
     
-    console.log('🔍 브라우저 지갑 직접 확인:', {
-      hasPhantom,
-      hasSolflare,
-      phantom: windowWithWallets.phantom,
-      solflare: windowWithWallets.solflare,
-      solana: windowWithWallets.solana
-    });
-    
     alert(`브라우저 지갑 감지:\n\nPhantom: ${hasPhantom ? '✅ 감지됨' : '❌ 없음'}\nSolflare: ${hasSolflare ? '✅ 감지됨' : '❌ 없음'}`);
   };
 
   // 직접 Phantom API 호출
   const handleDirectPhantomConnect = async () => {
     try {
-      console.log('👻 직접 Phantom API 연결 시도...');
-      
       if (typeof window !== 'undefined' && 'phantom' in window) {
         const windowWithPhantom = window as typeof window & {
           phantom?: {
@@ -186,59 +145,34 @@ export default function TestWalletAdapterPage() {
         const phantom = windowWithPhantom.phantom?.solana;
         
                  if (phantom?.isPhantom && phantom.connect) {
-           console.log('✅ Phantom 지갑 감지됨');
-           console.log('🔗 Phantom.connect() 호출...');
-           
-           const response = await phantom.connect();
-           console.log('✅ Phantom 직접 연결 성공!', response);
+           await phantom.connect();
           
           // 연결 후 wallet adapter와 동기화
           const phantomWallet = wallets.find(w => w.adapter.name === 'Phantom');
           if (phantomWallet) {
             select(phantomWallet.adapter.name);
-            console.log('🔄 지갑 어댑터와 동기화 완료');
           }
           
-        } else {
-          console.error('❌ Phantom 지갑이 설치되지 않았거나 지원되지 않음');
         }
-      } else {
-        console.error('❌ window.phantom이 존재하지 않음');
       }
-    } catch (error) {
-      console.error('❌ 직접 Phantom 연결 실패:', error);
+    } catch {
     }
   };
 
   // 프로필 인증 (지갑 서명으로 프로필 저장)
   const handleAuthenticate = async () => {
     if (!publicKey) {
-      console.error('❌ 지갑이 연결되지 않음');
       return;
     }
 
     try {
-      const walletAddress = publicKey.toString();
-      console.log('🔐 프로필 인증 시작:', walletAddress);
       // 현재 useWallet 훅에서는 별도의 authenticate 함수가 없으므로 프로필만 확인
-      console.log('✅ 프로필 확인 완료');
-    } catch (error) {
-      console.error('❌ 프로필 확인 실패:', error);
+    } catch {
     }
   };
 
   // 새로운 useWallet 테스트
   const testNewUseWallet = () => {
-    console.log('🧪 새로운 useWallet 상태:', {
-      walletConnected,
-      walletAddress,
-      walletAvatar,
-      walletNickname,
-      isLoading: isAuthLoading,
-      error: authError,
-      userProfile,
-      walletName: wallet?.adapter?.name
-    });
   };
 
   return (

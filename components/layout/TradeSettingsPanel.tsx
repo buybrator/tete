@@ -24,27 +24,21 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
   const [sellPresets, setSellPresets] = useState(['10', '25', '50', '100']);
   const [editingValues, setEditingValues] = useState<string[]>([]);
   
-  // 고급 설정 상태
+  // Advanced settings state
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   
-  // PC 버전 프리셋 설정
+  // PC version preset settings
   const [presetSlippage, setPresetSlippage] = useState('30');
   const [presetPriority, setPresetPriority] = useState('0.0001');
 
-  // TradeSettingsContext에서 현재 선택된 토큰 정보 가져오기
-  const currentTokenAddress = settings.selectedToken?.contractAddress || 'So11111111111111111111111111111111111111112'; // SOL 기본값
+  // Get currently selected token info from TradeSettingsContext
+  const currentTokenAddress = settings.selectedToken?.contractAddress || 'So11111111111111111111111111111111111111112'; // SOL default
   const currentTokenName = settings.selectedToken?.name || 'SOL';
   
-  // 디버깅용 로그
-  console.log('🎯 TradeSettingsPanel - settings.selectedToken:', settings.selectedToken);
-  console.log('🎯 TradeSettingsPanel - currentTokenAddress:', currentTokenAddress);
+  // Debug logs
 
-  // PC 버전 프리셋 설정값들을 TradeSettingsContext에 동기화
+  // Sync PC version preset settings to TradeSettingsContext
   useEffect(() => {
-    console.log('PC 프리셋 설정값 Context 업데이트:', {
-      slippage: presetSlippage,
-      priorityFee: presetPriority
-    });
     
     updateSettings({
       slippage: presetSlippage,
@@ -55,17 +49,17 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
   const presets = settings.mode === 'buy' ? buyPresets : sellPresets;
   const setPresets = settings.mode === 'buy' ? setBuyPresets : setSellPresets;
 
-  // 거래 모드 변경
+  // Change trading mode
   const handleModeChange = (mode: 'buy' | 'sell') => {
     updateSettings({ mode });
   };
 
-  // 수량 변경
+  // Change quantity
   const handleQuantityChange = (quantity: string) => {
     updateSettings({ quantity });
   };
 
-  // 고급 설정 변경
+  // Change advanced settings
   const handleSlippageChange = (slippage: string) => {
     updateSettings({ slippage });
   };
@@ -81,10 +75,10 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
 
 
   const PanelBody = mobile ? (
-    // 모바일 버전
+    // Mobile version
     <div className="flex flex-col py-2 px-4" style={{ color: 'white', boxShadow: 'none' }}>
       <div className="flex flex-col gap-2">
-        {/* 편집 버튼과 BUY/SELL 토글 */}
+        {/* Edit button and BUY/SELL toggle */}
         <div className="flex items-center justify-between w-full">
           <Button
             size="sm"
@@ -116,7 +110,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
             style={{ backgroundColor: 'oklch(0.2393 0 0)', borderRadius: '0', borderColor: 'rgb(0, 0, 0)', height: '25px', boxShadow: '2px 2px 0px 0px rgba(0,0,0,1) !important' }}
           >
             {isEditingPresets ? <Check className="h-3 w-3" /> : <Edit className="h-3 w-3" />}
-            {isEditingPresets ? ' 저장' : ' 편집'}
+            {isEditingPresets ? ' Save' : ' Edit'}
           </Button>
           
           <div className="flex w-full ml-1 gap-1">
@@ -159,7 +153,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
           </div>
         </div>
 
-        {/* 프리셋 버튼들 */}
+        {/* Preset buttons */}
         <div className="w-full">
           {isEditingPresets ? (
             <div className="grid grid-cols-4 gap-1 w-full">
@@ -223,7 +217,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
           )}
         </div>
 
-        {/* 수량 입력 */}
+        {/* Quantity input */}
         <div className="w-full">
           <Input 
             placeholder={settings.mode === 'buy' ? 'Enter SOL amount' : 'Enter percentage (%)'}
@@ -241,7 +235,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
           />
         </div>
 
-        {/* 고급 설정 */}
+        {/* Advanced settings */}
         <Drawer open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
           <DrawerTrigger asChild>
             <div className="w-full border cursor-pointer transition-colors p-2 flex items-center"
@@ -268,11 +262,11 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
           
           <DrawerContent>
             <DrawerHeader>
-              <DrawerTitle>고급 설정</DrawerTitle>
+              <DrawerTitle>Advanced Settings</DrawerTitle>
             </DrawerHeader>
             <div className="p-4 space-y-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">슬리피지 (%)</label>
+                <label className="text-sm font-medium mb-2 block">Slippage (%)</label>
                 <Input
                   value={settings.slippage}
                   onChange={(e) => handleSlippageChange(e.target.value)}
@@ -281,7 +275,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-2 block">우선순위 수수료</label>
+                <label className="text-sm font-medium mb-2 block">Priority Fee</label>
                 <Input
                   value={settings.priorityFee}
                   onChange={(e) => handlePriorityFeeChange(e.target.value)}
@@ -290,7 +284,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-2 block">최대 수수료</label>
+                <label className="text-sm font-medium mb-2 block">Max Fee</label>
                 <Input
                   value={settings.maxFee}
                   onChange={(e) => handleMaxFeeChange(e.target.value)}
@@ -302,7 +296,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                 className="w-full" 
                 onClick={() => setIsAdvancedOpen(false)}
               >
-                설정 완료
+                Complete Settings
               </Button>
             </div>
           </DrawerContent>
@@ -310,11 +304,11 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
       </div>
     </div>
   ) : (
-    // PC 버전
+    // PC version
     <div className="flex flex-col h-full py-6 justify-between" style={{ paddingLeft: '24px', paddingRight: '24px', backgroundColor: 'oklch(0.2393 0 0)', color: 'white' }}>
-      {/* 상단 거래 섹션 */}
+              {/* Top trading section */}
       <div className="space-y-4">
-        {/* BUY/SELL 탭 */}
+                  {/* BUY/SELL tabs */}
         <div className="flex w-full gap-3">
           <Button 
             variant={settings.mode === 'buy' ? 'default' : 'neutral'}
@@ -350,7 +344,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
           </Button>
         </div>
 
-        {/* AMOUNT 입력 */}
+        {/* AMOUNT input */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-white">Amount</label>
           <div className="relative">
@@ -382,7 +376,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
 
         </div>
 
-        {/* 프리셋 버튼들 */}
+        {/* Preset buttons */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium text-white">Quick Amounts</label>
@@ -476,7 +470,7 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
           </div>
         </div>
 
-        {/* 현재 설정 표시 */}
+        {/* Current settings display */}
         <div className="border-2 p-2" style={{ backgroundColor: 'oklch(0.2393 0 0)', borderColor: 'rgb(0, 0, 0)', borderRadius: '0' }}>
           <div className="flex items-center justify-between text-xs gap-1">
             <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
@@ -490,16 +484,16 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
           </div>
         </div>
 
-        {/* 채팅방별 토큰 가격 차트 */}
+        {/* Token price chart by chat room */}
         <div className="border-2 border-black p-4 w-full" style={{ width: '264px', height: '256px', backgroundColor: 'oklch(0.2393 0 0)' }}>
-          {/* 토큰명 */}
+          {/* Token name */}
           <div className="mb-4">
             <span className="text-sm font-medium text-white">
               {currentTokenName} ({currentTokenAddress ? `${currentTokenAddress.slice(0, 4)}...${currentTokenAddress.slice(-4)}` : 'N/A'})
             </span>
           </div>
           
-          {/* 차트 */}
+          {/* Chart */}
           <div className="h-28 w-full">
             <TokenChart 
               tokenAddress={currentTokenAddress}
@@ -509,9 +503,9 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
         </div>
       </div>
 
-      {/* 하단 설정값 입력 섹션 */}
+      {/* Bottom settings input section */}
               <div className="space-y-4 pt-6 border-t border-gray-600">
-        {/* 설정값 입력 */}
+        {/* Settings input */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <label className="text-xs font-medium text-white flex items-center gap-1">

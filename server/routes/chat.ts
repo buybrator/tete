@@ -40,8 +40,7 @@ router.get('/rooms', async (req: Request, res: Response) => {
     `);
     
     res.json({ success: true, data: result.rows });
-  } catch (error) {
-    console.error('채팅방 목록 조회 오류:', error);
+  } catch {
     res.status(500).json({ success: false, error: '채팅방 목록을 가져올 수 없습니다' });
   }
 });
@@ -84,8 +83,7 @@ router.get('/rooms/:roomId/messages', async (req: Request, res: Response) => {
     const messages = result.rows.reverse();
     
     res.json({ success: true, data: messages });
-  } catch (error) {
-    console.error('메시지 조회 오류:', error);
+  } catch {
     res.status(500).json({ success: false, error: '메시지를 가져올 수 없습니다' });
   }
 });
@@ -134,8 +132,7 @@ router.post('/rooms/:roomId/messages', async (req: Request, res: Response) => {
     });
 
     res.json({ success: true, data: newMessage });
-  } catch (error) {
-    console.error('메시지 전송 오류:', error);
+  } catch {
     res.status(500).json({ success: false, error: '메시지 전송에 실패했습니다' });
   }
 });
@@ -157,8 +154,7 @@ router.post('/rooms', async (req: Request, res: Response) => {
     io.emit('new_room', newRoom);
 
     res.json({ success: true, data: newRoom });
-  } catch (error) {
-    console.error('채팅방 생성 오류:', error);
+  } catch {
     res.status(500).json({ success: false, error: '채팅방 생성에 실패했습니다' });
   }
 });

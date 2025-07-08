@@ -45,9 +45,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(priceData);
 
-  } catch (error) {
-    console.error('Scraping error:', error);
-    
+  } catch {
     // 실패시 기본 데이터 반환
     return NextResponse.json({
       price: 0.0265,

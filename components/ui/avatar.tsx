@@ -96,7 +96,6 @@ export function OptimizedAvatar({
 
   const handleImageError = () => {
     setHasError(true);
-    console.warn(`Failed to load avatar image: ${src}`);
   };
 
   // URL이 아닌 경우 (이모지 등)

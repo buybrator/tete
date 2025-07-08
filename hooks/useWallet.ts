@@ -60,11 +60,17 @@ export function useWallet() {
     const rawAvatar = profile?.avatar_url;
     if (!rawAvatar) return DEFAULT_AVATARS[0];
     
-    // emoji: 접두사가 있으면 제거
+    // emoji: 접두사가 있으면 제거 (이모지인 경우)
     if (rawAvatar.startsWith('emoji:')) {
       return rawAvatar.replace('emoji:', '');
     }
     
+    // HTTP URL이나 data URL인 경우 그대로 반환
+    if (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:')) {
+      return rawAvatar;
+    }
+    
+    // 그 외의 경우 (이모지 등) 그대로 반환
     return rawAvatar;
   }, [profile?.avatar_url]);
   
@@ -85,7 +91,6 @@ export function useWallet() {
     setError(null);
     
     try {
-      console.log('🔄 프로필 로드 시작:', walletAddress);
       const response = await fetch(`/api/profiles?wallet_address=${encodeURIComponent(walletAddress)}`);
       
       if (!response.ok) {
@@ -93,12 +98,11 @@ export function useWallet() {
       }
       
       const result = await response.json();
-      console.log('📥 프로필 API 응답:', result);
       
       if (result.success) {
         if (result.profile) {
+          console.log('Loaded profile:', result.profile);
           setProfile(result.profile);
-          console.log('✅ 기존 프로필 로드 성공:', result.profile);
           
           // 프로필 이미지 프리로딩
           if (result.profile.avatar_url && 
@@ -107,15 +111,13 @@ export function useWallet() {
             ImageCacheManager.preload(result.profile.avatar_url);
           }
         } else {
-          console.log('📝 프로필이 없어서 새로 생성');
           // 프로필이 없으면 새로 생성
           await createProfile(walletAddress);
         }
       } else {
         throw new Error(result.error || '프로필 로드 실패');
       }
-    } catch (error) {
-      console.error('❌ 프로필 로드 실패:', error);
+    } catch {
       setError('프로필 로드에 실패했습니다');
       // 프로필 로드 실패 시에도 빈 프로필로 설정하여 UI가 작동하도록 함
       setProfile(null);
@@ -127,7 +129,6 @@ export function useWallet() {
   // 프로필 생성
   const createProfile = useCallback(async (walletAddress: string) => {
     try {
-      console.log('🆕 새 프로필 생성 시작:', walletAddress);
       const response = await fetch('/api/profiles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -143,16 +144,13 @@ export function useWallet() {
       }
       
       const result = await response.json();
-      console.log('📥 프로필 생성 API 응답:', result);
       
       if (result.success && result.profile) {
         setProfile(result.profile);
-        console.log('✅ 새 프로필 생성 성공:', result.profile);
       } else {
         throw new Error(result.error || '프로필 생성 실패');
       }
-    } catch (error) {
-      console.error('❌ 프로필 생성 실패:', error);
+    } catch {
       setError('프로필 생성에 실패했습니다');
     }
   }, [setError]);
@@ -163,11 +161,10 @@ export function useWallet() {
     
     try {
       // 아바타 URL 처리
-      let avatarUrl = null;
-      if (updates.avatar) {
-        if (updates.avatar.startsWith('http') || updates.avatar.startsWith('data:')) {
-          avatarUrl = updates.avatar;
-        } else if (DEFAULT_AVATARS.includes(updates.avatar)) {
+      let avatarUrl = updates.avatar || null;
+      if (updates.avatar && !updates.avatar.startsWith('http') && !updates.avatar.startsWith('data:') && !updates.avatar.startsWith('emoji:')) {
+        // 이모지인 경우에만 emoji: 접두사 추가
+        if (DEFAULT_AVATARS.includes(updates.avatar)) {
           avatarUrl = `emoji:${updates.avatar}`;
         }
       }
@@ -185,7 +182,6 @@ export function useWallet() {
       const result = await response.json();
       if (result.success) {
         setProfile(result.profile);
-        console.log('✅ 프로필 업데이트 성공');
         
         // 전역 프로필 업데이트 이벤트 발생
         const profileUpdateEvent = new CustomEvent('profileUpdated', {
@@ -195,10 +191,8 @@ export function useWallet() {
           }
         });
         window.dispatchEvent(profileUpdateEvent);
-        console.log('📢 프로필 업데이트 이벤트 발생:', address);
       }
-    } catch (error) {
-      console.error('❌ 프로필 업데이트 실패:', error);
+    } catch {
       setError('프로필 업데이트에 실패했습니다');
     }
   }, [address]);
@@ -212,8 +206,7 @@ export function useWallet() {
       const balance = await connection.getBalance(publicKey);
       setBalance(balance / LAMPORTS_PER_SOL);
       setError(null);
-    } catch (error) {
-      console.error('❌ 잔고 조회 실패:', error);
+    } catch {
       setError('잔고 조회에 실패했습니다');
       setBalance(null);
     } finally {
@@ -234,15 +227,12 @@ export function useWallet() {
       
       // 이미 연결된 경우
       if (connected) {
-        console.log('✅ 이미 지갑이 연결되어 있습니다');
         return;
       }
       
       // 연결 시도
       await connect();
-      console.log('✅ 지갑 연결 성공');
     } catch (error) {
-      console.error('❌ 지갑 연결 실패:', error);
       
       if (error instanceof Error) {
         if (error.name === 'WalletNotReadyError') {
@@ -265,9 +255,7 @@ export function useWallet() {
       setProfile(null);
       setBalance(null);
       setError(null);
-      console.log('✅ 지갑 연결 해제 성공');
-    } catch (error) {
-      console.error('❌ 지갑 연결 해제 실패:', error);
+    } catch {
       setError('지갑 연결 해제에 실패했습니다');
     }
   }, [disconnect]);

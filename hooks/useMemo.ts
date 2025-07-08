@@ -179,7 +179,6 @@ export function useMemo() {
       const stableConnection = await getStableConnection();
       return await extractMemoFromTransaction(stableConnection, signature);
     } catch (error) {
-      console.error('메모 추출 실패:', error);
       return null;
     }
   }, []);

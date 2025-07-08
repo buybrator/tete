@@ -15,7 +15,6 @@ export async function fetchTokenChart(
   period: TimePeriod = '1D'
 ): Promise<ChartDataPoint[]> {
   try {
-    console.log(`🔄 차트 API 호출: ${tokenAddress}, 기간: ${period}`);
     
     const response = await fetch(
       `/api/chart?token=${encodeURIComponent(tokenAddress)}&period=${period}`,
@@ -37,10 +36,8 @@ export async function fetchTokenChart(
       throw new Error(result.error || 'Invalid API response');
     }
 
-    console.log(`✅ 차트 데이터 수신: ${result.data.length}개 포인트`);
     return result.data;
   } catch (error) {
-    console.error('❌ 차트 데이터 로딩 실패:', error);
     throw error;
   }
 }
@@ -57,7 +54,6 @@ export async function fetchTokenPrice(tokenAddress: string): Promise<number> {
     }
     throw new Error('No price data available');
   } catch (error) {
-    console.error('Failed to fetch token price:', error);
     throw error;
   }
 }
@@ -107,13 +103,11 @@ export async function fetchSimpleTokenPrice(tokenAddress: string): Promise<numbe
     
     if (data.data && data.data[tokenAddress]) {
       const price = data.data[tokenAddress].price;
-      console.log(`💰 Jupiter에서 가격 조회: $${price}`);
       return price;
     }
     
     throw new Error('Price data not found');
-  } catch (error) {
-    console.error('❌ Jupiter 가격 조회 실패:', error);
+  } catch {
     return null;
   }
 }
@@ -196,33 +190,27 @@ export async function fetchTokenChartWithFallback(
   period: TimePeriod = '1D'
 ): Promise<ChartDataPoint[]> {
   try {
-    console.log(`🔄 차트 데이터 로딩: ${tokenAddress} (${period})`);
     
     // 1차: GeckoTerminal API 시도
     try {
       const response = await fetchTokenChart(tokenAddress, period);
       if (response && response.length > 0) {
-        console.log(`✅ GeckoTerminal 성공: ${response.length}개 포인트`);
         return response;
       }
-    } catch (error) {
-      console.log(`⚠️ GeckoTerminal 실패, Jupiter 시도: ${error}`);
+    } catch {
     }
     
     // 2차: Jupiter 가격 기반 시뮬레이션
     const currentPrice = await fetchSimpleTokenPrice(tokenAddress);
     if (currentPrice) {
-      console.log(`✅ Jupiter 가격으로 차트 생성: $${currentPrice}`);
       return generateSimulatedChartData(currentPrice, period);
     }
     
     // 3차: 완전 폴백 (기본 가격으로 시뮬레이션)
-    console.log(`⚠️ 모든 API 실패, 기본 차트 생성`);
     const fallbackPrice = tokenAddress === 'So11111111111111111111111111111111111111112' ? 200 : 1;
     return generateSimulatedChartData(fallbackPrice, period);
     
   } catch (error) {
-    console.error('❌ 차트 로딩 완전 실패:', error);
     throw error;
   }
 }

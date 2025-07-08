@@ -1,370 +1,337 @@
-import { supabase } from './supabase';
-import type { Database } from './supabase';
+import { supabaseAdmin } from './supabase'
 
-type TokenPriceHistoryInsert = Database['public']['Tables']['token_price_history']['Insert'];
+// 배치 처리 설정
+const BATCH_SIZE = 5
+const BATCH_DELAY = 200 // ms
+const MAX_RETRIES = 3
+const RETRY_DELAY = 1000 // ms
 
-// 🎯 Rate Limiting 및 큐 시스템 설정
-const JUPITER_API_RATE_LIMIT = 10; // 초당 10개 요청
-const REQUEST_INTERVAL = 1000 / JUPITER_API_RATE_LIMIT; // 100ms 간격
-const MAX_RETRIES = 3;
-const BATCH_SIZE = 5; // 배치당 토큰 수
-const CACHE_DURATION = 30 * 1000; // 30초 캐싱
+// 캐시 관리
+const CACHE_DURATION = 30 * 1000 // 30초
+const CACHE_CLEANUP_INTERVAL = 5 * 60 * 1000 // 5분
 
-// 🚀 요청 큐 인터페이스
 interface PriceRequest {
-  tokenAddress: string;
-  resolve: (price: number | null) => void;
-  reject: (error: Error) => void;
-  retryCount: number;
-  timestamp: number;
+  tokenAddress: string
+  resolve: (price: number | null) => void
+  reject: (error: Error) => void
+  retryCount: number
+  timestamp: number
 }
 
-// 가격 캐시 인터페이스
-interface PriceCache {
-  price: number;
-  timestamp: number;
+interface CachedPrice {
+  price: number
+  timestamp: number
 }
 
-// 📊 최적화된 토큰 가격 서비스
-export class OptimizedTokenPriceService {
-  private requestQueue: PriceRequest[] = [];
-  private isProcessing = false;
-  private priceCache = new Map<string, PriceCache>();
-  private lastRequestTime = 0;
+interface BatchUpdateResult {
+  successful: number
+  failed: number
+  total: number
+}
 
-  constructor() {
-    // 큐 처리 시작
-    this.startQueueProcessor();
-    
-    // 캐시 정리 (5분마다)
-    setInterval(() => this.cleanupCache(), 5 * 60 * 1000);
-  }
+class TokenPriceServiceOptimized {
+  private requestQueue: PriceRequest[] = []
+  private processingQueue = false
+  private pendingRequests = new Map<string, PriceRequest[]>()
+  private priceCache = new Map<string, CachedPrice>()
+  private lastCleanup = Date.now()
 
-  /**
-   * 15분 단위로 시간을 정규화합니다
-   */
-  private normalize15MinTimestamp(date: Date): string {
-    const normalized = new Date(date);
-    const minutes = normalized.getMinutes();
-    const roundedMinutes = Math.floor(minutes / 15) * 15;
-    normalized.setMinutes(roundedMinutes, 0, 0);
-    return normalized.toISOString();
-  }
-
-  /**
-   * 캐시에서 가격 조회
-   */
-  private getCachedPrice(tokenAddress: string): number | null {
-    const cached = this.priceCache.get(tokenAddress);
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-      console.log(`🎯 가격 캐시 히트: ${tokenAddress}`);
-      return cached.price;
-    }
-    return null;
-  }
-
-  /**
-   * 가격 캐시에 저장
-   */
-  private setCachedPrice(tokenAddress: string, price: number) {
-    this.priceCache.set(tokenAddress, {
-      price,
-      timestamp: Date.now()
-    });
-  }
-
-  /**
-   * 오래된 캐시 정리
-   */
-  private cleanupCache() {
-    const now = Date.now();
-    for (const [tokenAddress, cache] of this.priceCache.entries()) {
-      if (now - cache.timestamp > CACHE_DURATION) {
-        this.priceCache.delete(tokenAddress);
-      }
-    }
-    console.log(`🧹 가격 캐시 정리 완료, 현재 크기: ${this.priceCache.size}`);
-  }
-
-  /**
-   * Rate Limiting을 적용한 큐 처리기
-   */
-  private async startQueueProcessor() {
-    if (this.isProcessing) return;
-    this.isProcessing = true;
-
-    while (true) {
-      if (this.requestQueue.length === 0) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        continue;
-      }
-
-      // Rate Limiting 적용
-      const now = Date.now();
-      const timeSinceLastRequest = now - this.lastRequestTime;
-      if (timeSinceLastRequest < REQUEST_INTERVAL) {
-        await new Promise(resolve => 
-          setTimeout(resolve, REQUEST_INTERVAL - timeSinceLastRequest)
-        );
-      }
-
-      // 큐에서 요청 가져오기
-      const request = this.requestQueue.shift();
-      if (!request) continue;
-
-      try {
-        // 캐시 확인
-        const cachedPrice = this.getCachedPrice(request.tokenAddress);
-        if (cachedPrice !== null) {
-          request.resolve(cachedPrice);
-          continue;
-        }
-
-        // Jupiter API 호출
-        const price = await this.fetchJupiterPriceWithRetry(
-          request.tokenAddress, 
-          request.retryCount
-        );
-        
-        if (price !== null) {
-          this.setCachedPrice(request.tokenAddress, price);
-          request.resolve(price);
-        } else {
-          request.reject(new Error('가격 조회 실패'));
-        }
-
-        this.lastRequestTime = Date.now();
-
-      } catch (error) {
-        // 재시도 로직
-        if (request.retryCount < MAX_RETRIES) {
-          request.retryCount++;
-          // 백오프: 2^retry * 1초
-          const delay = Math.pow(2, request.retryCount) * 1000;
-          setTimeout(() => {
-            this.requestQueue.unshift(request);
-          }, delay);
-          console.warn(`⏳ 가격 조회 재시도 (${request.retryCount}/${MAX_RETRIES}): ${request.tokenAddress}`);
-        } else {
-          request.reject(error instanceof Error ? error : new Error('Unknown error'));
-        }
-      }
-    }
-  }
-
-  /**
-   * 재시도 로직이 포함된 Jupiter API 호출
-   */
-     private async fetchJupiterPriceWithRetry(tokenAddress: string, retryCount: number): Promise<number | null> {
-     try {
-       // AbortController로 타임아웃 구현
-       const controller = new AbortController();
-       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
-       
-       const response = await fetch(
-         `https://lite-api.jup.ag/price/v2?ids=${tokenAddress}&showExtraInfo=true`,
-         {
-           signal: controller.signal,
-           headers: {
-             'User-Agent': 'TradeChatApp/1.0',
-             'Accept': 'application/json'
-           }
-         }
-       );
-       
-       clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        if (response.status === 429) {
-          // Rate limit hit - 더 긴 대기
-          throw new Error('Rate limit exceeded');
-        }
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const tokenData = data.data[tokenAddress];
-
-      if (tokenData && tokenData.price) {
-        const price = parseFloat(tokenData.price);
-        console.log(`✅ 가격 조회 성공: ${tokenAddress} = $${price}`);
-        return price;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error(`❌ Jupiter API 오류 (재시도 ${retryCount}):`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * 비동기 가격 조회 (큐 시스템 사용)
-   */
+  // 가격 조회 (캐시 우선)
   async getTokenPrice(tokenAddress: string): Promise<number | null> {
-    return new Promise((resolve, reject) => {
-      // 기존 요청이 있는지 확인
-      const existingRequest = this.requestQueue.find(req => req.tokenAddress === tokenAddress);
-      if (existingRequest) {
-        console.log(`⏳ 기존 요청 대기 중: ${tokenAddress}`);
-        return;
-      }
+    // 캐시 확인
+    const cached = this.priceCache.get(tokenAddress)
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      return cached.price
+    }
 
-      this.requestQueue.push({
+    // 이미 요청 중인지 확인
+    if (this.pendingRequests.has(tokenAddress)) {
+      return new Promise((resolve, reject) => {
+        this.pendingRequests.get(tokenAddress)!.push({
+          tokenAddress,
+          resolve,
+          reject,
+          retryCount: 0,
+          timestamp: Date.now()
+        })
+      })
+    }
+
+    // 새 요청 생성
+    return new Promise((resolve, reject) => {
+      // 캐시 정리 (주기적)
+      this.cleanupCache()
+
+      const request: PriceRequest = {
         tokenAddress,
         resolve,
         reject,
         retryCount: 0,
         timestamp: Date.now()
-      });
+      }
 
-      console.log(`📥 가격 요청 큐에 추가: ${tokenAddress} (큐 크기: ${this.requestQueue.length})`);
-    });
+      // 대기열에 추가
+      this.pendingRequests.set(tokenAddress, [request])
+      this.requestQueue.push(request)
+
+      // 큐 처리 시작
+      this.processQueue()
+    })
   }
 
-  /**
-   * 배치 가격 업데이트 (순차 처리)
-   */
-  async updateMultipleTokenPrices(tokenAddresses: string[]): Promise<{
-    successful: number;
-    failed: string[];
-    total: number;
-  }> {
-    console.log(`🚀 배치 가격 업데이트 시작: ${tokenAddresses.length}개 토큰`);
-    
-    const results = {
-      successful: 0,
-      failed: [] as string[],
-      total: tokenAddresses.length
-    };
+  // 캐시 정리
+  private cleanupCache() {
+    const now = Date.now()
+    if (now - this.lastCleanup < CACHE_CLEANUP_INTERVAL) return
 
-    // 배치 단위로 처리
-    for (let i = 0; i < tokenAddresses.length; i += BATCH_SIZE) {
-      const batch = tokenAddresses.slice(i, i + BATCH_SIZE);
-      
-      console.log(`📦 배치 ${Math.floor(i / BATCH_SIZE) + 1} 처리 중: ${batch.length}개 토큰`);
-
-      // 배치 내에서 병렬 처리 (Rate Limit 고려)
-      const batchPromises = batch.map(async (tokenAddress) => {
-        try {
-          const success = await this.updateTokenPrice(tokenAddress);
-          if (success) {
-            results.successful++;
-          } else {
-            results.failed.push(tokenAddress);
-          }
-        } catch (error) {
-          results.failed.push(tokenAddress);
-          console.error(`토큰 ${tokenAddress} 업데이트 실패:`, error);
-        }
-      });
-
-      await Promise.all(batchPromises);
-
-      // 배치 간 대기 (API 부하 방지)
-      if (i + BATCH_SIZE < tokenAddresses.length) {
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 2초 대기
+    for (const [key, cached] of this.priceCache.entries()) {
+      if (now - cached.timestamp > CACHE_DURATION) {
+        this.priceCache.delete(key)
       }
     }
 
-    console.log(`✅ 배치 가격 업데이트 완료: ${results.successful}/${results.total} 성공`);
-    return results;
+    this.lastCleanup = now
   }
 
-  /**
-   * 단일 토큰 가격 업데이트
-   */
-  async updateTokenPrice(tokenAddress: string): Promise<boolean> {
+  // 큐 처리
+  private async processQueue() {
+    if (this.processingQueue || this.requestQueue.length === 0) return
+
+    this.processingQueue = true
+
     try {
-      const currentPrice = await this.getTokenPrice(tokenAddress);
-      if (!currentPrice) {
-        console.warn(`가격 데이터를 가져올 수 없습니다: ${tokenAddress}`);
-        return false;
+      while (this.requestQueue.length > 0) {
+        const batch = this.requestQueue.splice(0, BATCH_SIZE)
+        await this.processBatch(batch)
+        
+        // 배치 간 딜레이
+        if (this.requestQueue.length > 0) {
+          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY))
+        }
+      }
+    } finally {
+      this.processingQueue = false
+    }
+  }
+
+  // 배치 처리
+  private async processBatch(batch: PriceRequest[]) {
+    const tokenAddresses = [...new Set(batch.map(req => req.tokenAddress))]
+    
+    try {
+      const prices = await this.fetchPricesFromJupiter(tokenAddresses)
+      
+      // 결과 분배
+      for (const request of batch) {
+        const price = prices.get(request.tokenAddress)
+        const pendingForToken = this.pendingRequests.get(request.tokenAddress)
+        
+        if (price !== undefined) {
+          // 캐시 업데이트
+          this.priceCache.set(request.tokenAddress, {
+            price: price || 0,
+            timestamp: Date.now()
+          })
+
+          // 모든 대기 중인 요청 처리
+          if (pendingForToken) {
+            pendingForToken.forEach(req => req.resolve(price))
+            this.pendingRequests.delete(request.tokenAddress)
+          }
+        } else {
+          // 재시도 또는 실패 처리
+          await this.handleRequestFailure(request)
+        }
+      }
+           } catch {
+         // 배치 전체 실패 처리
+         for (const request of batch) {
+           await this.handleRequestFailure(request)
+         }
+       }
+  }
+
+  // 요청 실패 처리
+  private async handleRequestFailure(request: PriceRequest) {
+    if (request.retryCount < MAX_RETRIES) {
+      request.retryCount++
+      
+      // 재시도 딜레이
+      setTimeout(() => {
+        this.requestQueue.push(request)
+        this.processQueue()
+      }, RETRY_DELAY * request.retryCount)
+    } else {
+      // 최대 재시도 초과
+      const pendingForToken = this.pendingRequests.get(request.tokenAddress)
+      if (pendingForToken) {
+        pendingForToken.forEach(req => req.resolve(null))
+        this.pendingRequests.delete(request.tokenAddress)
+      }
+    }
+  }
+
+  // Jupiter API에서 가격 조회
+  private async fetchPricesFromJupiter(tokenAddresses: string[], retryCount = 0): Promise<Map<string, number | null>> {
+    const prices = new Map<string, number | null>()
+    
+    try {
+      const response = await fetch(`https://price.jup.ag/v6/price?ids=${tokenAddresses.join(',')}`)
+      
+      if (!response.ok) {
+        throw new Error(`Jupiter API error: ${response.status}`)
       }
 
-      const timestamp15min = this.normalize15MinTimestamp(new Date());
+      const data = await response.json()
+      
+      for (const tokenAddress of tokenAddresses) {
+        const tokenData = data.data?.[tokenAddress]
+        if (tokenData?.price) {
+          prices.set(tokenAddress, tokenData.price)
+        } else {
+          prices.set(tokenAddress, null)
+        }
+      }
+      
+      return prices
+         } catch {
+       if (retryCount < MAX_RETRIES) {
+         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
+         return this.fetchPricesFromJupiter(tokenAddresses, retryCount + 1)
+       }
+       
+       // 모든 토큰을 null로 설정
+       tokenAddresses.forEach(address => prices.set(address, null))
+       return prices
+     }
+  }
 
-      // 기존 데이터 확인
-      const { data: existingData } = await supabase
+  // 기존 요청 대기 상태 확인
+  public isRequestPending(tokenAddress: string): boolean {
+    return this.pendingRequests.has(tokenAddress)
+  }
+
+  // 큐 상태 확인
+  public getQueueStatus() {
+    return {
+      queueLength: this.requestQueue.length,
+      pendingTokens: this.pendingRequests.size,
+      cacheSize: this.priceCache.size,
+      isProcessing: this.processingQueue
+    }
+  }
+
+  // 배치 가격 업데이트 (DB 저장용)
+  async batchUpdatePrices(tokenAddresses: string[]): Promise<BatchUpdateResult> {
+    const results: BatchUpdateResult = {
+      successful: 0,
+      failed: 0,
+      total: tokenAddresses.length
+    }
+
+    // 배치 크기로 분할 처리
+    for (let i = 0; i < tokenAddresses.length; i += BATCH_SIZE) {
+      const batch = tokenAddresses.slice(i, i + BATCH_SIZE)
+      
+      try {
+        const prices = await this.fetchPricesFromJupiter(batch)
+        
+        // 개별 토큰 업데이트
+        for (const tokenAddress of batch) {
+          try {
+            const price = prices.get(tokenAddress)
+            if (price !== null && price !== undefined) {
+              await this.updateTokenPrice(tokenAddress, price)
+              results.successful++
+            } else {
+              results.failed++
+            }
+                     } catch {
+             results.failed++
+           }
+                 }
+       } catch {
+         results.failed += batch.length
+       }
+
+      // 배치 간 딜레이
+      if (i + BATCH_SIZE < tokenAddresses.length) {
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY))
+      }
+    }
+
+    return results
+  }
+
+  // 개별 토큰 가격 업데이트
+  private async updateTokenPrice(tokenAddress: string, currentPrice: number): Promise<void> {
+    if (!currentPrice || currentPrice <= 0) {
+      return
+    }
+
+    try {
+      // 현재 15분 구간 계산
+      const now = new Date()
+      const timestamp15min = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        now.getHours(),
+        Math.floor(now.getMinutes() / 15) * 15
+      ).toISOString()
+
+      // 기존 OHLC 데이터 조회
+      const { data: existingData, error: fetchError } = await supabaseAdmin
         .from('token_price_history')
         .select('*')
         .eq('token_address', tokenAddress)
         .eq('timestamp_15min', timestamp15min)
-        .single();
+        .single()
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw fetchError
+      }
 
       if (existingData) {
-        // OHLC 업데이트
-        const updatedData = {
-          price: currentPrice,
-          close_price: currentPrice,
-          high_price: Math.max(existingData.high_price, currentPrice),
-          low_price: Math.min(existingData.low_price, currentPrice),
-        };
-
-        const { error } = await supabase
+        // 기존 데이터 업데이트 (OHLC)
+        const { error: updateError } = await supabaseAdmin
           .from('token_price_history')
-          .update(updatedData)
-          .eq('id', existingData.id);
+          .update({
+            price: currentPrice,
+            high_price: Math.max(existingData.high_price, currentPrice),
+            low_price: Math.min(existingData.low_price, currentPrice),
+            close_price: currentPrice
+          })
+          .eq('id', existingData.id)
 
-        if (error) {
-          console.error('가격 업데이트 실패:', error);
-          return false;
+        if (updateError) {
+          throw updateError
         }
       } else {
         // 새 데이터 삽입
-        const newData: TokenPriceHistoryInsert = {
-          token_address: tokenAddress,
-          price: currentPrice,
-          open_price: currentPrice,
-          high_price: currentPrice,
-          low_price: currentPrice,
-          close_price: currentPrice,
-          timestamp_15min: timestamp15min,
-          volume: 0,
-        };
-
-        const { error } = await supabase
+        const { error: insertError } = await supabaseAdmin
           .from('token_price_history')
-          .insert(newData);
+                     .insert({
+             token_address: tokenAddress,
+             price: currentPrice,
+             open_price: currentPrice,
+             high_price: currentPrice,
+             low_price: currentPrice,
+             close_price: currentPrice,
+             timestamp_15min: timestamp15min,
+             volume: 0
+           })
 
-        if (error) {
-          console.error('새 가격 데이터 삽입 실패:', error);
-          return false;
+        if (insertError) {
+          throw insertError
         }
       }
-
-      return true;
     } catch (error) {
-      console.error('토큰 가격 업데이트 오류:', error);
-      return false;
+      throw error
     }
-  }
-
-  /**
-   * 큐 상태 조회
-   */
-  getQueueStats() {
-    return {
-      queueSize: this.requestQueue.length,
-      cacheSize: this.priceCache.size,
-      isProcessing: this.isProcessing,
-      oldestRequestAge: this.requestQueue.length > 0 
-        ? Date.now() - this.requestQueue[0].timestamp 
-        : 0
-    };
-  }
-
-  /**
-   * 서비스 정리
-   */
-  destroy() {
-    this.isProcessing = false;
-    this.requestQueue.length = 0;
-    this.priceCache.clear();
   }
 }
 
 // 싱글톤 인스턴스
-export const optimizedTokenPriceService = new OptimizedTokenPriceService();
-
-export default optimizedTokenPriceService; 
+export const tokenPriceServiceOptimized = new TokenPriceServiceOptimized()
+export default tokenPriceServiceOptimized 

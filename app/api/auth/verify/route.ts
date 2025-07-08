@@ -57,8 +57,7 @@ export async function POST(request: NextRequest) {
       publicKey
     })
     
-  } catch (error) {
-    console.error('Signature verification error:', error)
+  } catch {
     return NextResponse.json(
       { success: false, error: 'Failed to verify signature' },
       { status: 500 }
@@ -89,13 +88,13 @@ export async function GET(request: NextRequest) {
     }
 
     // 사용자 프로필 조회
-    const { data: profile, error } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('wallet_address', decoded.walletAddress)
       .single()
 
-    if (error || !profile) {
+    if (profileError || !profile) {
       return NextResponse.json(
         { error: 'User profile not found' },
         { status: 404 }
@@ -109,8 +108,7 @@ export async function GET(request: NextRequest) {
       profile,
     })
 
-  } catch (error) {
-    console.error('Token verification error:', error)
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

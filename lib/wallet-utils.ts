@@ -17,8 +17,7 @@ export function safePublicKeyToString(publicKey: PublicKey | null | undefined): 
   
   try {
     return publicKey.toString();
-  } catch (error) {
-    console.error('PublicKey 변환 실패:', error);
+  } catch {
     return null;
   }
 }
@@ -34,8 +33,7 @@ export function safePublicKeyToBase58(publicKey: PublicKey | null | undefined): 
   try {
     // Solana에서는 toString()이 Base58 형식을 반환합니다
     return publicKey.toString();
-  } catch (error) {
-    console.error('PublicKey Base58 변환 실패:', error);
+  } catch {
     return null;
   }
 }

@@ -65,8 +65,6 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
   const targetToken = tokenAddress || SOL_MINT;
   
   // 디버깅을 위한 로그
-  console.log('🎯 TokenChart props:', { tokenAddress, targetToken });
-  console.log('🎯 TokenChart - tokenAddress 타입:', typeof tokenAddress, 'length:', tokenAddress?.length);
 
   // DB에서 가격 데이터 가져오기 (실제 데이터만) - 차트용
   const fetchPriceData = async () => {
@@ -74,7 +72,6 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
       const response = await fetch(`/api/price-updater?token=${encodeURIComponent(targetToken)}`);
       
       if (!response.ok) {
-        console.warn('가격 API 응답 실패:', response.status);
         handleApiFailure();
         return;
       }
@@ -82,7 +79,6 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
       const result: PriceApiResponse = await response.json();
       
       if (!result.success || !result.data) {
-        console.warn('가격 API 데이터 없음:', result.error);
         handleApiFailure();
         return;
       }
@@ -91,18 +87,10 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
       
       // 실제 DB에서 수집된 데이터가 있는지 확인
       if (historyCount === 0 || !chartData || chartData.length === 0) {
-        console.log('📊 실제 수집된 DB 데이터 없음');
         handleApiFailure();
         return;
       }
       
-      console.log('📊 실제 DB 데이터 로드:', {
-        현재가격: currentPrice,
-        변화율: priceChange.toFixed(2) + '%',
-        데이터포인트: chartData.length,
-        히스토리개수: historyCount,
-        마지막업데이트: lastUpdated
-      });
 
       setCurrentPrice(currentPrice || 0);
       setPriceChange(priceChange || 0);
@@ -110,8 +98,7 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
       setHistoryCount(historyCount || 0);
       setLastUpdated(lastUpdated);
 
-    } catch (error) {
-      console.error('가격 데이터 가져오기 오류:', error);
+    } catch {
       // API 실패 시 빈 상태로 처리
       handleApiFailure();
     }
@@ -123,38 +110,29 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
       const response = await fetch(`/api/price-realtime?token=${encodeURIComponent(targetToken)}`);
       
       if (!response.ok) {
-        console.warn('실시간 가격 API 실패:', response.status);
         return;
       }
 
       const result: RealtimePriceResponse = await response.json();
       
       if (!result.success || !result.data) {
-        console.warn('실시간 가격 데이터 없음:', result.error);
         return;
       }
 
       const { currentPrice: newPrice, priceChange: newChange } = result.data;
       
-      console.log('🔄 실시간 가격 업데이트:', {
-        이전가격: currentPrice,
-        현재가격: newPrice,
-        변화율: newChange.toFixed(2) + '%'
-      });
 
       // 가격과 변화율만 업데이트 (차트 데이터는 유지)
       setCurrentPrice(newPrice);
       setPriceChange(newChange);
 
-    } catch (error) {
-      console.error('실시간 가격 업데이트 오류:', error);
+    } catch {
     }
   };
 
   // 백그라운드에서 가격 업데이트 트리거
   const triggerPriceUpdate = async () => {
     try {
-      console.log('🔄 가격 업데이트 트리거');
       
       const response = await fetch('/api/price-updater', {
         method: 'POST',
@@ -167,18 +145,15 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
       });
 
       if (response.ok) {
-        console.log('✅ 가격 업데이트 트리거 성공');
         // 업데이트 후 새 데이터 가져오기
         setTimeout(() => fetchPriceData(), 2000);
       }
-    } catch (error) {
-      console.error('가격 업데이트 트리거 실패:', error);
+    } catch {
     }
   };
 
   // API 실패 시 빈 상태로 처리 (시뮬레이션 데이터 제거)
   const handleApiFailure = () => {
-    console.log('⚠️ API 실패 - 실제 데이터만 표시');
     
     // 시뮬레이션 데이터 대신 빈 상태로 설정
     setChartData([]);
@@ -191,7 +166,6 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
   // 컴포넌트 마운트 시 데이터 로드 (실제 데이터만)
   useEffect(() => {
     const initializeData = async () => {
-      console.log('🚀 토큰 차트 초기화 (실제 데이터만):', targetToken);
       
       setIsLoading(true);
       
@@ -200,7 +174,6 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
       
       // tokenAddress가 기본값(SOL)이고 실제로는 다른 토큰을 기다리는 중이라면 로딩만 표시
       if (!tokenAddress || targetToken === 'So11111111111111111111111111111111111111112') {
-        console.log('⏳ 토큰 주소 대기 중 (기본값 SOL), 데이터 로드 스킵');
         setIsLoading(false);
         return;
       }
@@ -213,7 +186,6 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
       
       // 데이터가 없으면 백그라운드에서 수집 시작
       if (historyCount === 0) {
-        console.log('🔄 데이터 없음 - 백그라운드 수집 시작');
         await triggerPriceUpdate();
       }
       
@@ -241,17 +213,14 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
         const minutesToNext = (nextQuarterHour === 60) ? (60 - minutes) : (nextQuarterHour - minutes);
         const millisecondsToNext = (minutesToNext * 60 - seconds) * 1000 - milliseconds;
         
-        console.log(`⏰ 다음 15분 정각까지 ${Math.round(millisecondsToNext / 1000)}초 대기`);
         
         // 첫 번째 15분 정각까지 대기
         setTimeout(() => {
           // 15분 정각에 백그라운드 업데이트 실행
-          console.log('🔔 15분 정각 - 백그라운드 업데이트 트리거');
           triggerPriceUpdate();
           
           // 이후 정확히 15분마다 반복 실행
           const quarterHourInterval = setInterval(() => {
-            console.log('🔔 15분 간격 - 백그라운드 업데이트 트리거');
             triggerPriceUpdate();
           }, 15 * 60 * 1000);
           
@@ -320,38 +289,26 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
   // 🚀 백그라운드 수집기 상태 확인 및 시작
   const checkAndStartBackgroundCollector = async () => {
     try {
-      console.log('🔍 백그라운드 수집기 상태 확인 중...');
       
       // 상태 확인
       const statusResponse = await fetch('/api/background/price-collector?action=status');
       const statusData = await statusResponse.json();
       
-      console.log('📊 백그라운드 수집기 상태:', statusData);
       
       if (!statusData.isRunning) {
-        console.log('🚀 백그라운드 수집기 시작 중...');
         
         // 수집기 시작
         const startResponse = await fetch('/api/background/price-collector?action=start');
         const startData = await startResponse.json();
         
         if (startData.success) {
-          console.log('✅ 백그라운드 수집기 시작 성공');
           toast.success('15분 자동 업데이트가 활성화되었습니다', { id: 'background-collector' });
         } else {
-          console.error('❌ 백그라운드 수집기 시작 실패:', startData);
           toast.error('자동 업데이트 시작에 실패했습니다', { id: 'background-collector' });
         }
       } else {
-        console.log('✅ 백그라운드 수집기가 이미 실행 중입니다');
-        const nextCollection = statusData.stats?.nextCollection;
-        if (nextCollection) {
-          const nextTime = new Date(nextCollection).toLocaleTimeString();
-          console.log(`⏰ 다음 자동 수집: ${nextTime}`);
-        }
       }
-    } catch (error) {
-      console.error('❌ 백그라운드 수집기 확인 실패:', error);
+    } catch {
       // 에러가 발생해도 차트는 정상 작동하도록 함
     }
   };

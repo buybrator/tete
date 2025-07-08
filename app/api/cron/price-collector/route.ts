@@ -2,40 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { tokenPriceService, DEFAULT_TOKENS } from '@/lib/tokenPriceService';
 import { chatRoomTokenCollector } from '@/lib/chatRoomTokenCollector';
 
-// 15분 정각으로 시간을 정규화하는 함수
-function normalizeToQuarterHour(date: Date = new Date()): Date {
-  const normalized = new Date(date);
-  const minutes = normalized.getMinutes();
-  const quarterHour = Math.floor(minutes / 15) * 15;
-  
-  normalized.setMinutes(quarterHour, 0, 0); // 초와 밀리초도 0으로 설정
-  return normalized;
-}
-
 // ⏰ 가격 데이터 수집 크론 작업
 export async function GET(request: NextRequest) {
   try {
-    const currentTime = new Date();
-    const normalizedTime = normalizeToQuarterHour(currentTime);
-    
-    console.log('🔄 크론: 가격 데이터 수집 시작', {
-      현재시간: currentTime.toISOString(),
-      정규화시간: normalizedTime.toISOString()
-    });
-    
     // 인증 헤더 확인 (선택사항 - 보안 강화용)
     const authHeader = request.headers.get('authorization');
     const expectedToken = process.env.CRON_SECRET_TOKEN;
     
     if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-      console.warn('❌ 크론: 인증 실패');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
     const startTime = Date.now();
     
     // 1. 기본 토큰들의 가격 수집
-    console.log(`📊 기본 토큰 ${DEFAULT_TOKENS.length}개 가격 수집 시작`);
     
     const defaultResults = await Promise.allSettled(
       DEFAULT_TOKENS.map(async (tokenAddress) => {
@@ -43,14 +23,12 @@ export async function GET(request: NextRequest) {
           const success = await tokenPriceService.updateTokenPrice(tokenAddress);
           return { tokenAddress, success, source: 'default' };
         } catch (error) {
-          console.error(`❌ 기본 토큰 ${tokenAddress} 가격 수집 실패:`, error);
           return { tokenAddress, success: false, error, source: 'default' };
         }
       })
     );
 
     // 2. 채팅방 토큰들의 가격 수집
-    console.log(`🏠 채팅방 토큰 가격 수집 시작`);
     const chatRoomResult = await chatRoomTokenCollector.collectAllChatRoomTokenPrices();
     
     // 결과 통합
@@ -84,19 +62,7 @@ export async function GET(request: NextRequest) {
     
     const totalTokens = DEFAULT_TOKENS.length + chatRoomResult.totalTokens;
     
-    console.log(`✅ 크론: 가격 수집 완료`, {
-      기본토큰: `${defaultSuccessful}/${DEFAULT_TOKENS.length}`,
-      채팅방토큰: `${chatRoomResult.successfulUpdates}/${chatRoomResult.totalTokens}`,
-      전체: `${successful}/${totalTokens}`,
-      소요시간: `${duration}ms`
-    });
     
-    // 실패한 토큰들 로그
-    if (failed.length > 0) {
-      console.warn('⚠️ 크론: 실패한 토큰들:', failed.map(f => 
-        f.status === 'fulfilled' ? f.value.tokenAddress : 'unknown'
-      ));
-    }
     
     return NextResponse.json({
       success: true,
@@ -127,8 +93,6 @@ export async function GET(request: NextRequest) {
     });
     
   } catch (error) {
-    console.error('❌ 크론: 가격 수집 오류:', error);
-    
     return NextResponse.json({
       success: false,
       error: '가격 수집 중 오류가 발생했습니다',

@@ -1,10 +1,102 @@
+import { Server } from 'socket.io';
+import { createClient } from '@supabase/supabase-js';
 import express from 'express';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
 import cors from 'cors';
+import type { Socket } from 'socket.io';
 
 const app = express();
 const server = createServer(app);
+
+// CORS 및 JSON 파싱 설정
+app.use(cors({
+  origin: "http://localhost:3000",
+  credentials: true
+}));
+app.use(express.json());
+
+// Supabase 클라이언트 설정
+const supabase = createClient(
+  'https://ozeooonqxrjvdoajgvnz.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZW9vb25xeHJqdmRvYWpndm56Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODc0OTUyNiwiZXhwIjoyMDY0MzI1NTI2fQ.FHrUT_yvvWAgyO8RU3ucaAdWIHfPpD9gwypeF8dcLb0'
+);
+
+// 채팅방 목록 조회
+app.get('/api/chatrooms', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('chat_rooms')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ success: true, chatrooms: data || [] });
+  } catch {
+    res.status(500).json({ success: false, error: '채팅방 목록을 가져올 수 없습니다' });
+  }
+});
+
+// 메시지 조회
+app.get('/api/chatrooms/:roomId/messages', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { page = 1, limit = 50 } = req.query;
+    
+    const offset = ((page as number) - 1) * (limit as number);
+
+    const { data, error } = await supabase
+      .from('message_cache')
+      .select('*')
+      .eq('token_address', roomId)
+      .order('block_time', { ascending: false })
+      .range(offset, offset + (limit as number) - 1);
+
+    if (error) throw error;
+
+    res.json({ success: true, messages: data || [] });
+  } catch {
+    res.status(500).json({ success: false, error: '메시지를 가져올 수 없습니다' });
+  }
+});
+
+// 메시지 전송
+app.post('/api/chatrooms/:roomId/send', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { message, senderWallet, signature, messageType, quantity, price } = req.body;
+
+    const messageData = {
+      token_address: roomId,
+      sender_wallet: senderWallet,
+      content: message,
+      signature: signature,
+      message_type: messageType || 'CHAT',
+      quantity: quantity || null,
+      price: price || null,
+      block_time: new Date().toISOString(),
+      processed_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('message_cache')
+      .insert(messageData)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Socket.IO로 실시간 브로드캐스트
+    io.to(`room:${roomId}`).emit('new_message', data);
+
+    res.json({ success: true, message: data });
+  } catch {
+    res.status(500).json({ success: false, error: '메시지 전송에 실패했습니다' });
+  }
+});
+
+// Socket.IO 설정
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:3000",
@@ -12,122 +104,27 @@ const io = new Server(server, {
   }
 });
 
-// 메모리 기반 임시 저장소
-let messages: any[] = [];
-let messageId = 1;
-
-// 미들웨어
-app.use(cors({
-  origin: "http://localhost:3000",
-  credentials: true
-}));
-app.use(express.json());
-
-// 채팅방 목록 조회 (Mock)
-app.get('/api/chat/rooms', (req, res) => {
-  console.log('📋 채팅방 목록 조회');
-  res.json({
-    success: true,
-    data: [
-      {
-        id: '550e8400-e29b-41d4-a716-446655440000',
-        name: 'SOL/USDC',
-        description: 'Solana to USDC trading room',
-        image: '🚀',
-        token_address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-        created_by: 'system',
-        member_count: 1,
-        is_active: true,
-        created_at: new Date(),
-        updated_at: new Date()
-      }
-    ]
-  });
-});
-
-// 메시지 조회
-app.get('/api/chat/rooms/:roomId/messages', (req, res) => {
-  const { roomId } = req.params;
-  console.log(`📨 메시지 조회: ${roomId}`);
-  
-  const roomMessages = messages.filter(msg => msg.roomId === roomId);
-  res.json({
-    success: true,
-    data: roomMessages
-  });
-});
-
-// 메시지 전송 - 핵심!
-app.post('/api/chat/rooms/:roomId/messages', (req, res) => {
-  const { roomId } = req.params;
-  const messageData = req.body;
-  
-  console.log(`📤 메시지 전송 받음:`, {
-    roomId,
-    content: messageData.content.substring(0, 50) + '...',
-    trade_type: messageData.trade_type,
-    user_address: messageData.user_address
-  });
-
-  // 새 메시지 생성
-  const newMessage = {
-    id: String(messageId++),
-    room_id: roomId,
-    user_id: messageData.user_address.slice(0, 8),
-    user_address: messageData.user_address,
-    nickname: messageData.nickname,
-    avatar: messageData.avatar || '🎯',
-    content: messageData.content,
-    trade_type: messageData.trade_type,
-    trade_amount: messageData.trade_amount,
-    tx_hash: messageData.tx_hash,
-    created_at: new Date().toISOString()
-  };
-
-  // 메모리에 저장
-  messages.push(newMessage);
-
-  // Socket.IO로 실시간 브로드캐스트
-  io.to(`room:${roomId}`).emit('new_message', {
-    ...newMessage,
-    roomId: roomId,
-    timestamp: newMessage.created_at
-  });
-
-  console.log(`✅ 메시지 저장 & 브로드캐스트 완료`);
-  res.json({ success: true, data: newMessage });
-});
-
-// 상태 확인
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString(), messages: messages.length });
-});
-
-// Socket.IO 핸들러
-io.on('connection', (socket) => {
-  console.log(`🔗 클라이언트 연결: ${socket.id}`);
-
+io.on('connection', (socket: Socket) => {
+  // 채팅방 참가
   socket.on('join_room', (roomId: string) => {
     socket.join(`room:${roomId}`);
-    console.log(`👥 사용자 ${socket.id}가 방 ${roomId}에 참가`);
   });
 
+  // 채팅방 나가기
   socket.on('leave_room', (roomId: string) => {
     socket.leave(`room:${roomId}`);
-    console.log(`👋 사용자 ${socket.id}가 방 ${roomId}를 떠남`);
   });
 
+  // 연결 해제
   socket.on('disconnect', () => {
-    console.log(`🔌 클라이언트 연결 해제: ${socket.id}`);
+    // 연결 해제 처리
   });
 });
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 server.listen(PORT, () => {
-  console.log(`🚀 간단 백엔드 서버 실행 중: http://localhost:${PORT}`);
-  console.log(`🔗 Socket.IO 연결: ws://localhost:${PORT}`);
-  console.log(`📊 상태 확인: http://localhost:${PORT}/health`);
+  // 서버 시작 로그 제거됨
 });
 
 export { io }; 

@@ -55,7 +55,6 @@ export function TradeSettingsProvider({ children }: { children: ReactNode }) {
         symbol: symbol || tokenName
       }
     }));
-    console.log('✅ 토큰 쌍 업데이트:', { contractAddress, tokenName, symbol });
   };
 
   useEffect(() => {

@@ -4,7 +4,6 @@ import React, { ReactNode, useMemo } from 'react';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
 import { clusterApiUrl } from '@solana/web3.js';
 
@@ -30,7 +29,8 @@ export default function WalletProviderWrapper({ children }: WalletProviderWrappe
 
     const wallets = useMemo(
         () => [
-            new PhantomWalletAdapter(),
+            // Phantom은 Standard Wallet로 자동 등록되므로 제거
+            // new PhantomWalletAdapter(),
             new SolflareWalletAdapter(),
         ],
         // eslint-disable-next-line react-hooks/exhaustive-deps

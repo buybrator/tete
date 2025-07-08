@@ -14,7 +14,6 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('🔄 실시간 가격 조회:', token);
 
     const priceService = new TokenPriceService();
     
@@ -44,10 +43,6 @@ export async function GET(request: NextRequest) {
       lastUpdated: new Date().toISOString()
     };
 
-    console.log('✅ 실시간 가격 조회 완료:', {
-      현재가격: currentPrice,
-      변화율: priceChange.toFixed(2) + '%'
-    });
 
     return NextResponse.json({
       success: true,
@@ -55,8 +50,6 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('실시간 가격 조회 오류:', error);
-    
     return NextResponse.json({
       success: false,
       error: '실시간 가격 조회 중 서버 오류가 발생했습니다',

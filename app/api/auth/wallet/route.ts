@@ -38,16 +38,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('✅ 지갑 서명 검증 성공:', walletAddress)
 
     // 프로필 생성/업데이트
-    console.log('🔄 프로필 생성/업데이트 시작...')
     const profile = await createOrUpdateProfile(walletAddress, nickname)
-    console.log('✅ 프로필 저장 완료:', profile)
     
     // JWT 토큰 생성
     const token = generateJWT(walletAddress)
-    console.log('✅ JWT 토큰 생성 완료')
 
     return NextResponse.json({
       success: true,
@@ -55,10 +51,7 @@ export async function POST(request: NextRequest) {
       profile
     })
 
-  } catch (error) {
-    console.error('=== 지갑 인증 API 에러 ===')
-    console.error('에러:', error)
-    
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -86,8 +79,7 @@ export async function GET(request: NextRequest) {
       walletAddress
     })
 
-  } catch (error) {
-    console.error('메시지 생성 에러:', error)
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

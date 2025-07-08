@@ -9,7 +9,6 @@ export class ChatRoomTokenCollector {
    */
   async getAllChatRoomTokens(): Promise<string[]> {
     try {
-      console.log('🏠 채팅방 토큰 주소 수집 시작');
       
       const { data: chatRooms, error } = await supabase
         .from('chat_rooms')
@@ -18,7 +17,6 @@ export class ChatRoomTokenCollector {
         .neq('token_address', '');
 
       if (error) {
-        console.error('채팅방 조회 실패:', error);
         return [];
       }
 
@@ -28,14 +26,9 @@ export class ChatRoomTokenCollector {
 
       const uniqueTokens = [...new Set(tokenAddresses)];
       
-      console.log(`📊 수집된 토큰 주소: ${uniqueTokens.length}개`, {
-        rooms: chatRooms?.map(r => ({ name: r.name, token: r.token_address })),
-        uniqueTokens
-      });
 
       return uniqueTokens;
-    } catch (error) {
-      console.error('채팅방 토큰 수집 오류:', error);
+    } catch {
       return [];
     }
   }
@@ -56,8 +49,7 @@ export class ChatRoomTokenCollector {
       }
 
       return room.token_address;
-    } catch (error) {
-      console.error('채팅방 토큰 조회 오류:', error);
+    } catch {
       return null;
     }
   }
@@ -77,12 +69,10 @@ export class ChatRoomTokenCollector {
      }>;
    }> {
     try {
-      console.log('🚀 채팅방 토큰 가격 수집 시작');
       
       const tokenAddresses = await this.getAllChatRoomTokens();
       
       if (tokenAddresses.length === 0) {
-        console.log('⚠️ 수집할 토큰이 없습니다');
         return {
           success: true,
           totalTokens: 0,
@@ -115,10 +105,8 @@ export class ChatRoomTokenCollector {
       const successfulUpdates = results.filter(r => r.success).length;
       const failedTokens = results.filter(r => !r.success).map(r => r.tokenAddress);
       
-      console.log(`✅ 채팅방 토큰 가격 수집 완료: ${successfulUpdates}/${tokenAddresses.length}`);
       
       if (failedTokens.length > 0) {
-        console.warn('❌ 실패한 토큰들:', failedTokens);
       }
 
       return {
@@ -129,8 +117,7 @@ export class ChatRoomTokenCollector {
         details: results
       };
 
-    } catch (error) {
-      console.error('채팅방 토큰 가격 수집 오류:', error);
+    } catch {
       return {
         success: false,
         totalTokens: 0,
@@ -147,24 +134,19 @@ export class ChatRoomTokenCollector {
   async onNewChatRoomCreated(roomId: string, tokenAddress?: string): Promise<boolean> {
     try {
       if (!tokenAddress) {
-        console.log('토큰 주소가 없는 채팅방입니다');
         return true;
       }
 
-      console.log(`🆕 새 채팅방 토큰 등록: ${roomId} -> ${tokenAddress}`);
       
       // 즉시 가격 수집 시작
       const success = await tokenPriceService.updateTokenPrice(tokenAddress);
       
       if (success) {
-        console.log(`✅ 새 토큰 가격 수집 성공: ${tokenAddress}`);
       } else {
-        console.warn(`❌ 새 토큰 가격 수집 실패: ${tokenAddress}`);
       }
 
       return success;
-    } catch (error) {
-      console.error('새 채팅방 토큰 등록 오류:', error);
+    } catch {
       return false;
     }
   }
@@ -182,7 +164,6 @@ export class ChatRoomTokenCollector {
         .neq('token_address', '');
 
       if (error) {
-        console.error('활성 채팅방 조회 실패:', error);
         return [];
       }
 
@@ -191,8 +172,7 @@ export class ChatRoomTokenCollector {
         .filter((address): address is string => !!address) || [];
 
       return [...new Set(tokens)];
-    } catch (error) {
-      console.error('활성 채팅방 토큰 수집 오류:', error);
+    } catch {
       return [];
     }
   }

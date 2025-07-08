@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`🌐 Fetching metadata from: ${uri}`);
 
     // 서버 사이드에서 메타데이터 fetch
     const response = await fetch(uri, {
@@ -33,7 +32,6 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      console.error(`❌ Failed to fetch metadata: ${response.status} ${response.statusText}`);
       return NextResponse.json(
         { error: `Failed to fetch metadata: ${response.status}` },
         { status: response.status }
@@ -41,7 +39,6 @@ export async function GET(request: NextRequest) {
     }
 
     const metadata = await response.json();
-    console.log(`✅ Metadata fetched successfully:`, metadata);
 
     // CORS 헤더 추가
     return NextResponse.json(metadata, {
@@ -54,8 +51,6 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error(`❌ Token metadata API error:`, error);
-    
     if (error instanceof Error && error.name === 'TimeoutError') {
       return NextResponse.json(
         { error: 'Request timeout' },

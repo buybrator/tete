@@ -52,8 +52,6 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('채팅방 토큰 API 오류:', error);
-    
     return NextResponse.json({
       success: false,
       error: '채팅방 토큰 처리 중 서버 오류가 발생했습니다',
@@ -89,8 +87,6 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('채팅방 토큰 등록 오류:', error);
-    
     return NextResponse.json({
       success: false,
       error: '채팅방 토큰 등록 중 서버 오류가 발생했습니다',

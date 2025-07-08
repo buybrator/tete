@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`🖼️  Proxying image from: ${imageUrl}`);
 
     // 서버 사이드에서 이미지 fetch
     const response = await fetch(imageUrl, {
@@ -33,7 +32,6 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      console.error(`❌ Failed to fetch image: ${response.status} ${response.statusText}`);
       return NextResponse.json(
         { error: `Failed to fetch image: ${response.status}` },
         { status: response.status }
@@ -44,7 +42,6 @@ export async function GET(request: NextRequest) {
     const imageBuffer = await response.arrayBuffer();
     const contentType = response.headers.get('content-type') || 'image/png';
 
-    console.log(`✅ Image proxied successfully: ${imageBuffer.byteLength} bytes, ${contentType}`);
 
     // 이미지를 직접 반환
     return new NextResponse(imageBuffer, {
@@ -58,8 +55,6 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error(`❌ Image proxy error:`, error);
-    
     if (error instanceof Error && error.name === 'TimeoutError') {
       return NextResponse.json(
         { error: 'Request timeout' },

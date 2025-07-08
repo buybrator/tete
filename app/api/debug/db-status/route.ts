@@ -5,16 +5,12 @@ import { DEFAULT_TOKENS } from '@/lib/tokenPriceService';
 // 🔍 데이터베이스 상태 확인 API
 export async function GET() {
   try {
-    console.log('🔍 DB 상태 확인 시작');
     
     // 전체 토큰 가격 히스토리 개수 조회
-    const { count: totalCount, error: countError } = await supabase
+    const { count: totalCount } = await supabase
       .from('token_price_history')
       .select('*', { count: 'exact', head: true });
 
-    if (countError) {
-      console.error('전체 개수 조회 실패:', countError);
-    }
 
     // 각 토큰별 데이터 확인
     const tokenStatus = await Promise.all(
@@ -68,8 +64,6 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('❌ DB 상태 확인 오류:', error);
-    
     return NextResponse.json({
       success: false,
       error: 'DB 상태 확인 중 오류 발생',

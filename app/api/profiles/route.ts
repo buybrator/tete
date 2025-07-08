@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const wallet_address = searchParams.get('wallet_address');
 
-    console.log('🔄 프로필 조회 요청:', { wallet_address });
 
     if (!wallet_address) {
       return NextResponse.json(
@@ -37,7 +36,6 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (error) {
-      console.log('❌ 프로필 조회 에러:', error.message);
       // 프로필이 없는 경우는 에러가 아니라 빈 결과로 처리
       if (error.code === 'PGRST116') {
         return NextResponse.json({
@@ -51,7 +49,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('✅ 프로필 조회 성공:', profile);
 
     return NextResponse.json({
       success: true,
@@ -63,8 +60,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-  } catch (error) {
-    console.error('❌ 프로필 조회 에러:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -78,10 +74,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { wallet_address, nickname, avatar_url } = body;
 
-    console.log('🔄 프로필 저장 요청:', { wallet_address, nickname, avatar_url });
 
     if (!wallet_address) {
-      console.error('❌ 지갑 주소가 누락됨');
       return NextResponse.json(
         { error: 'Wallet address is required' },
         { status: 400 }
@@ -95,7 +89,6 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString()
     };
 
-    console.log('💾 저장할 프로필 데이터:', profileData);
 
     // UPSERT (insert or update)
     const { data, error } = await supabaseAdmin
@@ -111,14 +104,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('❌ Profile upsert error:', error);
       return NextResponse.json(
         { error: 'Failed to save profile', details: error.message },
         { status: 500 }
       );
     }
 
-    console.log('✅ 프로필 저장 성공:', data);
 
     return NextResponse.json({
       success: true,
@@ -126,7 +117,6 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Profile POST error:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -181,22 +171,19 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('프로필 업데이트 에러:', error);
       return NextResponse.json(
         { error: 'Failed to update profile' },
         { status: 500 }
       );
     }
 
-    console.log('✅ 프로필 업데이트 완료:', data);
 
     return NextResponse.json({
       success: true,
       profile: data
     });
 
-  } catch (error) {
-    console.error('프로필 업데이트 API 에러:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

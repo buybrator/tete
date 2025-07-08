@@ -12,14 +12,14 @@ import { useRef, useEffect, useMemo } from 'react';
 import CreateChatRoomDialog from './CreateChatRoomDialog';
 import TokenAvatar from '@/components/ui/TokenAvatar';
 
-// Mock 채팅방 데이터
+// Mock chat room data
 const mockRooms = [
-  { id: 'sol-usdc', name: 'SOL/USDC', image: '💰', description: 'Solana USDC 거래' },
-  { id: 'bonk', name: 'BONK', image: '🐕', description: 'BONK 밈코인 거래' },
-  { id: 'wif', name: 'WIF', image: '🧢', description: 'Dogwifhat 거래' },
-  { id: 'jup', name: 'JUP', image: '🪐', description: 'Jupiter 거래' },
-  { id: 'ray', name: 'RAY', image: '⚡', description: 'Raydium 거래' },
-  { id: 'samo', name: 'SAMO', image: '🐕‍🦺', description: 'Samoyed 거래' },
+  { id: 'sol-usdc', name: 'SOL/USDC', image: '💰', description: 'Solana USDC Trading' },
+  { id: 'bonk', name: 'BONK', image: '🐕', description: 'BONK Memecoin Trading' },
+  { id: 'wif', name: 'WIF', image: '🧢', description: 'Dogwifhat Trading' },
+  { id: 'jup', name: 'JUP', image: '🪐', description: 'Jupiter Trading' },
+  { id: 'ray', name: 'RAY', image: '⚡', description: 'Raydium Trading' },
+  { id: 'samo', name: 'SAMO', image: '🐕‍🦺', description: 'Samoyed Trading' },
 ];
 
 interface ChatRoom {
@@ -66,8 +66,7 @@ function PCChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
         }));
         setApiRooms(formattedRooms);
       }
-    } catch (error) {
-      console.error('❌ 채팅방 로드 오류:', error);
+    } catch {
       setApiRooms(mockRooms);
     } finally {
       setIsLoading(false);
@@ -137,7 +136,7 @@ function PCChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-300" />
         <Input 
-          placeholder="채팅방 검색 및 선택..."
+          placeholder="Search and select chat room..."
           className="pl-10 border-2 border-black focus:border-black focus:ring-0 rounded-none bg-[oklch(0.2393_0_0)] text-white placeholder:text-gray-300"
           value={searchQuery}
           onChange={handleSearchChange}
@@ -151,14 +150,14 @@ function PCChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
             className="w-full text-white border-2 border-black rounded-none shadow-[var(--shadow)] flex flex-col"
             style={{ backgroundColor: 'oklch(0.2393 0 0)' }}
           >
-            <div className="px-2 py-1.5 text-sm font-semibold">채팅방 목록</div>
+            <div className="px-2 py-1.5 text-sm font-semibold">Chat Room List</div>
             <div className="h-px bg-black mx-1"></div>
             
             <div className="max-h-[240px] overflow-y-auto">
               {isLoading ? (
                 <div className="relative flex select-none items-center rounded-none px-2 py-1.5 text-sm outline-none">
                   <span className="text-sm text-gray-300">
-                    채팅방 로딩 중...
+                    Loading chat rooms...
                   </span>
                 </div>
               ) : filteredRooms.length > 0 ? (
@@ -183,7 +182,7 @@ function PCChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
               ) : (
                 <div className="relative flex select-none items-center rounded-none px-2 py-1.5 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                   <span className="text-sm text-gray-300">
-                    &apos;{searchQuery}&apos;와 일치하는 채팅방이 없습니다.
+                    No chat rooms match &apos;{searchQuery}&apos;.
                   </span>
                 </div>
               )}
@@ -198,7 +197,7 @@ function PCChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
               <span className="text-lg">➕</span>
               <div className="flex-1">
                 <div className="font-semibold">Create chat room</div>
-                <div className="text-xs text-gray-300">새로운 채팅방 만들기</div>
+                <div className="text-xs text-gray-300">Create a new chat room</div>
               </div>
             </div>
           </div>
@@ -230,16 +229,10 @@ function PCWalletProfile() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // 디버깅: tempAvatar 값 변경 추적
-  useEffect(() => {
-    console.log('🔄 tempAvatar 상태 변경됨:', tempAvatar);
-  }, [tempAvatar]);
 
-  // 다이얼로그가 열릴 때마다 최신 프로필 정보로 업데이트
+  // Update with latest profile info whenever dialog opens
   useEffect(() => {
     if (isDialogOpen) {
-      console.log('다이얼로그 열림 - 최신 프로필 정보로 업데이트');
-      console.log('현재 nickname:', nickname, 'avatar:', avatar);
       setTempNickname(nickname || '');
       setTempAvatar(avatar || '👤');
     }
@@ -248,26 +241,21 @@ function PCWalletProfile() {
 
 
   const handleDialogOpen = useCallback(() => {
-    console.log('프로필 편집 팝업 열기 - 현재 아바타:', avatar);
-    console.log('프로필 편집 팝업 열기 - 현재 닉네임:', nickname);
     setTempNickname(nickname || '');
     setTempAvatar(avatar || '👤');
     setIsDialogOpen(true);
   }, [avatar, nickname]);
 
   const handleSave = useCallback(async () => {
-    console.log('프로필 저장 시작 - 닉네임:', tempNickname, '아바타:', tempAvatar?.substring(0, 50) + '...');
     
     try {
       await updateProfile({
         nickname: tempNickname,
         avatar: tempAvatar
       });
-      console.log('✅ 프로필 저장 완료');
       setIsDialogOpen(false);
-    } catch (error) {
-      console.error('❌ 프로필 저장 실패:', error);
-      // 에러가 발생해도 일단 팝업은 닫기
+    } catch {
+      // Close popup even if error occurs
       setIsDialogOpen(false);
     }
   }, [tempNickname, tempAvatar, updateProfile]);
@@ -276,8 +264,8 @@ function PCWalletProfile() {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
-        alert('이미지 파일만 업로드할 수 있습니다.');
-        // 파일 입력 초기화
+              alert('Only image files can be uploaded.');
+      // Reset file input
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
@@ -285,18 +273,18 @@ function PCWalletProfile() {
       }
       
       if (file.size > 5 * 1024 * 1024) {
-        alert('파일 크기는 5MB 이하여야 합니다.');
-        // 파일 입력 초기화
+        alert('File size must be 5MB or less.');
+        // Reset file input
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
         return;
       }
       
-      // Supabase Storage에 업로드
+              // Upload to Supabase Storage
       handleSupabaseUpload(file);
       
-      // 파일 입력 초기화 (같은 파일을 다시 선택할 수 있도록)
+              // Reset file input (to allow selecting the same file again)
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -321,21 +309,17 @@ function PCWalletProfile() {
 
       if (result.success) {
         setTempAvatar(result.avatar_url);
-        console.log('✅ PC 이미지 업로드 완료:', result.avatar_url);
         
-        // 업로드 후 즉시 프로필 업데이트
+                  // Immediately update profile after upload
         await updateProfile({
           nickname: tempNickname,
           avatar: result.avatar_url
         });
-        console.log('✅ PC 프로필 자동 업데이트 완료');
       } else {
-        console.error('❌ PC 이미지 업로드 실패:', result.error);
-        alert('이미지 업로드에 실패했습니다: ' + result.error);
+        alert('Image upload failed: ' + result.error);
       }
-    } catch (error) {
-      console.error('❌ PC 이미지 업로드 오류:', error);
-      alert('이미지 업로드 중 오류가 발생했습니다.');
+    } catch {
+      alert('An error occurred during image upload.');
     } finally {
       setIsUploading(false);
     }
@@ -361,24 +345,24 @@ function PCWalletProfile() {
     return `${balance.toFixed(4)} SOL`;
   };
 
-  // 안전한 아바타 fallback 함수
+  // Safe avatar fallback function
   const getDisplayAvatarFallback = () => {
-    // 이모지인지 확인 (길이가 2 이하이고 유니코드 이모지 범위)
+    // Check if it's an emoji (length 2 or less and within Unicode emoji range)
     if (avatar && avatar.length <= 2 && /[\u{1F300}-\u{1F9FF}]/u.test(avatar)) {
       return avatar;
     }
     
-    // 닉네임이 있으면 첫 글자 사용
+          // Use first character if nickname exists
     if (nickname && nickname.trim()) {
       return nickname.charAt(0).toUpperCase();
     }
     
-    // 지갑 주소 기반 fallback
+          // Wallet address based fallback
     if (address) {
       return address.slice(2, 4).toUpperCase();
     }
     
-    // 기본 아바타
+          // Default avatar
     return '👤';
   };
 
@@ -394,7 +378,7 @@ function PCWalletProfile() {
           onClick={handleConnectWallet}
           disabled={isConnecting}
         >
-          {isConnecting ? '연결 중...' : '지갑 연결'}
+          {isConnecting ? 'Connecting...' : 'Connect Wallet'}
         </Button>
         {error && (
           <span className="text-xs text-red-500">{error}</span>
@@ -420,7 +404,7 @@ function PCWalletProfile() {
             {avatar?.startsWith('data:') || avatar?.startsWith('http') ? (
               <img 
                 src={avatar} 
-                alt="아바타" 
+                alt="Avatar" 
                 className="w-full h-full object-cover"
                 style={{ borderRadius: '0px' }}
               />
@@ -441,7 +425,7 @@ function PCWalletProfile() {
         style={{ borderRadius: '0px' }}
       >
         <DialogHeader>
-          <DialogTitle>프로필 편집</DialogTitle>
+          <DialogTitle>Edit Profile</DialogTitle>
         </DialogHeader>
         
         {error && (
@@ -452,7 +436,7 @@ function PCWalletProfile() {
         
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-white">아바타</Label>
+            <Label className="text-white">Avatar</Label>
             
             <div className="flex items-center gap-4 mb-4">
               <div 
@@ -472,7 +456,7 @@ function PCWalletProfile() {
                   {tempAvatar && (tempAvatar.startsWith('data:') || tempAvatar.startsWith('http')) ? (
                     <img 
                       src={tempAvatar} 
-                      alt="아바타 미리보기" 
+                      alt="Avatar preview" 
                       style={{ 
                         width: '100%',
                         height: '100%',
@@ -480,13 +464,13 @@ function PCWalletProfile() {
                         borderRadius: '0px',
                         display: 'block'
                       }}
-                      onLoad={(e) => {
-                        console.log('✅ 미리보기 이미지 로드 성공');
-                        console.log('✅ 이미지 크기:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
+                      onLoad={() => {
+                        
+                        
                       }}
-                      onError={(e) => {
-                        console.error('❌ 미리보기 이미지 로드 실패:', e);
-                        console.error('tempAvatar 값:', tempAvatar?.substring(0, 100));
+                      onError={() => {
+                        
+                        
                       }}
                     />
                   ) : (
@@ -521,9 +505,9 @@ function PCWalletProfile() {
               
               <div className="text-sm text-gray-300">
                 {isUploading ? (
-                  <span className="text-blue-400">이미지 업로드 중...</span>
+                  <span className="text-blue-400">Uploading image...</span>
                 ) : (
-                  '클릭하여 이미지를 업로드하세요'
+                  'Click to upload an image'
                 )}
               </div>
             </div>
@@ -540,28 +524,28 @@ function PCWalletProfile() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="nickname" className="text-white">닉네임</Label>
+            <Label htmlFor="nickname" className="text-white">Nickname</Label>
             <Input
               id="nickname"
               value={tempNickname}
               onChange={(e) => setTempNickname(e.target.value)}
-              placeholder={address ? `기본값: ${address.slice(0, 4)}...${address.slice(-4)}` : '닉네임을 입력하세요'}
+              placeholder={address ? `Default: ${address.slice(0, 4)}...${address.slice(-4)}` : 'Enter your nickname'}
               className="border-2 border-black focus:border-black focus:ring-0 rounded-none bg-[oklch(0.2393_0_0)] text-white placeholder:text-gray-300"
             />
           </div>
 
           <div className="space-y-2">
-            <Label className="text-white">지갑 주소</Label>
+            <Label className="text-white">Wallet Address</Label>
             <div className="p-2 bg-[oklch(0.2393_0_0)] border-2 border-black rounded-none text-sm font-mono text-gray-300 break-all">
               {address}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-white">SOL 잔고</Label>
+            <Label className="text-white">SOL Balance</Label>
             <div className="flex items-center gap-2">
               <div className="flex-1 p-2 bg-[oklch(0.2393_0_0)] border-2 border-black rounded-none text-sm font-mono text-gray-300">
-                {isLoadingBalance ? '로딩 중...' : formatBalance(balance)}
+                {isLoadingBalance ? 'Loading...' : formatBalance(balance)}
               </div>
               <Button
                 variant="neutral"
@@ -582,7 +566,7 @@ function PCWalletProfile() {
               className="bg-red-600 border-2 border-black rounded-none text-white hover:bg-red-700"
               disabled={isConnecting}
             >
-              {isConnecting ? '해제 중...' : '지갑 연결 해제'}
+              {isConnecting ? 'Disconnecting...' : 'Disconnect Wallet'}
             </Button>
 
             <div className="flex space-x-2">
@@ -591,14 +575,14 @@ function PCWalletProfile() {
                 onClick={() => setIsDialogOpen(false)}
                 className="bg-[oklch(0.2393_0_0)] border-2 border-black rounded-none text-white hover:bg-[oklch(0.3_0_0)]"
               >
-                취소
+                Cancel
               </Button>
               <Button
                 onClick={handleSave}
                 className="bg-green-600 border-2 border-black rounded-none text-white hover:bg-green-700"
                 disabled={isConnecting}
               >
-                저장
+                Save
               </Button>
             </div>
           </div>
@@ -612,7 +596,6 @@ export default function PCNavbar() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const handleRoomSelect = useCallback((roomId: string) => {
-    console.log('PC 네비게이션에서 채팅방 선택:', roomId);
     
     window.dispatchEvent(new CustomEvent('roomSelected', { 
       detail: { roomId } 
@@ -625,13 +608,13 @@ export default function PCNavbar() {
 
   return (
     <>
-      {/* PC 전용 Navbar - 70px 높이, padding 없음 */}
+      {/* PC-only Navbar - 70px height, no padding */}
       <nav className="hidden lg:flex h-[70px] w-full bg-[oklch(23.93%_0_0)] border-b-4 border-black items-center justify-between px-6">
-        {/* 로고 */}
+                  {/* Logo */}
         <div className="flex items-center gap-3">
-          {/* 정사각형들이 둘러싸는 로고 영역 */}
+                      {/* Logo area surrounded by squares */}
           <div className="relative">
-            {/* 상단 정사각형들 */}
+                          {/* Top squares */}
             <div className="absolute -top-[17.5px] left-0 flex">
               <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
               <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
@@ -639,7 +622,7 @@ export default function PCNavbar() {
               <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
             </div>
             
-            {/* 좌우 정사각형들 */}
+                          {/* Left and right squares */}
             <div className="flex items-center">
               <div className="flex flex-col">
                 <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
@@ -654,7 +637,7 @@ export default function PCNavbar() {
               </div>
             </div>
             
-            {/* 하단 정사각형들 */}
+                          {/* Bottom squares */}
             <div className="absolute -bottom-[17.5px] left-0 flex">
               <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
               <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
@@ -668,7 +651,7 @@ export default function PCNavbar() {
           </span>
         </div>
 
-        {/* 중앙 채팅방 검색 */}
+                  {/* Central chatroom search */}
         <div className="flex-1 max-w-md mx-8">
           <PCChatRoomSearch 
             onRoomSelect={handleRoomSelect} 
@@ -676,13 +659,13 @@ export default function PCNavbar() {
           />
         </div>
 
-        {/* 우측 지갑 연결 */}
+                  {/* Right wallet connection */}
         <div className="flex items-center">
           <PCWalletProfile />
         </div>
       </nav>
 
-      {/* 채팅방 생성 Dialog */}
+              {/* Chatroom creation Dialog */}
       <CreateChatRoomDialog 
         open={isCreateDialogOpen} 
         onOpenChange={setIsCreateDialogOpen} 

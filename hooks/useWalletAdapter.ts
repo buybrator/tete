@@ -76,7 +76,6 @@ export function useWalletAdapter() {
       setError(null);
       await connect();
     } catch (error) {
-      console.error('지갑 연결 실패:', error);
       setError(error instanceof Error ? error.message : '지갑 연결에 실패했습니다.');
     }
   }, [connect]);
@@ -94,9 +93,7 @@ export function useWalletAdapter() {
       // 상태 초기화
       setBalance(null);
       
-      console.log('🔌 지갑 연결 해제 완료');
     } catch (error) {
-      console.error('❌ 지갑 연결 해제 실패:', error);
       
       // 에러가 발생해도 상태는 초기화
       setBalance(null);
@@ -119,15 +116,12 @@ export function useWalletAdapter() {
       
       const healthCheck = await quickHealthCheck;
       if (healthCheck.connected) {
-        console.log('✅ 기존 연결 상태 양호');
         return connection;
       }
       
       // 연결이 불안정하면 새로운 안정적인 연결 생성
-      console.log('🔄 연결 상태 불안정, 새로운 연결 시도...');
       return await getLibStableConnection();
     } catch (error) {
-      console.warn('Connection health check failed, using library stable connection:', error);
       // fallback to library stable connection
       return await getLibStableConnection();
     }
@@ -149,7 +143,6 @@ export function useWalletAdapter() {
       const solBalance = lamports / LAMPORTS_PER_SOL;
       setBalance(solBalance);
     } catch (error) {
-      console.error('잔고 조회 실패:', error);
       setError('잔고를 불러오는데 실패했습니다.');
       setBalance(null);
     } finally {
@@ -188,14 +181,12 @@ export function useWalletAdapter() {
         throw new Error(`트랜잭션 실패: ${confirmation.value.err}`);
       }
 
-      console.log('트랜잭션 성공:', signature);
       
       // 잔고 업데이트
       await fetchBalance();
       
       return signature;
     } catch (error) {
-      console.error('트랜잭션 전송 실패:', error);
       const errorMessage = error instanceof Error ? error.message : '트랜잭션 전송에 실패했습니다.';
       setError(errorMessage);
       throw error;
@@ -226,7 +217,6 @@ export function useWalletAdapter() {
 
       return await sendSolanaTransaction(transaction);
     } catch (error) {
-      console.error('SOL 전송 실패:', error);
       throw error;
     }
   }, [publicKey, sendSolanaTransaction]);
@@ -242,7 +232,6 @@ export function useWalletAdapter() {
       const messageBytes = new TextEncoder().encode(message);
       return await signMessage(messageBytes);
     } catch (error) {
-      console.error('메시지 서명 실패:', error);
       const errorMessage = error instanceof Error ? error.message : '메시지 서명에 실패했습니다.';
       setError(errorMessage);
       throw error;
@@ -270,7 +259,6 @@ export function useWalletAdapter() {
 
       return await signTransaction(transaction);
     } catch (error) {
-      console.error('트랜잭션 서명 실패:', error);
       const errorMessage = error instanceof Error ? error.message : '트랜잭션 서명에 실패했습니다.';
       setError(errorMessage);
       throw error;
@@ -300,7 +288,6 @@ export function useWalletAdapter() {
 
       return await signAllTransactions(transactions);
     } catch (error) {
-      console.error('다중 트랜잭션 서명 실패:', error);
       const errorMessage = error instanceof Error ? error.message : '트랜잭션 서명에 실패했습니다.';
       setError(errorMessage);
       throw error;
@@ -315,7 +302,6 @@ export function useWalletAdapter() {
   // 연결 상태가 변경될 때 잔고 조회 제거 (수동으로만 조회)
   useEffect(() => {
     if (connected && publicKey) {
-      console.log('✅ 지갑 연결됨 - 수동 잔고 조회만 가능');
       // 🚫 자동 잔고 조회 제거 - fetchBalance() 호출 제거
     } else {
       setBalance(null);
