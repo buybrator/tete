@@ -155,7 +155,7 @@ export async function getStableConnection(network?: SolanaNetwork): Promise<Conn
     
     return proxyConnection;
     
-  } catch (error) {
+  } catch {
     
     try {
       // 2차: 직접 연결 시도
@@ -179,7 +179,7 @@ export async function getStableConnection(network?: SolanaNetwork): Promise<Conn
       
       return directConnection;
       
-    } catch (directError) {
+    } catch {
       
       // 캐시 무효화
       const oldCache = connectionCache;
@@ -207,7 +207,7 @@ export async function getBlockhashConnection(network?: SolanaNetwork): Promise<C
     await proxyConnection.getLatestBlockhash('finalized');
     return proxyConnection;
     
-  } catch (proxyError) {
+  } catch {
     
     // 2차: 직접 연결 시도
     try {
@@ -229,7 +229,7 @@ export function invalidateConnectionCache(): void {
 }
 
 // RPC 엔드포인트 자동 선택 (이제 프록시에서 처리되므로 단순화)
-export async function findHealthyRpcEndpoint(network: SolanaNetwork): Promise<string | null> {
+export async function findHealthyRpcEndpoint(_network: SolanaNetwork): Promise<string | null> {
   return '/api/solana-rpc';
 }
 

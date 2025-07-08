@@ -170,6 +170,7 @@ export class TokenPriceService {
     const results = await Promise.allSettled(promises);
     
     const successful = results.filter(result => result.status === 'fulfilled' && result.value).length;
+    // successful은 디버그용이므로 사용하지 않음
   }
 
   /**

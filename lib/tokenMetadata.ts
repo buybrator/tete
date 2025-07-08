@@ -176,6 +176,7 @@ export async function fetchTokenMetadataWithRetry(
       }
     } catch (error) {
       lastError = error as Error;
+      // lastError는 에러 추적용이므로 사용하지 않음
       
       if (attempt < maxRetries) {
         // 지수 백오프: 1초, 2초, 4초...
