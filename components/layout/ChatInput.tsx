@@ -57,7 +57,7 @@ export default function ChatInput({ roomId }: Props) {
 
   // Solana connection settings
   const connection = new Connection(
-    process.env.NEXT_PUBLIC_RPC_URL || 'https://solana-mainnet.g.alchemy.com/v2/CLIspK_3J2GVAuweafRIUoHzWjyn07rz', 
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL || process.env.NEXT_PUBLIC_RPC_URL || 'https://solana-mainnet.g.alchemy.com/v2/CLIspK_3J2GVAuweafRIUoHzWjyn07rz', 
     { 
       commitment: 'confirmed',
       confirmTransactionInitialTimeout: 60000,

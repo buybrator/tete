@@ -176,19 +176,18 @@ export type Database = {
 
 // 환경 변수 검증 및 로드
 function getSupabaseConfig() {
-  // 임시로 하드코딩하여 테스트
-  const url = 'https://ozeooonqxrjvdoajgvnz.supabase.co'
-  const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZW9vb25xeHJqdmRvYWpndm56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NDk1MjYsImV4cCI6MjA2NDMyNTUyNn0.d32Li6tfOvj96CKSfaVDkAKLK8WpGtFO9CiZf_cbY4Q'
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ozeooonqxrjvdoajgvnz.supabase.co'
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZW9vb25xeHJqdmRvYWpndm56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NDk1MjYsImV4cCI6MjA2NDMyNTUyNn0.d32Li6tfOvj96CKSfaVDkAKLK8WpGtFO9CiZf_cbY4Q'
 
   return { url, key }
 }
 
 // 서버 사이드 환경 변수 로드
 function getSupabaseAdminConfig() {
-  const url = 'https://ozeooonqxrjvdoajgvnz.supabase.co'
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ozeooonqxrjvdoajgvnz.supabase.co'
   
   // ✅ 실제 service_role 키 사용
-  const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZW9vb25xeHJqdmRvYWpndm56Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODc0OTUyNiwiZXhwIjoyMDY0MzI1NTI2fQ.FHrUT_yvvWAgyO8RU3ucaAdWIHfPpD9gwypeF8dcLb0'
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZW9vb25xeHJqdmRvYWpndm56Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODc0OTUyNiwiZXhwIjoyMDY0MzI1NTI2fQ.FHrUT_yvvWAgyO8RU3ucaAdWIHfPpD9gwypeF8dcLb0'
 
   try {
     // JWT 토큰 디코딩으로 role 확인

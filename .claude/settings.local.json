@@ -18,7 +18,20 @@
       "Bash(curl:*)",
       "mcp__supabase__list_tables",
       "mcp__supabase__execute_sql",
-      "mcp__supabase__get_logs"
+      "mcp__supabase__get_logs",
+      "WebFetch(domain:github.com)",
+      "Bash(cargo install:*)",
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+      "Bash(npm run:*)",
+      "Bash(git clone:*)",
+      "Bash(source:*)",
+      "Bash(cargo build:*)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(export PATH=\"$HOME/.local/bin:$PATH\")",
+      "Bash(claudelytics:*)",
+      "Bash(~/.local/bin/claudelytics:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   },

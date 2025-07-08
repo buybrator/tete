@@ -50,8 +50,8 @@ const nextConfig: NextConfig = {
     // Helius 제거, 공식 RPC만 사용
     NEXT_PUBLIC_SOLANA_NETWORK: process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'mainnet',
     NEXT_PUBLIC_MEMO_PROGRAM_ID: process.env.NEXT_PUBLIC_MEMO_PROGRAM_ID || 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',
-    // JWT 시크릿 추가
-    JWT_SECRET: process.env.JWT_SECRET || 'TradeChat-Super-Secret-Key-2024',
+    // JWT 시크릿 추가 - 환경변수에서만 로드
+    JWT_SECRET: process.env.JWT_SECRET,
   },
 };
 

@@ -17,8 +17,8 @@ app.use(express.json());
 
 // Supabase 클라이언트 설정
 const supabase = createClient(
-  'https://ozeooonqxrjvdoajgvnz.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZW9vb25xeHJqdmRvYWpndm56Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODc0OTUyNiwiZXhwIjoyMDY0MzI1NTI2fQ.FHrUT_yvvWAgyO8RU3ucaAdWIHfPpD9gwypeF8dcLb0'
+  process.env.SUPABASE_URL || 'https://ozeooonqxrjvdoajgvnz.supabase.co',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZW9vb25xeHJqdmRvYWpndm56Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODc0OTUyNiwiZXhwIjoyMDY0MzI1NTI2fQ.FHrUT_yvvWAgyO8RU3ucaAdWIHfPpD9gwypeF8dcLb0'
 );
 
 // 채팅방 목록 조회

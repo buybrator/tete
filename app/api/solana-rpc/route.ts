@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // 🚀 검증된 안정적인 RPC 엔드포인트만 선별
 const RPC_ENDPOINTS = [
   // Tier 1: 사용자 지정 Alchemy RPC (최우선)
-  process.env.NEXT_PUBLIC_RPC_URL || 'https://solana-mainnet.g.alchemy.com/v2/CLIspK_3J2GVAuweafRIUoHzWjyn07rz',
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL || process.env.NEXT_PUBLIC_RPC_URL || 'https://solana-mainnet.g.alchemy.com/v2/CLIspK_3J2GVAuweafRIUoHzWjyn07rz',
   
   // Tier 2: 공식 솔라나 (백업용)
   'https://api.mainnet-beta.solana.com',

@@ -50,7 +50,7 @@ export async function fetchTokenMetadata(
 ): Promise<TokenMetadata | null> {
   try {
     // RPC URL 설정
-    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://solana-mainnet.g.alchemy.com/v2/CLIspK_3J2GVAuweafRIUoHzWjyn07rz';
+    const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || process.env.NEXT_PUBLIC_RPC_URL || 'https://solana-mainnet.g.alchemy.com/v2/CLIspK_3J2GVAuweafRIUoHzWjyn07rz';
     
     // UMI 인스턴스 생성
     const umi = createUmi(rpcUrl);
