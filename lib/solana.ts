@@ -229,7 +229,7 @@ export function invalidateConnectionCache(): void {
 }
 
 // RPC 엔드포인트 자동 선택 (이제 프록시에서 처리되므로 단순화)
-export async function findHealthyRpcEndpoint(_network: SolanaNetwork): Promise<string | null> {
+export async function findHealthyRpcEndpoint(): Promise<string | null> {
   return '/api/solana-rpc';
 }
 

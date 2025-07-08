@@ -161,8 +161,6 @@ export async function fetchTokenMetadataWithRetry(
   tokenAddress: string,
   maxRetries: number = 3
 ): Promise<TokenMetadata | null> {
-  let lastError: Error | null = null;
-
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const result = await fetchTokenMetadata(tokenAddress);
@@ -174,10 +172,7 @@ export async function fetchTokenMetadataWithRetry(
       if (result) {
         return result;
       }
-    } catch (error) {
-      lastError = error as Error;
-      // lastError는 에러 추적용이므로 사용하지 않음
-      
+    } catch {
       if (attempt < maxRetries) {
         // 지수 백오프: 1초, 2초, 4초...
         const delay = Math.pow(2, attempt - 1) * 1000;
