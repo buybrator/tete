@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
     for (const tokenAddress of tokens) {
       try {
         // 통일된 가격 매니저를 통해 가격 구독
-        const pricePromise = new Promise((resolve) => {
-          const unsubscribe = unifiedPriceManager.subscribeToPrice(
+        const pricePromise = new Promise(async (resolve) => {
+          const unsubscribe = await unifiedPriceManager.subscribeToPrice(
             tokenAddress, 
             (data) => {
               resolve(data);
@@ -101,8 +101,8 @@ export async function GET(request: NextRequest) {
     }
 
     // 통일된 가격 정보 확인
-    const pricePromise = new Promise((resolve) => {
-      const unsubscribe = unifiedPriceManager.subscribeToPrice(
+    const pricePromise = new Promise(async (resolve) => {
+      const unsubscribe = await unifiedPriceManager.subscribeToPrice(
         tokenAddress, 
         (data) => {
           resolve(data);
