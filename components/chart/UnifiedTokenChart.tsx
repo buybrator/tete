@@ -158,7 +158,7 @@ export default function UnifiedTokenChart({
           fontSize: 12
         },
         extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
-        formatter: (params: any) => {
+        formatter: (params: any[]) => {
           const dataIndex = params[0].dataIndex;
           const point = chartData[dataIndex];
           const changeFromOpen = ((point.close - point.open) / point.open) * 100;

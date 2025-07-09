@@ -257,7 +257,7 @@ class UnifiedPriceManager {
   }
 
   // 데이터베이스 업데이트 처리
-  private handleDatabaseUpdate(tokenAddress: string, data: any) {
+  private handleDatabaseUpdate(tokenAddress: string, data: Record<string, unknown>) {
     // 새로운 OHLCV 데이터가 추가되면 차트 업데이트
     this.appendToChart(tokenAddress, data);
     
@@ -271,7 +271,7 @@ class UnifiedPriceManager {
   }
 
   // 실시간 업데이트 처리
-  private handleRealtimeUpdate(tokenAddress: string, data: any) {
+  private handleRealtimeUpdate(tokenAddress: string, data: Record<string, unknown>) {
     const cached = this.priceCache.get(tokenAddress);
     if (cached) {
       const updated = { ...cached, ...data };
@@ -320,7 +320,7 @@ class UnifiedPriceManager {
   }
 
   // 데이터베이스 형식을 차트 형식으로 변환
-  private convertDatabaseToChart(data: any[]): UnifiedChartPoint[] {
+  private convertDatabaseToChart(data: Record<string, unknown>[]): UnifiedChartPoint[] {
     return data.map(item => {
       const date = new Date(item.timestamp_15min);
       return {
@@ -342,7 +342,7 @@ class UnifiedPriceManager {
   }
 
   // 기존 형식을 통일된 형식으로 변환
-  private convertToUnifiedFormat(data: any[]): UnifiedChartPoint[] {
+  private convertToUnifiedFormat(data: Record<string, unknown>[]): UnifiedChartPoint[] {
     return data.map(item => ({
       timestamp: item.timestamp,
       open: item.open,
@@ -356,7 +356,7 @@ class UnifiedPriceManager {
   }
 
   // 차트에 새 데이터 추가
-  private appendToChart(tokenAddress: string, newData: any) {
+  private appendToChart(tokenAddress: string, newData: Record<string, unknown>) {
     const existing = this.chartCache.get(tokenAddress) || [];
     const newPoint = this.convertDatabaseToChart([newData])[0];
     

@@ -180,7 +180,7 @@ class TokenPriceManagerV2 {
     // 채널에 인터벌 저장 (정리용)
     const channel = this.channels.get(tokenAddress);
     if (channel) {
-      (channel as any)._priceInterval = interval;
+      (channel as Record<string, unknown>)._priceInterval = interval;
     }
   }
 
@@ -189,8 +189,8 @@ class TokenPriceManagerV2 {
     const channel = this.channels.get(tokenAddress);
     if (channel) {
       // 가격 업데이트 인터벌 정리
-      if ((channel as any)._priceInterval) {
-        clearInterval((channel as any)._priceInterval);
+      if ((channel as Record<string, unknown>)._priceInterval) {
+        clearInterval((channel as Record<string, unknown>)._priceInterval as NodeJS.Timeout);
       }
       channel.unsubscribe();
       this.channels.delete(tokenAddress);
@@ -200,7 +200,7 @@ class TokenPriceManagerV2 {
   }
 
   // DB에서 가격 업데이트 처리 (개선: hasHistory 추가)
-  private handlePriceUpdate(tokenAddress: string, data: any) {
+  private handlePriceUpdate(tokenAddress: string, data: Record<string, unknown>) {
     const priceData: PriceData = {
       tokenAddress,
       price: data.close || data.open,
@@ -217,7 +217,7 @@ class TokenPriceManagerV2 {
   }
 
   // 실시간 가격 업데이트 처리
-  private handleRealtimePrice(tokenAddress: string, data: any) {
+  private handleRealtimePrice(tokenAddress: string, data: Record<string, unknown>) {
     const cached = this.priceCache.get(tokenAddress);
     if (cached) {
       cached.price = data.price;
@@ -311,7 +311,7 @@ class TokenPriceManagerV2 {
   }
 
   // 차트 데이터 추가
-  private appendChartData(tokenAddress: string, newData: any) {
+  private appendChartData(tokenAddress: string, newData: Record<string, unknown>) {
     const existing = this.chartCache.get(tokenAddress) || [];
     const newPoint = this.formatSinglePoint(newData);
     
@@ -335,12 +335,12 @@ class TokenPriceManagerV2 {
   }
 
   // 차트 데이터 포맷팅
-  private formatChartData(data: any[]): ChartDataPoint[] {
+  private formatChartData(data: Record<string, unknown>[]): ChartDataPoint[] {
     return data.map(item => this.formatSinglePoint(item));
   }
 
   // 단일 포인트 포맷팅
-  private formatSinglePoint(item: any): ChartDataPoint {
+  private formatSinglePoint(item: Record<string, unknown>): ChartDataPoint {
     const date = new Date(item.timestamp_15min);
     const hours = date.getHours();
     const minutes = date.getMinutes().toString().padStart(2, '0');

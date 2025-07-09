@@ -3,7 +3,7 @@
 
 interface CachedData {
   tokenAddress: string;
-  chartData: any[];
+  chartData: unknown[];
   lastUpdated: number;
   version: number;
 }
@@ -91,7 +91,7 @@ class ClientCache {
   }
 
   // 캐시 데이터 저장
-  async set(tokenAddress: string, chartData: any[]): Promise<void> {
+  async set(tokenAddress: string, chartData: unknown[]): Promise<void> {
     if (!this.isSupported || !this.db) return;
 
     try {

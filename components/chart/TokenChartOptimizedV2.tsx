@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as echarts from 'echarts';
 import type { ECharts } from 'echarts';
 import { tokenPriceManagerV2, type PriceData, type ChartDataPoint } from '@/lib/tokenPriceManagerV2';
@@ -135,7 +135,7 @@ export default function TokenChartOptimizedV2({
         borderColor: '#e5e7eb',
         borderWidth: 1,
         textStyle: { color: '#1f2937' },
-        formatter: (params: any) => {
+        formatter: (params: any[]) => {
           const dataIndex = params[0].dataIndex;
           const point = chartData[dataIndex];
           return `

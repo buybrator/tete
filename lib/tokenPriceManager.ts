@@ -130,7 +130,7 @@ class TokenPriceManager {
   }
 
   // DB에서 가격 업데이트 처리
-  private handlePriceUpdate(tokenAddress: string, data: any) {
+  private handlePriceUpdate(tokenAddress: string, data: Record<string, unknown>) {
     const priceData: PriceData = {
       tokenAddress,
       price: data.close || data.open,
@@ -150,7 +150,7 @@ class TokenPriceManager {
   }
 
   // 실시간 가격 업데이트 처리
-  private handleRealtimePrice(tokenAddress: string, data: any) {
+  private handleRealtimePrice(tokenAddress: string, data: Record<string, unknown>) {
     const cached = this.priceCache.get(tokenAddress);
     if (cached) {
       cached.price = data.price;
@@ -244,7 +244,7 @@ class TokenPriceManager {
   }
 
   // 차트 데이터 추가
-  private appendChartData(tokenAddress: string, newData: any) {
+  private appendChartData(tokenAddress: string, newData: Record<string, unknown>) {
     const existing = this.chartCache.get(tokenAddress) || [];
     const newPoint = this.formatSinglePoint(newData);
     
@@ -268,12 +268,12 @@ class TokenPriceManager {
   }
 
   // 차트 데이터 포맷팅
-  private formatChartData(data: any[]): ChartDataPoint[] {
+  private formatChartData(data: Record<string, unknown>[]): ChartDataPoint[] {
     return data.map(item => this.formatSinglePoint(item));
   }
 
   // 단일 포인트 포맷팅
-  private formatSinglePoint(item: any): ChartDataPoint {
+  private formatSinglePoint(item: Record<string, unknown>): ChartDataPoint {
     const date = new Date(item.timestamp_15min);
     const hours = date.getHours();
     const minutes = date.getMinutes().toString().padStart(2, '0');

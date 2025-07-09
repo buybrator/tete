@@ -88,7 +88,7 @@ export default function TokenChartOptimized({ tokenAddress, className = '' }: To
         borderRadius: 8,
         padding: 12,
         textStyle: { color: '#fff' },
-        formatter: (params: any) => {
+        formatter: (params: any[]) => {
           if (!params || !params[0]) return '';
           const data = params[0];
           const index = data.dataIndex;
