@@ -37,7 +37,14 @@
       "Bash(cat:*)",
       "Bash(git pull:*)",
       "Bash(git commit:*)",
-      "mcp__supabase__search_docs"
+      "mcp__supabase__search_docs",
+      "Bash(rm:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__firecrawl-mcp__firecrawl_search",
+      "mcp__context7__get-library-docs",
+      "Bash(npm install:*)",
+      "Bash(nslookup:*)",
+      "Bash(ping:*)"
     ],
     "deny": []
   },

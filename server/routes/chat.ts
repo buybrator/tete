@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { db } from '../database/connection';
-import { io } from '../index';
+import { supabaseAdmin } from '../../lib/supabase';
 import { CreateMessageRequest, ChatMessage, ChatRoom } from '../types/database';
 
 const router = Router();
@@ -9,8 +8,9 @@ const router = Router();
 // 채팅방 목록 조회
 router.get('/rooms', async (req: Request, res: Response) => {
   try {
-    const result = await db.query(`
-      SELECT 
+    const { data: rooms, error } = await supabaseAdmin
+      .from('chat_rooms')
+      .select(`
         id,
         name,
         description,
@@ -21,25 +21,26 @@ router.get('/rooms', async (req: Request, res: Response) => {
         is_active,
         created_at,
         updated_at,
-        (
-          SELECT json_build_object(
-            'id', m.id,
-            'content', m.content,
-            'created_at', m.created_at,
-            'user_address', m.user_address,
-            'trade_type', m.trade_type
-          )
-          FROM chat_messages m
-          WHERE m.room_id = chat_rooms.id
-          ORDER BY m.created_at DESC
-          LIMIT 1
-        ) as last_message
-      FROM chat_rooms 
-      WHERE is_active = true 
-      ORDER BY updated_at DESC
-    `);
+        chat_messages (
+          id,
+          content,
+          created_at,
+          user_address,
+          trade_type
+        )
+      `)
+      .eq('is_active', true)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+
+    // 최신 메시지 처리
+    const roomsWithLastMessage = rooms?.map(room => ({
+      ...room,
+      last_message: room.chat_messages?.[0] || null
+    }));
     
-    res.json({ success: true, data: result.rows });
+    res.json({ success: true, data: roomsWithLastMessage });
   } catch {
     res.status(500).json({ success: false, error: '채팅방 목록을 가져올 수 없습니다' });
   }
@@ -54,14 +55,16 @@ router.get('/rooms/:roomId/messages', async (req: Request, res: Response) => {
     // roomId가 string이면 UUID로 변환
     let actualRoomId = roomId;
     if (roomId === 'sol-usdc' || roomId === 'btc-chat' || roomId === 'general') {
-      const uuidResult = await db.query('SELECT get_room_uuid($1) as uuid', [roomId]);
-      actualRoomId = uuidResult.rows[0]?.uuid;
+      const { data: uuidResult } = await supabaseAdmin
+        .rpc('get_room_uuid', { room_name: roomId });
+      actualRoomId = uuidResult;
     }
 
     const offset = (Number(page) - 1) * Number(limit);
     
-    const result = await db.query(`
-      SELECT 
+    const { data: messages, error } = await supabaseAdmin
+      .from('chat_messages')
+      .select(`
         id,
         room_id,
         user_id,
@@ -73,16 +76,17 @@ router.get('/rooms/:roomId/messages', async (req: Request, res: Response) => {
         trade_amount,
         tx_hash,
         created_at
-      FROM chat_messages 
-      WHERE room_id = $1 
-      ORDER BY created_at DESC 
-      LIMIT $2 OFFSET $3
-    `, [actualRoomId, limit, offset]);
+      `)
+      .eq('room_id', actualRoomId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + Number(limit) - 1);
+    
+    if (error) throw error;
     
     // 최신 순으로 다시 정렬
-    const messages = result.rows.reverse();
+    const sortedMessages = messages?.reverse() || [];
     
-    res.json({ success: true, data: messages });
+    res.json({ success: true, data: sortedMessages });
   } catch {
     res.status(500).json({ success: false, error: '메시지를 가져올 수 없습니다' });
   }
@@ -97,39 +101,45 @@ router.post('/rooms/:roomId/messages', async (req: Request, res: Response) => {
     // roomId가 string이면 UUID로 변환
     let actualRoomId = roomId;
     if (roomId === 'sol-usdc' || roomId === 'btc-chat' || roomId === 'general') {
-      const uuidResult = await db.query('SELECT get_room_uuid($1) as uuid', [roomId]);
-      actualRoomId = uuidResult.rows[0]?.uuid;
+      const { data: uuidResult } = await supabaseAdmin
+        .rpc('get_room_uuid', { room_name: roomId });
+      actualRoomId = uuidResult;
     }
 
     // 사용자 ID 생성 (임시)
     const userId = messageData.user_address.slice(0, 8);
     
-    const result = await db.query(`
-      INSERT INTO chat_messages (
-        room_id, user_id, user_address, nickname, avatar,
-        content, trade_type, trade_amount, tx_hash
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING *
-    `, [
-      actualRoomId,
-      userId,
-      messageData.user_address,
-      messageData.nickname,
-      messageData.avatar,
-      messageData.content,
-      messageData.trade_type,
-      messageData.trade_amount,
-      messageData.tx_hash
-    ]);
+    const { data: newMessage, error } = await supabaseAdmin
+      .from('chat_messages')
+      .insert({
+        room_id: actualRoomId,
+        user_id: userId,
+        user_address: messageData.user_address,
+        nickname: messageData.nickname,
+        avatar: messageData.avatar,
+        content: messageData.content,
+        trade_type: messageData.trade_type,
+        trade_amount: messageData.trade_amount,
+        tx_hash: messageData.tx_hash
+      })
+      .select()
+      .single();
 
-    const newMessage = result.rows[0];
+    if (error) throw error;
 
-    // Socket.IO로 실시간 브로드캐스트
-    io.to(`room:${roomId}`).emit('new_message', {
-      ...newMessage,
-      roomId: roomId, // 원래 roomId로 전송
-      timestamp: newMessage.created_at
-    });
+    // Supabase Realtime으로 실시간 브로드캐스트
+    await supabaseAdmin
+      .from('message_cache')
+      .insert({
+        token_address: actualRoomId,
+        message_type: messageData.trade_type || 'CHAT',
+        content: messageData.content,
+        user_address: messageData.user_address,
+        nickname: messageData.nickname,
+        avatar: messageData.avatar,
+        trade_amount: messageData.trade_amount,
+        tx_hash: messageData.tx_hash
+      });
 
     res.json({ success: true, data: newMessage });
   } catch {
@@ -142,17 +152,21 @@ router.post('/rooms', async (req: Request, res: Response) => {
   try {
     const { name, description, image = '🎯', token_address, created_by } = req.body;
     
-    const result = await db.query(`
-      INSERT INTO chat_rooms (name, description, image, token_address, created_by)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-    `, [name, description, image, token_address, created_by]);
+    const { data: newRoom, error } = await supabaseAdmin
+      .from('chat_rooms')
+      .insert({
+        name,
+        description,
+        image,
+        token_address,
+        created_by
+      })
+      .select()
+      .single();
 
-    const newRoom = result.rows[0];
+    if (error) throw error;
     
-    // 새 채팅방 생성 알림
-    io.emit('new_room', newRoom);
-
+    // Supabase Realtime이 자동으로 처리
     res.json({ success: true, data: newRoom });
   } catch {
     res.status(500).json({ success: false, error: '채팅방 생성에 실패했습니다' });
