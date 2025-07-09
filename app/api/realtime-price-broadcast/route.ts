@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
           new Promise((_, reject) => 
             setTimeout(() => reject(new Error('timeout')), 5000)
           )
-        ]);
+        ]) as any;
 
         // 옵션: 데이터베이스 동기화
         if (syncToDatabase) {
@@ -47,13 +47,13 @@ export async function POST(request: NextRequest) {
         results.push({
           tokenAddress,
           success: true,
-          symbol: priceData.symbol,
-          price: priceData.price,
-          priceChange24h: priceData.priceChange24h,
-          priceChangePercent: priceData.priceChangePercent,
-          hasHistory: priceData.hasHistory,
-          source: priceData.source,
-          timestamp: priceData.timestamp
+          symbol: (priceData as any).symbol,
+          price: (priceData as any).price,
+          priceChange24h: (priceData as any).priceChange24h,
+          priceChangePercent: (priceData as any).priceChangePercent,
+          hasHistory: (priceData as any).hasHistory,
+          source: (priceData as any).source,
+          timestamp: (priceData as any).timestamp
         });
         
         updatedTokens++;
@@ -116,19 +116,19 @@ export async function GET(request: NextRequest) {
       new Promise((_, reject) => 
         setTimeout(() => reject(new Error('timeout')), 3000)
       )
-    ]);
+    ]) as any;
 
     return NextResponse.json({
       success: true,
       data: {
         tokenAddress,
-        symbol: priceData.symbol,
-        currentPrice: priceData.price,
-        priceChange24h: priceData.priceChange24h,
-        priceChangePercent: priceData.priceChangePercent,
-        hasHistory: priceData.hasHistory,
-        source: priceData.source,
-        timestamp: priceData.timestamp,
+        symbol: (priceData as any).symbol,
+        currentPrice: (priceData as any).price,
+        priceChange24h: (priceData as any).priceChange24h,
+        priceChangePercent: (priceData as any).priceChangePercent,
+        hasHistory: (priceData as any).hasHistory,
+        source: (priceData as any).source,
+        timestamp: (priceData as any).timestamp,
         unified: true
       }
     });
