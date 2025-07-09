@@ -6,6 +6,16 @@ const nextConfig: NextConfig = {
   },
   basePath: process.env.NODE_ENV === 'production' ? '' : '',
   
+  // ESLint 설정 - 워닝을 에러로 처리하지 않음
+  eslint: {
+    ignoreDuringBuilds: false,
+  },
+  
+  // TypeScript 설정 - 엄격한 타입 체크 유지하되 빌드 차단 방지
+  typescript: {
+    ignoreBuildErrors: false,
+  },
+  
   // Next.js 15에서 서버 전용 패키지들을 위한 설정
   serverExternalPackages: ['pg', 'express', 'socket.io'],
   

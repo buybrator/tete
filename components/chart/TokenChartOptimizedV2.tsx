@@ -135,7 +135,7 @@ export default function TokenChartOptimizedV2({
         borderColor: '#e5e7eb',
         borderWidth: 1,
         textStyle: { color: '#1f2937' },
-        formatter: (params: any[]) => {
+        formatter: (params: { dataIndex: number; [key: string]: unknown }[]) => {
           const dataIndex = params[0].dataIndex;
           const point = chartData[dataIndex];
           return `
