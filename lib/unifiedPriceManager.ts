@@ -61,10 +61,10 @@ class UnifiedPriceManager {
       // 2. 데이터베이스에서 히스토리 확인 (24시간 변화율 계산)
       const { data: history } = await supabase
         .from('token_price_history')
-        .select('open_price, timestamp_15min')
+        .select('open_price, timestamp_1min')
         .eq('token_address', tokenAddress)
-        .gte('timestamp_15min', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-        .order('timestamp_15min', { ascending: true })
+        .gte('timestamp_1min', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .order('timestamp_1min', { ascending: true })
         .limit(1);
 
       let priceChange24h = 0;
@@ -108,7 +108,7 @@ class UnifiedPriceManager {
         .from('token_price_history')
         .select('*')
         .eq('token_address', tokenAddress)
-        .order('timestamp_15min', { ascending: false })
+        .order('timestamp_1min', { ascending: false })
         .limit(2);
 
       if (error || !data || data.length === 0) {
@@ -134,7 +134,7 @@ class UnifiedPriceManager {
         price: latest.price,
         priceChange24h,
         priceChangePercent,
-        timestamp: latest.timestamp_15min,
+        timestamp: latest.timestamp_1min,
         source: 'database',
         hasHistory: true
       };
@@ -299,8 +299,8 @@ class UnifiedPriceManager {
         .from('token_price_history')
         .select('*')
         .eq('token_address', tokenAddress)
-        .order('timestamp_15min', { ascending: true })
-        .limit(96); // 24시간 (15분 * 96 = 24시간)
+        .order('timestamp_1min', { ascending: true })
+        .limit(60); // 1시간 (1분 * 60 = 1시간)
 
       if (error) {
         throw error;
@@ -322,7 +322,7 @@ class UnifiedPriceManager {
   // 데이터베이스 형식을 차트 형식으로 변환
   private convertDatabaseToChart(data: Record<string, unknown>[]): UnifiedChartPoint[] {
     return data.map(item => {
-      const date = new Date(item.timestamp_15min);
+      const date = new Date(item.timestamp_1min);
       return {
         timestamp: date.getTime(),
         open: item.open_price,
@@ -360,12 +360,12 @@ class UnifiedPriceManager {
     const existing = this.chartCache.get(tokenAddress) || [];
     const newPoint = this.convertDatabaseToChart([newData])[0];
     
-    // 중복 제거 및 최대 96개 유지 (24시간)
+    // 중복 제거 및 최대 60개 유지 (1시간)
     const updated = [...existing, newPoint]
       .filter((item, index, self) => 
         index === self.findIndex(t => t.timestamp === item.timestamp)
       )
-      .slice(-96);
+      .slice(-60);
     
     this.chartCache.set(tokenAddress, updated);
     this.notifyChartSubscribers(tokenAddress, updated);
@@ -412,18 +412,17 @@ class UnifiedPriceManager {
         return false;
       }
 
-      // 현재 시간을 15분 단위로 정규화
+      // 현재 시간을 1분 단위로 정규화
       const now = new Date();
-      const minutes = Math.floor(now.getMinutes() / 15) * 15;
-      now.setMinutes(minutes, 0, 0);
-      const timestamp15min = now.toISOString();
+      now.setSeconds(0, 0);
+      const timestamp1min = now.toISOString();
 
       // 기존 데이터 확인
       const { data: existing } = await supabase
         .from('token_price_history')
         .select('*')
         .eq('token_address', tokenAddress)
-        .eq('timestamp_15min', timestamp15min)
+        .eq('timestamp_1min', timestamp1min)
         .single();
 
       if (existing) {
@@ -450,7 +449,7 @@ class UnifiedPriceManager {
             high_price: priceData.price,
             low_price: priceData.price,
             close_price: priceData.price,
-            timestamp_15min,
+            timestamp_1min,
             volume: 0
           });
       }

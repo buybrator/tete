@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         historyCount: priceHistory.length,
         chartData,
         rawHistory: priceHistory,
-        lastUpdated: priceHistory.length > 0 ? priceHistory[priceHistory.length - 1].timestamp_15min : null
+        lastUpdated: priceHistory.length > 0 ? priceHistory[priceHistory.length - 1].timestamp_1min : null
       }
     });
     

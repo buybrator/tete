@@ -5,7 +5,7 @@ const RATE_LIMIT_CONFIG = {
   windowMs: 60 * 1000, // 1분 윈도우
   maxRequests: {
     general: 100,        // 일반 API: 분당 100개
-    priceUpdate: 10,     // 가격 업데이트: 분당 10개
+    priceUpdate: 60,     // 가격 업데이트: 분당 60개 (1분 간격 데이터를 위해 증가)
     websocket: 200,      // WebSocket: 분당 200개
     auth: 30             // 인증: 분당 30개
   }

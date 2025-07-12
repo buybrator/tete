@@ -8,13 +8,11 @@ type TokenPriceHistoryInsert = Database['public']['Tables']['token_price_history
 export class TokenPriceService {
   
   /**
-   * 15분 단위로 시간을 정규화합니다 (정각 기준: 00, 15, 30, 45분)
+   * 1분 단위로 시간을 정규화합니다
    */
-  private normalize15MinTimestamp(date: Date): string {
+  private normalize1MinTimestamp(date: Date): string {
     const normalized = new Date(date);
-    const minutes = normalized.getMinutes();
-    const roundedMinutes = Math.floor(minutes / 15) * 15;
-    normalized.setMinutes(roundedMinutes, 0, 0); // 초, 밀리초도 0으로 설정
+    normalized.setSeconds(0, 0); // 초, 밀리초를 0으로 설정
     return normalized.toISOString();
   }
 
@@ -56,15 +54,15 @@ export class TokenPriceService {
         return false;
       }
 
-      // 현재 시간을 15분 단위로 정규화
-      const timestamp15min = this.normalize15MinTimestamp(new Date());
+      // 현재 시간을 1분 단위로 정규화
+      const timestamp1min = this.normalize1MinTimestamp(new Date());
 
       // 기존 데이터가 있는지 확인
       const { data: existingData } = await supabase
         .from('token_price_history')
         .select('*')
         .eq('token_address', tokenAddress)
-        .eq('timestamp_15min', timestamp15min)
+        .eq('timestamp_1min', timestamp1min)
         .single();
 
       if (existingData) {
@@ -94,7 +92,7 @@ export class TokenPriceService {
           high_price: currentPrice,
           low_price: currentPrice,
           close_price: currentPrice,
-          timestamp_15min: timestamp15min,
+          timestamp_1min: timestamp1min,
           volume: 0,
         };
 
@@ -115,7 +113,7 @@ export class TokenPriceService {
   }
 
   /**
-   * 토큰의 가격 히스토리를 조회합니다 (최대 48개)
+   * 토큰의 가격 히스토리를 조회합니다 (최대 60개)
    */
   async getTokenPriceHistory(tokenAddress: string): Promise<TokenPriceHistoryRow[]> {
     try {
@@ -123,8 +121,8 @@ export class TokenPriceService {
         .from('token_price_history')
         .select('*')
         .eq('token_address', tokenAddress)
-        .order('timestamp_15min', { ascending: false })
-        .limit(48);
+        .order('timestamp_1min', { ascending: false })
+        .limit(60);
 
       if (error) {
         return [];
@@ -146,7 +144,7 @@ export class TokenPriceService {
         .from('token_price_history')
         .select('price')
         .eq('token_address', tokenAddress)
-        .order('timestamp_15min', { ascending: false })
+        .order('timestamp_1min', { ascending: false })
         .limit(1)
         .single();
 
@@ -171,19 +169,19 @@ export class TokenPriceService {
   }
 
   /**
-   * 오래된 가격 데이터를 정리합니다 (48개 초과 시 자동 삭제)
+   * 오래된 가격 데이터를 정리합니다 (60개 초과 시 자동 삭제)
    */
   async cleanupOldPriceData(tokenAddress: string): Promise<void> {
     try {
-      // 최신 48개를 제외한 오래된 데이터 삭제
+      // 최신 60개를 제외한 오래된 데이터 삭제
       const { data: latestRecords } = await supabase
         .from('token_price_history')
         .select('id')
         .eq('token_address', tokenAddress)
-        .order('timestamp_15min', { ascending: false })
-        .limit(48);
+        .order('timestamp_1min', { ascending: false })
+        .limit(60);
 
-      if (!latestRecords || latestRecords.length <= 48) {
+      if (!latestRecords || latestRecords.length <= 60) {
         return; // 정리할 데이터가 없음
       }
 
@@ -215,7 +213,7 @@ export class TokenPriceService {
     fullTime: string;
   }> {
     return priceHistory.map((record, index) => {
-      const date = new Date(record.timestamp_15min);
+      const date = new Date(record.timestamp_1min);
       const timeLabel = date.toLocaleTimeString('ko-KR', { 
         hour: '2-digit', 
         minute: '2-digit', 
@@ -228,7 +226,7 @@ export class TokenPriceService {
         open: record.open_price,
         high: record.high_price,
         low: record.low_price,
-        time: index % 8 === 0 ? timeLabel : '', // 2시간마다 표시
+        time: index % 10 === 0 ? timeLabel : '', // 10분마다 표시
         fullTime: timeLabel,
       };
     });

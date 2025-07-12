@@ -19,7 +19,7 @@ export async function GET() {
           .from('token_price_history')
           .select('*', { count: 'exact' })
           .eq('token_address', tokenAddress)
-          .order('timestamp_15min', { ascending: false })
+          .order('timestamp_1min', { ascending: false })
           .limit(5);
 
         return {
@@ -32,16 +32,16 @@ export async function GET() {
       })
     );
 
-    // 최근 15분 데이터 확인
+    // 최근 1분 데이터 확인
     const now = new Date();
     const currentSlot = new Date(now);
-    currentSlot.setMinutes(Math.floor(now.getMinutes() / 15) * 15, 0, 0);
+    currentSlot.setSeconds(0, 0);
     
     const { data: recentData, error: recentError } = await supabase
       .from('token_price_history')
       .select('*')
-      .gte('timestamp_15min', currentSlot.toISOString())
-      .order('timestamp_15min', { ascending: false });
+      .gte('timestamp_1min', currentSlot.toISOString())
+      .order('timestamp_1min', { ascending: false });
 
     return NextResponse.json({
       success: true,
@@ -59,7 +59,7 @@ export async function GET() {
       debugInfo: {
         now: now.toISOString(),
         normalizedSlot: currentSlot.toISOString(),
-        minutesInSlot: now.getMinutes() % 15
+        secondsInSlot: now.getSeconds()
       }
     });
 

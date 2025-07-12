@@ -44,7 +44,13 @@
       "mcp__context7__get-library-docs",
       "Bash(npm install:*)",
       "Bash(nslookup:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__list_migrations",
+      "mcp__supabase__list_edge_functions",
+      "mcp__supabase__deploy_edge_function",
+      "mcp__supabase__get_anon_key",
+      "mcp__supabase__get_project_url"
     ],
     "deny": []
   },

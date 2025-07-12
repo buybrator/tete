@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 토큰 가격 히스토리 테이블 (48개 포인트까지 저장)
+-- 토큰 가격 히스토리 테이블 (60개 포인트까지 저장)
 CREATE TABLE IF NOT EXISTS token_price_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     token_address VARCHAR(255) NOT NULL,
@@ -30,16 +30,16 @@ CREATE TABLE IF NOT EXISTS token_price_history (
     high_price DECIMAL(20, 8) NOT NULL,
     low_price DECIMAL(20, 8) NOT NULL,
     close_price DECIMAL(20, 8) NOT NULL,
-    timestamp_15min TIMESTAMP WITH TIME ZONE NOT NULL, -- 15분 단위로 정규화된 시간
+    timestamp_1min TIMESTAMP WITH TIME ZONE NOT NULL, -- 1분 단위로 정규화된 시간
     volume DECIMAL(20, 2) DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     
     -- 인덱스 생성
-    INDEX idx_token_timestamp (token_address, timestamp_15min),
-    INDEX idx_timestamp_desc (timestamp_15min DESC),
+    INDEX idx_token_timestamp (token_address, timestamp_1min),
+    INDEX idx_timestamp_desc (timestamp_1min DESC),
     
-    -- 유니크 제약조건 (토큰별 15분 단위당 하나의 데이터만)
-    UNIQUE(token_address, timestamp_15min)
+    -- 유니크 제약조건 (토큰별 1분 단위당 하나의 데이터만)
+    UNIQUE(token_address, timestamp_1min)
 );
 
 -- 채팅 메시지 테이블
@@ -83,19 +83,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 가격 히스토리 정리 함수 (48개 초과 데이터 삭제)
+-- 가격 히스토리 정리 함수 (60개 초과 데이터 삭제)
 CREATE OR REPLACE FUNCTION cleanup_old_price_history()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- 각 토큰별로 48개 초과 데이터를 삭제
+    -- 각 토큰별로 60개 초과 데이터를 삭제
     DELETE FROM token_price_history 
     WHERE token_address = NEW.token_address 
-    AND timestamp_15min NOT IN (
-        SELECT timestamp_15min 
+    AND timestamp_1min NOT IN (
+        SELECT timestamp_1min 
         FROM token_price_history 
         WHERE token_address = NEW.token_address 
-        ORDER BY timestamp_15min DESC 
-        LIMIT 48
+        ORDER BY timestamp_1min DESC 
+        LIMIT 60
     );
     
     RETURN NEW;
@@ -122,11 +122,10 @@ CREATE TRIGGER update_chat_rooms_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- 15분 단위로 시간 정규화하는 함수
-CREATE OR REPLACE FUNCTION normalize_to_15min(input_timestamp TIMESTAMP WITH TIME ZONE)
+-- 1분 단위로 시간 정규화하는 함수
+CREATE OR REPLACE FUNCTION normalize_to_1min(input_timestamp TIMESTAMP WITH TIME ZONE)
 RETURNS TIMESTAMP WITH TIME ZONE AS $$
 BEGIN
-    RETURN date_trunc('hour', input_timestamp) + 
-           INTERVAL '15 minutes' * FLOOR(EXTRACT(minute FROM input_timestamp) / 15);
+    RETURN date_trunc('minute', input_timestamp);
 END;
 $$ LANGUAGE plpgsql; 
