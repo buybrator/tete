@@ -57,7 +57,6 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
   
   // 인터벌 참조
   const chartUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const priceUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const quarterHourIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // SOL 토큰 주소 (기본값)
@@ -196,10 +195,10 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
     
     // 🎯 개선된 15분 정각 업데이트 시스템
     const setupIntervals = () => {
-      // 1. 차트 데이터 정기 업데이트 (3분마다 - 더 자주 체크)
+      // 1. 차트 데이터 정기 업데이트 (1분마다)
       chartUpdateIntervalRef.current = setInterval(() => {
         fetchPriceData();
-      }, 3 * 60 * 1000);
+      }, 60 * 1000);
       
       // 2. 15분 정각 백그라운드 업데이트 시스템
       const setup15MinUpdates = () => {
@@ -232,10 +231,7 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
       
       setup15MinUpdates();
       
-      // 3. 실시간 가격 업데이트 (1분마다)
-      priceUpdateIntervalRef.current = setInterval(() => {
-        fetchRealtimePrice();
-      }, 60 * 1000);
+      // 3. 실시간 가격 업데이트 제거 (fetchPriceData가 1분마다 모든 데이터 업데이트)
     };
     
     setupIntervals();
@@ -248,9 +244,6 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
           clearInterval(quarterHourInterval);
         }
         clearInterval(chartUpdateIntervalRef.current);
-      }
-      if (priceUpdateIntervalRef.current) {
-        clearInterval(priceUpdateIntervalRef.current);
       }
     };
   }, [targetToken, tokenAddress]); // tokenAddress도 의존성에 추가
