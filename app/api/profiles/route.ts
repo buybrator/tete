@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJWT } from '@/lib/auth';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
 
 // 토큰에서 지갑 주소 추출 유틸리티
 function extractTokenFromHeader(request: NextRequest): string | null {
@@ -25,6 +24,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Wallet address is required' },
         { status: 400 }
+      );
+    }
+
+    // 런타임에서 Supabase 사용
+    const { supabaseAdmin } = await import('@/lib/supabase');
+    
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
       );
     }
 
@@ -89,6 +98,16 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString()
     };
 
+
+    // 런타임에서 Supabase 사용
+    const { supabaseAdmin } = await import('@/lib/supabase');
+    
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      );
+    }
 
     // UPSERT (insert or update)
     const { data, error } = await supabaseAdmin
@@ -160,6 +179,16 @@ export async function PUT(request: NextRequest) {
 
     if (avatar !== undefined) {
       updateData.avatar = avatar;
+    }
+
+    // 런타임에서 Supabase 사용
+    const { supabase } = await import('@/lib/supabase');
+    
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      );
     }
 
     // 프로필 업데이트

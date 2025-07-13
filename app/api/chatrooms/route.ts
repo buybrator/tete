@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
-import { supabaseAdmin } from '@/lib/supabase';
 import { getStableConnection } from '@/lib/solana';
 import { fetchTokenMetadataWithRetry } from '@/lib/tokenMetadata';
 
 // GET: 모든 채팅방 조회
 export async function GET() {
   try {
+    // 런타임에서 Supabase 사용
+    const { supabaseAdmin } = await import('@/lib/supabase');
+    
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Database connection not available' },
+        { status: 503 }
+      );
+    }
+
     const { data: chatrooms, error: dbError } = await supabaseAdmin
       .from('chat_rooms')
       .select('id, name, description, image, token_address, created_by, member_count, is_active, created_at, updated_at')
@@ -64,6 +73,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: '유효하지 않은 컨트랙트 주소입니다.' },
         { status: 400 }
+      );
+    }
+
+    // 런타임에서 Supabase 사용
+    const { supabaseAdmin } = await import('@/lib/supabase');
+    
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Database connection not available' },
+        { status: 503 }
       );
     }
 
