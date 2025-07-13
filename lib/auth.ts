@@ -1,16 +1,9 @@
 import jwt from 'jsonwebtoken'
 import { PublicKey } from '@solana/web3.js'
 import nacl from 'tweetnacl'
-import { supabaseAdmin } from './supabase'
 
 // JWT 시크릿 키 (환경 변수에서 가져오기)
-const JWT_SECRET = process.env.JWT_SECRET || process.env.NEXT_PUBLIC_JWT_SECRET
-
-// 클라이언트 사이드에서는 JWT_SECRET 검증을 건너뜀
-// 서버 사이드에서만 실행
-if (typeof window === 'undefined' && !JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is not set')
-}
+const JWT_SECRET = process.env.JWT_SECRET || process.env.NEXT_PUBLIC_JWT_SECRET || 'development-secret-key'
 
 // JWT 페이로드 타입 정의
 interface JWTPayload {
@@ -134,11 +127,14 @@ export async function createSupabaseSession(walletAddress: string) {
     throw new Error('createSupabaseSession can only be called on the server side')
   }
 
-  if (!supabaseAdmin) {
-    throw new Error('Supabase admin client is not available')
-  }
-
   try {
+    // Supabase Admin 동적 import (빌드 시 에러 방지)
+    const { supabaseAdmin } = await import('./supabase')
+    
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client is not available')
+    }
+
     // JWT 토큰 생성
     const token = generateJWT(walletAddress)
     

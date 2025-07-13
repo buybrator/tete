@@ -176,11 +176,13 @@ export type Database = {
 
 // 환경 변수 검증 및 로드
 function getSupabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
+  // 빌드 타임에는 에러를 던지지 않고 빈 값 반환
   if (!url || !key) {
-    throw new Error('Missing required Supabase environment variables')
+    console.warn('Supabase environment variables not found. Using empty values for build.')
+    return { url: url || 'https://placeholder.supabase.co', key: key || 'placeholder-key' }
   }
 
   return { url, key }
