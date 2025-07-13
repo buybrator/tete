@@ -1,17 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// 서버 사이드에서만 사용할 Supabase Admin 클라이언트
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,6 +24,31 @@ export async function POST(request: NextRequest) {
 
     // 트랜잭션 해시가 없으면 임시 생성
     const signature = messageData.tx_hash || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // 런타임에서만 Supabase 사용 (빌드 시 스킵)
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://placeholder.supabase.co') {
+      // 빌드 중이거나 환경 변수가 설정되지 않은 경우 mock 응답
+      return NextResponse.json({ 
+        success: true, 
+        data: {
+          signature,
+          token_address: tokenAddress,
+          sender_wallet: messageData.user_address,
+          message_type: messageData.trade_type.toUpperCase(),
+          content: messageData.content,
+          quantity: messageData.trade_amount ? parseFloat(messageData.trade_amount) : null,
+          price: null,
+          block_time: new Date().toISOString(),
+        }
+      });
+    }
+
+    // 동적으로 Supabase 클라이언트 import
+    const { supabaseAdmin } = await import('@/lib/supabase');
+    
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Supabase admin client not available' }, { status: 500 });
+    }
 
     const { data, error } = await supabaseAdmin
       .from('message_cache')

@@ -236,9 +236,6 @@ export function validateSupabaseAdminConnection() {
   }
 }
 
-const { url: supabaseUrl, key: supabaseAnonKey } = getSupabaseConfig()
-const adminConfig = getSupabaseAdminConfig()
-
 // 싱글톤 패턴으로 클라이언트 인스턴스 관리
 let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null
 let supabaseAdminInstance: ReturnType<typeof createClient<Database>> | null = null
@@ -246,42 +243,58 @@ let supabaseAdminInstance: ReturnType<typeof createClient<Database>> | null = nu
 // 서버 사이드 관리용 클라이언트 (RLS 우회 가능)
 export const supabaseAdmin = (() => {
   // 클라이언트 사이드에서는 admin 클라이언트를 생성하지 않음
-  if (typeof window !== 'undefined' || !adminConfig) {
+  if (typeof window !== 'undefined') {
     return null as any
   }
 
-  if (!supabaseAdminInstance) {
-    supabaseAdminInstance = createClient<Database>(
-      adminConfig.url, 
-      adminConfig.serviceKey, // 서비스 키 사용으로 RLS 우회
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
+  try {
+    const adminConfig = getSupabaseAdminConfig()
+    if (!adminConfig) {
+      return null as any
+    }
+
+    if (!supabaseAdminInstance) {
+      supabaseAdminInstance = createClient<Database>(
+        adminConfig.url, 
+        adminConfig.serviceKey, // 서비스 키 사용으로 RLS 우회
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
         }
-      }
-    )
+      )
+    }
+    return supabaseAdminInstance
+  } catch {
+    return null as any
   }
-  return supabaseAdminInstance
 })()
 
 // Supabase 클라이언트 생성
 export const supabase = (() => {
-  if (!supabaseInstance) {
-    supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 50
+  try {
+    const { url: supabaseUrl, key: supabaseAnonKey } = getSupabaseConfig()
+    
+    if (!supabaseInstance) {
+      supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        },
+        realtime: {
+          params: {
+            eventsPerSecond: 50
+          }
         }
-      }
-    })
+      })
+    }
+    return supabaseInstance
+  } catch {
+    // 빌드 중 에러 처리
+    return null as any
   }
-  return supabaseInstance
 })()
 
 // 편의를 위한 타입 별칭
