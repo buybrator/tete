@@ -394,7 +394,7 @@ export default function ChatInput({ roomId }: Props) {
             txHash: txId, // include transaction hash
           };
           
-          addMessage(roomId, messageData);
+          await addMessage(roomId, messageData);
           
         } catch {
         }

@@ -176,18 +176,29 @@ export type Database = {
 
 // 환경 변수 검증 및 로드
 function getSupabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ozeooonqxrjvdoajgvnz.supabase.co'
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZW9vb25xeHJqdmRvYWpndm56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NDk1MjYsImV4cCI6MjA2NDMyNTUyNn0.d32Li6tfOvj96CKSfaVDkAKLK8WpGtFO9CiZf_cbY4Q'
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !key) {
+    throw new Error('Missing required Supabase environment variables')
+  }
 
   return { url, key }
 }
 
 // 서버 사이드 환경 변수 로드
 function getSupabaseAdminConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ozeooonqxrjvdoajgvnz.supabase.co'
-  
-  // ✅ 실제 service_role 키 사용
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZW9vb25xeHJqdmRvYWpndm56Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODc0OTUyNiwiZXhwIjoyMDY0MzI1NTI2fQ.FHrUT_yvvWAgyO8RU3ucaAdWIHfPpD9gwypeF8dcLb0'
+  // 클라이언트 사이드에서는 admin config를 사용하지 않음
+  if (typeof window !== 'undefined') {
+    return null
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !serviceKey) {
+    return null
+  }
 
   try {
     // JWT 토큰 디코딩으로 role 확인
@@ -224,7 +235,7 @@ export function validateSupabaseAdminConnection() {
 }
 
 const { url: supabaseUrl, key: supabaseAnonKey } = getSupabaseConfig()
-const { url: supabaseAdminUrl, serviceKey: supabaseServiceKey } = getSupabaseAdminConfig()
+const adminConfig = getSupabaseAdminConfig()
 
 // 싱글톤 패턴으로 클라이언트 인스턴스 관리
 let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null
@@ -232,10 +243,15 @@ let supabaseAdminInstance: ReturnType<typeof createClient<Database>> | null = nu
 
 // 서버 사이드 관리용 클라이언트 (RLS 우회 가능)
 export const supabaseAdmin = (() => {
+  // 클라이언트 사이드에서는 admin 클라이언트를 생성하지 않음
+  if (typeof window !== 'undefined' || !adminConfig) {
+    return null as any
+  }
+
   if (!supabaseAdminInstance) {
     supabaseAdminInstance = createClient<Database>(
-      supabaseAdminUrl, 
-      supabaseServiceKey, // 서비스 키 사용으로 RLS 우회
+      adminConfig.url, 
+      adminConfig.serviceKey, // 서비스 키 사용으로 RLS 우회
       {
         auth: {
           autoRefreshToken: false,

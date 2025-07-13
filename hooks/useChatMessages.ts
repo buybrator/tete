@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChatMessage } from '@/types';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { supabase, supabaseAdmin, MessageCache } from '@/lib/supabase';
+import { supabase, MessageCache } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase';
 
@@ -122,38 +122,27 @@ const saveMessageToSupabase = async (roomId: string, messageData: {
   avatar?: string;
 }): Promise<ChatMessage | null> => {
   try {
-    const tokenAddress = getTokenAddressFromRoomId(roomId);
-    if (!tokenAddress) {
-      return null;
+    // API 엔드포인트를 통해 메시지 저장
+    const response = await fetch('/api/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        roomId,
+        messageData
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`메시지 저장 실패: ${errorData.error}`);
     }
 
-    // 트랜잭션 해시가 없으면 임시 생성
-    const signature = messageData.tx_hash || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    const { data, error } = await supabaseAdmin
-      .from('message_cache')
-      .insert({
-        signature,
-        token_address: tokenAddress,
-        sender_wallet: messageData.user_address,
-        message_type: messageData.trade_type.toUpperCase() as 'BUY' | 'SELL',
-        content: messageData.content,
-        quantity: messageData.trade_amount ? parseFloat(messageData.trade_amount) : null,
-        price: null, // 가격 정보는 별도로 처리
-        block_time: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Supabase 저장 실패: ${error.message} (코드: ${error.code})`);
-    }
+    const { data } = await response.json();
     
-    // 성공 시 로컬 상태에도 즉시 추가
+    // Realtime 구독이 처리하므로 여기서는 메시지를 반환만 함
     const newMessage = formatMessageFromSupabase(data, roomId);
-    globalMessages = [...globalMessages, newMessage];
-    notifyListeners();
-    
     return newMessage;
   } catch (error) {
     throw error; // 오류를 다시 throw하여 호출자가 처리하도록
@@ -184,17 +173,43 @@ const setupRealtimeSubscription = (roomId: string) => {
       (payload) => {
         const newMessage = formatMessageFromSupabase(payload.new as MessageCache, roomId);
         
-        // 중복 제거
-        if (!globalMessages.find(msg => msg.id === newMessage.id)) {
-          globalMessages = [...globalMessages, newMessage];
-          notifyListeners();
+        // 이미 존재하는 메시지인지 확인 (signature 기준)
+        const existingMessageIndex = globalMessages.findIndex(msg => msg.id === newMessage.id);
+        
+        if (existingMessageIndex !== -1) {
+          return; // 이미 존재하면 무시
         }
+        
+        // 새 메시지 추가
+        globalMessages = [...globalMessages, newMessage];
+        notifyListeners();
       }
     )
     .subscribe();
 };
 
-export const addMessage = (roomId: string, message: Omit<ChatMessage, 'id' | 'timestamp' | 'roomId'>) => {
+export const addMessage = async (roomId: string, message: Omit<ChatMessage, 'id' | 'timestamp' | 'roomId'>) => {
+  // txHash가 있으면 이미 signature로 사용
+  const messageId = message.txHash || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // 이미 존재하는 메시지인지 확인
+  if (globalMessages.find(msg => msg.id === messageId)) {
+    return;
+  }
+  
+  // 즉시 UI에 표시하기 위해 메시지 생성
+  const newMessage: ChatMessage = {
+    ...message,
+    id: messageId,
+    timestamp: Date.now(),
+    roomId,
+  };
+  
+  // 로컬 상태에 즉시 추가
+  globalMessages = [...globalMessages, newMessage];
+  notifyListeners();
+  
+  // 백그라운드에서 Supabase에 저장
   const messageData = {
     content: message.content,
     trade_type: message.tradeType,
@@ -205,7 +220,13 @@ export const addMessage = (roomId: string, message: Omit<ChatMessage, 'id' | 'ti
     avatar: message.avatar,
   };
   
-  saveMessageToSupabase(roomId, messageData);
+  try {
+    await saveMessageToSupabase(roomId, messageData);
+    // Realtime 구독이 이미 존재하는 메시지를 감지하면 무시함
+  } catch (error) {
+    console.error('Failed to save message to Supabase:', error);
+    // 에러 발생 시 로컬 메시지 유지
+  }
 };
 
 export const getMessages = () => globalMessages;
@@ -286,8 +307,8 @@ export const useChatMessages = (roomId: string) => {
   return {
     messages,
     sendMessage,
-    addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp' | 'roomId'>) => 
-      roomId && isClient ? addMessage(roomId, message) : null,
+    addMessage: async (message: Omit<ChatMessage, 'id' | 'timestamp' | 'roomId'>) => 
+      roomId && isClient ? await addMessage(roomId, message) : null,
     addMemoFromTransaction: (signature: string) => 
       null,
     checkMyTransactions,

@@ -15,8 +15,14 @@ const app = express();
 const server = createServer(app);
 
 // 🚀 Redis 클라이언트 설정 (Socket.IO 스케일링용)
+const REDIS_URL = process.env.REDIS_URL;
+
+if (!REDIS_URL) {
+  console.warn('REDIS_URL environment variable is not set. Redis adapter will not be used.');
+}
+
 const pubClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
+  url: REDIS_URL
 });
 const subClient = pubClient.duplicate();
 
@@ -37,13 +43,20 @@ const io = new Server(server, {
 
 // Redis Adapter 적용
 async function setupRedisAdapter() {
+  if (!REDIS_URL) {
+    console.log('Running without Redis adapter - single instance mode');
+    return;
+  }
+  
   try {
     await pubClient.connect();
     await subClient.connect();
     
     io.adapter(createAdapter(pubClient, subClient));
-  } catch {
-    // Redis 없어도 기본 동작 가능
+    console.log('Redis adapter connected successfully');
+  } catch (error) {
+    console.error('Failed to connect to Redis:', error);
+    console.log('Continuing without Redis adapter - single instance mode');
   }
 }
 
