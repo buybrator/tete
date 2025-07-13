@@ -18,6 +18,13 @@ const MESSAGE_RETENTION_TIME = 24 * 60 * 60 * 1000; // 24시간 보관
 
 // 🚀 토큰 주소 매핑 (기존 UI 호환성 + 동적 CA 지원)
 const ROOM_TOKEN_MAPPING: Record<string, string> = {
+  'bonk': 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+  'wif': 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
+  'popcat': '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr',
+  'gmemoon': 'BkQCf3NSxf8hHJMrBKrFLCYBg7tKKSjU9KEts4F2ukL',
+  'retard': '9H2NFytqpRBS7L5UVvnHGbq6Uum1cet4uxkCqBudcvtu',
+  'meme': 'CYkD9AsNYPvWxmnRdQN6Qd2MkK5t8RivxvSaKnmGVfmH',
+  'anon': 'AnonGEfxT5BcedgCnU7EGdJhqxkHWLKfwjBQEjhvJLM6',
   'sol-usdc': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC Trading Room
   'btc-chat': 'So11111111111111111111111111111111111111112', // SOL Trading Room (임시)
   'general': 'So11111111111111111111111111111111111111112', // SOL Trading Room (임시)
@@ -86,6 +93,15 @@ async function fetchMessagesFromSupabase(roomId: string): Promise<ChatMessage[]>
   try {
     const tokenAddress = getTokenAddressFromRoomId(roomId);
     if (!tokenAddress) {
+      console.warn(`[useChatMessages] No token address found for roomId: ${roomId}`);
+      return [];
+    }
+
+    console.log(`[useChatMessages] Loading messages for token: ${tokenAddress}`);
+    
+    // Supabase 클라이언트 확인
+    if (!supabase) {
+      console.error('[useChatMessages] Supabase client not initialized');
       return [];
     }
 
@@ -97,16 +113,20 @@ async function fetchMessagesFromSupabase(roomId: string): Promise<ChatMessage[]>
       .limit(100);
 
     if (error) {
+      console.error('[useChatMessages] Error loading messages from Supabase:', error);
       return [];
     }
 
     if (!data || data.length === 0) {
+      console.log('[useChatMessages] No messages found in database');
       return [];
     }
 
+    console.log(`[useChatMessages] Loaded ${data.length} messages from Supabase`);
     // Supabase에서 메시지 로드됨
     return data.map(msg => formatMessageFromSupabase(msg, roomId));
   } catch (error) {
+    console.error('[useChatMessages] Unexpected error loading messages:', error);
     return [];
   }
 }
