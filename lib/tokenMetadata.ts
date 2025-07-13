@@ -6,6 +6,7 @@ import {
 } from '@metaplex-foundation/mpl-token-metadata';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { publicKey } from '@metaplex-foundation/umi';
+import { tokenMetadataCache } from './tokenMetadataCache';
 
 // 🌟 Solana 토큰 메타데이터 인터페이스
 export interface TokenMetadata {
@@ -41,11 +42,55 @@ export class TokenMetadataError extends Error {
 }
 
 /**
- * 🎯 토큰 주소로부터 메타데이터 조회
+ * 🎯 토큰 주소로부터 메타데이터 조회 (캐싱 적용)
  * @param tokenAddress - 조회할 토큰의 주소
  * @returns TokenMetadata 또는 null
  */
 export async function fetchTokenMetadata(
+  tokenAddress: string
+): Promise<TokenMetadata | null> {
+  // 캐시 확인
+  const cached = tokenMetadataCache.get(tokenAddress);
+  if (cached) {
+    // stale-while-revalidate 패턴: 오래된 데이터도 먼저 반환하고 백그라운드에서 업데이트
+    if (tokenMetadataCache.isStale(tokenAddress)) {
+      // 백그라운드에서 업데이트 (await 하지 않음)
+      fetchTokenMetadataFromChain(tokenAddress).then(metadata => {
+        if (metadata) {
+          tokenMetadataCache.set(tokenAddress, metadata);
+        }
+      }).catch(console.error);
+    }
+    return cached;
+  }
+
+  // 진행 중인 요청 확인 (중복 요청 방지)
+  const pending = tokenMetadataCache.getPending(tokenAddress);
+  if (pending) {
+    return pending;
+  }
+
+  // 새로운 요청 생성
+  const promise = fetchTokenMetadataFromChain(tokenAddress);
+  tokenMetadataCache.setPending(tokenAddress, promise);
+
+  try {
+    const metadata = await promise;
+    if (metadata) {
+      tokenMetadataCache.set(tokenAddress, metadata);
+    }
+    return metadata;
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
+ * 🔗 체인에서 직접 메타데이터 조회 (캐시 우회)
+ * @param tokenAddress - 조회할 토큰의 주소
+ * @returns TokenMetadata 또는 null
+ */
+async function fetchTokenMetadataFromChain(
   tokenAddress: string
 ): Promise<TokenMetadata | null> {
   try {
@@ -152,7 +197,7 @@ export async function getTokenImageUrl(
 }
 
 /**
- * 🔄 토큰 메타데이터 조회 재시도 로직 (Fallback 포함)
+ * 🔄 토큰 메타데이터 조회 재시도 로직 (캐싱 적용)
  * @param tokenAddress - 토큰 주소 
  * @param maxRetries - 최대 재시도 횟수
  * @returns TokenMetadata 또는 null
@@ -161,6 +206,12 @@ export async function fetchTokenMetadataWithRetry(
   tokenAddress: string,
   maxRetries: number = 3
 ): Promise<TokenMetadata | null> {
+  // 캐시 먼저 확인
+  const cached = tokenMetadataCache.get(tokenAddress);
+  if (cached) {
+    return cached;
+  }
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const result = await fetchTokenMetadata(tokenAddress);
@@ -182,6 +233,20 @@ export async function fetchTokenMetadataWithRetry(
   }
 
   return null;
+}
+
+/**
+ * 🔥 캐시 클리어 (관리용)
+ */
+export function clearTokenMetadataCache(): void {
+  tokenMetadataCache.clear();
+}
+
+/**
+ * 📊 캐시 통계 (디버깅용)
+ */
+export function getTokenMetadataCacheStats() {
+  return tokenMetadataCache.getStats();
 }
 
 export default {

@@ -1,9 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { fetchTokenMetadataWithRetry } from '@/lib/tokenMetadata';
 import { ImageCacheManager } from '@/lib/utils';
+import {
+  fetchTokenImageWithFallbacks,
+  getOptimizedImageUrl,
+  getProxiedImageUrl,
+  getTokenAvatarFallback,
+  jupiterTokenListCache
+} from '@/lib/tokenImageFallback';
 
 interface TokenAvatarProps {
   tokenAddress: string;
@@ -14,13 +21,7 @@ interface TokenAvatarProps {
   imageUrl?: string | null;
 }
 
-interface JupiterTokenMetadata {
-  address: string;
-  name: string;
-  symbol: string;
-  logoURI?: string;
-  image?: string;
-}
+// Jupiter 메타데이터 타입은 tokenImageFallback에서 가져옴
 
 export default function TokenAvatar({ 
   tokenAddress, 
@@ -36,8 +37,13 @@ export default function TokenAvatar({
     symbol: string;
     image?: string;
   } | null>(null);
-  const [jupiterMetadata, setJupiterMetadata] = useState<JupiterTokenMetadata | null>(null);
-  const [fallbackActive, setFallbackActive] = useState(false);
+  const [jupiterMetadata, setJupiterMetadata] = useState<{
+    name: string;
+    symbol: string;
+    logoURI?: string;
+  } | null>(null);
+  const [imageSources, setImageSources] = useState<string[]>([]);
+  const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
   
   // 크기 설정
   const sizeClasses = {
@@ -52,178 +58,77 @@ export default function TokenAvatar({
     lg: 64
   };
 
-  // 🎯 Metaplex 메타데이터 조회 (우선순위 1)
+  // 🎯 토큰 메타데이터 및 이미지 소스 조회
   useEffect(() => {
-    // 채팅방에서 이미지 URL이 제공되고 유효한 HTTP URL인 경우 메타데이터 조회 건너뜀
-    if (imageUrl && imageUrl.startsWith('http') && !fallbackActive) {
-      // 이미지 프리로딩
-      ImageCacheManager.preload(imageUrl);
-      return;
-    }
-
-    const fetchMetaplexMetadata = async () => {
+    const fetchMetadata = async () => {
       try {
-        // Metaplex와 Jupiter를 병렬로 조회
-        const [metaplexResult, jupiterResult] = await Promise.allSettled([
-          // Metaplex 조회
+        // 1. 이미지 소스들 조회 (캐싱 적용)
+        const sources = await fetchTokenImageWithFallbacks(tokenAddress, imageUrl);
+        
+        // 2. 최적화된 URL과 프록시 URL 추가
+        const optimizedSources: string[] = [];
+        sources.forEach(url => {
+          optimizedSources.push(getOptimizedImageUrl(url, iconSizes[size]));
+          optimizedSources.push(getProxiedImageUrl(url));
+          optimizedSources.push(url); // 원본도 폴백으로
+        });
+        
+        setImageSources(optimizedSources);
+        
+        // 3. 첫 번째 이미지 프리로딩
+        if (optimizedSources[0]) {
+          ImageCacheManager.preload(optimizedSources[0]);
+        }
+
+        // 4. 메타데이터 조회 (캐싱됨)
+        const [metaplexResult, jupiterToken] = await Promise.allSettled([
           fetchTokenMetadataWithRetry(tokenAddress, 2),
-          // Jupiter Token List 조회
-          fetch('https://token.jup.ag/strict').then(res => res.json())
+          jupiterTokenListCache.getToken(tokenAddress)
         ]);
 
-        // Metaplex 결과 처리
-        if (metaplexResult.status === 'fulfilled' && metaplexResult.value?.image) {
+        if (metaplexResult.status === 'fulfilled' && metaplexResult.value) {
           setMetaplexMetadata(metaplexResult.value);
-          // 이미지 프리로딩
-          ImageCacheManager.preload(metaplexResult.value.image);
-        } else if (metaplexResult.status === 'fulfilled' && metaplexResult.value === null) {
-        } else if (metaplexResult.status === 'rejected') {
         }
 
-        // Jupiter 결과 처리
-        if (jupiterResult.status === 'fulfilled') {
-          const tokens = jupiterResult.value;
-          const token = tokens.find((t: JupiterTokenMetadata) => t.address === tokenAddress);
-          if (token) {
-            setJupiterMetadata(token);
-            // 이미지 프리로딩
-            if (token.logoURI) {
-              ImageCacheManager.preload(token.logoURI);
-            }
-          }
+        if (jupiterToken.status === 'fulfilled' && jupiterToken.value) {
+          setJupiterMetadata(jupiterToken.value);
         }
-      } catch {
+      } catch (error) {
+        console.error('Failed to fetch token metadata:', error);
       }
     };
 
-    if (tokenAddress && (fallbackActive || !imageUrl || !imageUrl.startsWith('http'))) {
-      fetchMetaplexMetadata();
+    if (tokenAddress) {
+      fetchMetadata();
     }
-  }, [tokenAddress, imageUrl, fallbackActive]);
-
-  // Jupiter Pro 스타일의 이미지 URL 생성
-  const getOptimizedImageUrl = (originalUrl: string) => {
-    const imageSize = iconSizes[size];
-    // 확장자가 없는 URL인 경우 기본 이미지 형식 지정
-    const hasExtension = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(originalUrl);
-    const optimizedUrl = `https://wsrv.nl/?w=${imageSize}&h=${imageSize}&url=${encodeURIComponent(originalUrl)}&dpr=2&quality=80`;
-    
-    // 확장자가 없는 경우 output 형식 지정
-    if (!hasExtension) {
-      return `${optimizedUrl}&output=png`;
-    }
-    
-    return optimizedUrl;
-  };
-
-  // CORS 문제가 있는 URL을 위한 프록시 URL 생성
-  const getProxiedImageUrl = (originalUrl: string) => {
-    return `/api/image-proxy?url=${encodeURIComponent(originalUrl)}`;
-  };
-
-  // 다중 이미지 소스 생성 (우선순위 순)
-  const getImageSources = () => {
-    const sources: string[] = [];
-    
-    // 1. 채팅방에서 제공된 이미지 URL (최우선)
-    if (imageUrl && !fallbackActive) {
-      // URL인지 이모지인지 확인
-      if (imageUrl.startsWith('http') || imageUrl.startsWith('//')) {
-        // 최적화된 URL, 프록시 URL, 원본 URL 순으로 추가
-        sources.push(getOptimizedImageUrl(imageUrl));
-        sources.push(getProxiedImageUrl(imageUrl));
-        sources.push(imageUrl); // 원본 URL도 fallback으로 추가
-      } else {
-        // 이모지나 기타 텍스트인 경우 fallback 활성화
-        setFallbackActive(true);
-        return []; // 이모지는 이미지로 처리하지 않고 fallback으로
-      }
-    }
-    
-    // 2. Metaplex 메타데이터의 이미지 URL (우선순위 2)
-    if ((fallbackActive || !imageUrl || !imageUrl.startsWith('http')) && metaplexMetadata?.image) {
-      // 최적화된 URL, 프록시 URL, 원본 URL 순으로 추가
-      sources.push(getOptimizedImageUrl(metaplexMetadata.image));
-      sources.push(getProxiedImageUrl(metaplexMetadata.image));
-      sources.push(metaplexMetadata.image); // 원본 URL도 fallback으로 추가
-    }
-    
-    // 3. Jupiter Token List의 logoURI (우선순위 3)
-    if ((fallbackActive || !imageUrl || !imageUrl.startsWith('http')) && jupiterMetadata?.logoURI) {
-      // 최적화된 URL, 프록시 URL, 원본 URL 순으로 추가
-      sources.push(getOptimizedImageUrl(jupiterMetadata.logoURI));
-      sources.push(getProxiedImageUrl(jupiterMetadata.logoURI));
-      sources.push(jupiterMetadata.logoURI); // 원본 URL도 fallback으로 추가
-    }
-    
-    // 4. Jupiter Static Images API (우선순위 4)
-    if (fallbackActive || !imageUrl || !imageUrl.startsWith('http')) {
-      const jupiterStaticUrl = `https://static.jup.ag/images/${tokenAddress}.png`;
-      sources.push(getOptimizedImageUrl(jupiterStaticUrl));
-      sources.push(getProxiedImageUrl(jupiterStaticUrl));
-      sources.push(jupiterStaticUrl); // 원본 URL도 추가
-    }
-    
-    // 5. Jupiter Create Static Images (확장자 없는 URL 직접 시도)
-    if (fallbackActive || !imageUrl || !imageUrl.startsWith('http')) {
-      const jupiterCreateStaticUrl = `https://static-create.jup.ag/images/${tokenAddress}`;
-      sources.push(getOptimizedImageUrl(jupiterCreateStaticUrl));
-      sources.push(getProxiedImageUrl(jupiterCreateStaticUrl));
-      sources.push(jupiterCreateStaticUrl); // 원본 URL도 추가
-    }
-    
-    // 6. Solana Token List (GitHub) (우선순위 6)
-    if (fallbackActive || !imageUrl || !imageUrl.startsWith('http')) {
-      const solanaTokenListUrl = `https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/${tokenAddress}/logo.png`;
-      sources.push(getOptimizedImageUrl(solanaTokenListUrl));
-      sources.push(getProxiedImageUrl(solanaTokenListUrl));
-      sources.push(solanaTokenListUrl); // 원본 URL도 추가
-    }
-    
-    return sources;
-  };
-
-  const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
-  const imageSources = getImageSources();
+  }, [tokenAddress, imageUrl, size]);
 
   // 이미지 소스가 변경될 때 인덱스 리셋
   useEffect(() => {
     setCurrentUrlIndex(0);
     setImageError(false);
-  }, [imageSources.length, imageUrl, fallbackActive, metaplexMetadata, jupiterMetadata]);
+  }, [imageSources]);
 
-  const handleImageError = () => {
-    
-    // 채팅방 이미지가 실패하면 fallback 활성화
-    if (!fallbackActive && imageUrl && imageUrl.startsWith('http')) {
-      setFallbackActive(true);
-      return;
-    }
-    
+  const handleImageError = useCallback(() => {
     if (currentUrlIndex < imageSources.length - 1) {
       setCurrentUrlIndex(prev => prev + 1);
+      // 다음 이미지 프리로딩
+      const nextUrl = imageSources[currentUrlIndex + 1];
+      if (nextUrl) {
+        ImageCacheManager.preload(nextUrl);
+      }
     } else {
       setImageError(true);
     }
-  };
+  }, [currentUrlIndex, imageSources]);
 
-  // 토큰 이름의 첫 글자들을 폴백으로 사용 (Jupiter Pro 스타일)
-  const getAvatarFallback = (name: string) => {
-    // 채팅방 이미지가 이모지인 경우 그대로 사용
-    if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('//')) {
-      return imageUrl;
-    }
-    
-    // Metaplex 메타데이터에서 이름 사용 (우선)
-    const displayName = metaplexMetadata?.symbol || metaplexMetadata?.name || 
-                       jupiterMetadata?.symbol || jupiterMetadata?.name || name;
-    return displayName
-      .split(/[\s\/]/)
-      .slice(0, 2)
-      .map((word: string) => word.charAt(0))
-      .join('')
-      .toUpperCase();
-  };
+  // 토큰 이름의 첫 글자들을 폴백으로 사용
+  const avatarFallback = getTokenAvatarFallback(
+    tokenName,
+    imageUrl,
+    metaplexMetadata,
+    jupiterMetadata
+  );
 
   // 현재 사용할 이미지 URL 결정
   const currentImageUrl = imageSources.length > 0 ? imageSources[currentUrlIndex] : undefined;
@@ -239,7 +144,7 @@ export default function TokenAvatar({
         />
       )}
       <AvatarFallback className="text-xs font-bold bg-gradient-to-br from-blue-400 to-purple-500 text-white">
-        {getAvatarFallback(tokenName)}
+        {avatarFallback}
       </AvatarFallback>
     </Avatar>
   );
