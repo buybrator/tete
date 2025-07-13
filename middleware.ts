@@ -30,6 +30,9 @@ function getEndpointCategory(pathname: string): keyof typeof RATE_LIMIT_CONFIG.m
   if (pathname.includes('/api/websocket')) {
     return 'websocket';
   }
+  if (pathname.includes('/api/rpc-stats') || pathname.includes('/api/solana-rpc')) {
+    return 'priceUpdate'; // Use same limit as price updates for RPC-related endpoints
+  }
   return 'general';
 }
 

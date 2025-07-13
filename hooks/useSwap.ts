@@ -15,6 +15,7 @@ import { jupiterService, JupiterQuote } from '@/lib/jupiter';
 import { TOKENS, formatTokenAmount, getTokenByAddress } from '@/lib/tokens';
 import { safePublicKeyToString, isValidPublicKey } from '@/lib/wallet-utils';
 import { extractMemoFromTransaction } from '@/lib/memo';
+import { confirmTransactionHybrid, createAlchemyConnection, getConfirmationStats } from '@/lib/transaction-confirmation';
 
 // 🎯 수수료 설정 (Jupiter API에서 자동 처리)
 const FEE_RECIPIENT_ADDRESS = '9YGfNLAiVNWbkgi9jFunyqQ1Q35yirSEFYsKLN6PP1DG';
@@ -236,40 +237,46 @@ export function useSwap() {
           preflightCommitment: 'confirmed'
         });
         
-        // 8) 트랜잭션 확인 - WebSocket 없이 polling 방식 (빠른 확인)
+        // 8) 트랜잭션 확인 - Alchemy RPC를 사용한 하이브리드 방식
+        const alchemyRpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || process.env.NEXT_PUBLIC_RPC_URL;
         let confirmed = false;
-        let attempts = 0;
-        const maxAttempts = 15; // 15초로 단축
         
-        // WebSocket 없는 직접 연결
-        const directConnection = new Connection('https://api.mainnet-beta.solana.com', {
-          commitment: 'confirmed',
-          wsEndpoint: undefined, // WebSocket 비활성화
-        });
-        
-        while (!confirmed && attempts < maxAttempts) {
+        if (alchemyRpcUrl && alchemyRpcUrl.includes('alchemy')) {
+          // Alchemy RPC 사용 시 WebSocket 지원 하이브리드 확인
+          const alchemyConnection = createAlchemyConnection(alchemyRpcUrl);
+          
           try {
-            const txInfo = await directConnection.getTransaction(txId, {
+            confirmed = await confirmTransactionHybrid(alchemyConnection, txId, {
+              timeout: 30000,
               commitment: 'confirmed',
-              maxSupportedTransactionVersion: 0,
+              useWebSocket: true
             });
             
-            if (txInfo) {
-              if (txInfo.meta?.err) {
-                throw new Error(`트랜잭션 실패: ${JSON.stringify(txInfo.meta.err)}`);
-              }
-              confirmed = true;
-              break;
+            // 확인 통계 로깅 (개발 환경에서만)
+            if (process.env.NODE_ENV === 'development') {
+              const stats = getConfirmationStats();
+              console.log('Transaction confirmation stats:', stats);
             }
-          } catch {
-            // Ignore transaction fetch errors during confirmation
+          } catch (error) {
+            console.error('Hybrid confirmation error:', error);
+            // 폴백: 기존 연결로 한 번 더 시도
+            confirmed = await confirmTransactionHybrid(connection, txId, {
+              timeout: 15000,
+              commitment: 'confirmed',
+              useWebSocket: false // 폴백은 폴링만 사용
+            });
           }
-          
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          attempts++;
+        } else {
+          // Alchemy가 아닌 경우 폴링만 사용
+          confirmed = await confirmTransactionHybrid(connection, txId, {
+            timeout: 30000,
+            commitment: 'confirmed',
+            useWebSocket: false
+          });
         }
         
         if (!confirmed) {
+          console.warn('Transaction confirmation timeout, but may still succeed');
           // 계속 진행 (실제로는 성공했을 가능성이 높음)
         }
 

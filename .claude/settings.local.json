@@ -52,7 +52,8 @@
       "mcp__supabase__get_anon_key",
       "mcp__supabase__get_project_url",
       "mcp__filesystem__read_multiple_files",
-      "mcp__filesystem__list_allowed_directories"
+      "mcp__filesystem__list_allowed_directories",
+      "Bash(vercel:*)"
     ],
     "deny": []
   },
