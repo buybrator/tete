@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import { useTradeSettings } from '@/contexts/TradeSettingsContext';
 import TokenChart from '@/components/chart/TokenChart';
 import TokenAvatar from '@/components/ui/TokenAvatar';
+import { useWallet } from '@/hooks/useWallet';
 
 type Props = {
   mobile?: boolean;
@@ -18,11 +19,13 @@ type Props = {
 
 export default function TradeSettingsPanel({ mobile = false }: Props) {
   const { settings, updateSettings } = useTradeSettings();
+  const { address } = useWallet();
   
   const [isEditingPresets, setIsEditingPresets] = useState(false);
   const [buyPresets, setBuyPresets] = useState(['0.1', '1', '3', '10']);
   const [sellPresets, setSellPresets] = useState(['10', '25', '50', '100']);
   const [editingValues, setEditingValues] = useState<string[]>([]);
+  const loadedRef = useRef(false);
   
   // Advanced settings state
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -35,16 +38,78 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
   const currentTokenAddress = settings.selectedToken?.contractAddress || 'So11111111111111111111111111111111111111112'; // SOL default
   const currentTokenName = settings.selectedToken?.name || 'SOL';
   
-  // Debug logs
-
-  // Sync PC version preset settings to TradeSettingsContext
-  useEffect(() => {
+  // Save settings to backend
+  const saveSettings = useCallback(async () => {
+    if (!address) return;
     
-    updateSettings({
-      slippage: presetSlippage,
-      priorityFee: presetPriority
-    });
-  }, [presetSlippage, presetPriority]);
+    try {
+      await fetch('/api/trading-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wallet_address: address,
+          buy_presets: buyPresets,
+          sell_presets: sellPresets,
+          slippage: presetSlippage,
+          priority_fee: presetPriority
+        })
+      });
+    } catch (error) {
+      console.error('Failed to save trading settings:', error);
+    }
+  }, [address, buyPresets, sellPresets, presetSlippage, presetPriority]);
+
+  // Load settings from backend
+  const loadSettings = useCallback(async () => {
+    if (!address) return;
+    
+    try {
+      const response = await fetch(`/api/trading-settings?wallet_address=${encodeURIComponent(address)}`);
+      const result = await response.json();
+      
+      if (result.success && result.settings) {
+        setBuyPresets(result.settings.buy_presets || ['0.1', '1', '3', '10']);
+        setSellPresets(result.settings.sell_presets || ['10', '25', '50', '100']);
+        const slippage = result.settings.slippage || '30';
+        const priorityFee = result.settings.priority_fee || '0.0001';
+        setPresetSlippage(slippage);
+        setPresetPriority(priorityFee);
+        // Update TradeSettingsContext with loaded values
+        updateSettings({
+          slippage: slippage,
+          priorityFee: priorityFee
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load trading settings:', error);
+    }
+  }, [address, updateSettings]);
+
+  // Load settings when wallet connects
+  useEffect(() => {
+    if (address && !loadedRef.current) {
+      loadedRef.current = true;
+      loadSettings();
+    }
+  }, [address, loadSettings]);
+
+  // Reset loaded flag when wallet changes
+  useEffect(() => {
+    if (!address) {
+      loadedRef.current = false;
+    }
+  }, [address]);
+
+  // Update TradeSettingsContext when slippage or priority changes manually
+  const handleSlippageUpdate = (value: string) => {
+    setPresetSlippage(value);
+    updateSettings({ slippage: value });
+  };
+
+  const handlePriorityUpdate = (value: string) => {
+    setPresetPriority(value);
+    updateSettings({ priorityFee: value });
+  };
 
   const presets = settings.mode === 'buy' ? buyPresets : sellPresets;
   const setPresets = settings.mode === 'buy' ? setBuyPresets : setSellPresets;
@@ -52,6 +117,8 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
   // Change trading mode
   const handleModeChange = (mode: 'buy' | 'sell') => {
     updateSettings({ mode });
+    // Save settings when mode changes
+    setTimeout(() => saveSettings(), 100);
   };
 
   // Change quantity
@@ -97,12 +164,14 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                 setPresets(validValues.slice(0, 4));
                 setEditingValues([]);
                 setIsEditingPresets(false);
+                // Save settings after editing presets
+                setTimeout(() => saveSettings(), 100);
               } else {
-                const paddedPresets = [...presets];
+                const paddedPresets = [...presets].slice(0, 4);
                 while (paddedPresets.length < 4) {
                   paddedPresets.push('');
                 }
-                setEditingValues(paddedPresets.slice(0, 4));
+                setEditingValues(paddedPresets);
                 setIsEditingPresets(true);
               }
             }}
@@ -269,7 +338,11 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                 <label className="text-sm font-medium mb-2 block">Slippage (%)</label>
                 <Input
                   value={settings.slippage}
-                  onChange={(e) => handleSlippageChange(e.target.value)}
+                  onChange={(e) => {
+                    handleSlippageChange(e.target.value);
+                    handleSlippageUpdate(e.target.value);
+                  }}
+                  onBlur={() => saveSettings()}
                   placeholder="1"
                   className="w-full"
                 />
@@ -278,7 +351,11 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                 <label className="text-sm font-medium mb-2 block">Priority Fee</label>
                 <Input
                   value={settings.priorityFee}
-                  onChange={(e) => handlePriorityFeeChange(e.target.value)}
+                  onChange={(e) => {
+                    handlePriorityFeeChange(e.target.value);
+                    handlePriorityUpdate(e.target.value);
+                  }}
+                  onBlur={() => saveSettings()}
                   placeholder="0.001"
                   className="w-full"
                 />
@@ -399,12 +476,14 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                   setPresets(validValues.slice(0, 4));
                   setEditingValues([]);
                   setIsEditingPresets(false);
+                  // Save settings after editing presets
+                  setTimeout(() => saveSettings(), 100);
                 } else {
-                  const paddedPresets = [...presets];
+                  const paddedPresets = [...presets].slice(0, 4);
                   while (paddedPresets.length < 4) {
                     paddedPresets.push('');
                   }
-                  setEditingValues(paddedPresets.slice(0, 4));
+                  setEditingValues(paddedPresets);
                   setIsEditingPresets(true);
                 }
               }}
@@ -514,7 +593,8 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
             </label>
             <Input
               value={presetSlippage}
-              onChange={(e) => setPresetSlippage(e.target.value)}
+              onChange={(e) => handleSlippageUpdate(e.target.value)}
+              onBlur={() => saveSettings()}
               className="text-center h-8 text-lg font-semibold border-2 focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-400"
               style={{ backgroundColor: 'oklch(0.2393 0 0)', borderColor: 'rgb(0, 0, 0)', borderRadius: '0' }}
               placeholder="50"
@@ -527,7 +607,8 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
             </label>
             <Input
               value={presetPriority}
-              onChange={(e) => setPresetPriority(e.target.value)}
+              onChange={(e) => handlePriorityUpdate(e.target.value)}
+              onBlur={() => saveSettings()}
               className="text-center h-8 text-lg font-semibold border-2 focus:ring-2 focus:ring-orange-500 text-white placeholder-gray-400"
               style={{ backgroundColor: 'oklch(0.2393 0 0)', borderColor: 'rgb(0, 0, 0)', borderRadius: '0' }}
               placeholder="105"
