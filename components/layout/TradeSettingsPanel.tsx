@@ -135,10 +135,6 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
     updateSettings({ priorityFee });
   };
 
-  const handleMaxFeeChange = (maxFee: string) => {
-    updateSettings({ maxFee });
-  };
-
 
 
   const PanelBody = mobile ? (
@@ -357,15 +353,6 @@ export default function TradeSettingsPanel({ mobile = false }: Props) {
                   }}
                   onBlur={() => saveSettings()}
                   placeholder="0.001"
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Max Fee</label>
-                <Input
-                  value={settings.maxFee}
-                  onChange={(e) => handleMaxFeeChange(e.target.value)}
-                  placeholder="0.005"
                   className="w-full"
                 />
               </div>

@@ -9,7 +9,6 @@ export interface TradeSettings {
   quantity: string;
   slippage: string;
   priorityFee: string;
-  maxFee: string;
   selectedToken: {
     contractAddress: string;
     name: string;
@@ -29,7 +28,6 @@ const defaultSettings: TradeSettings = {
   quantity: '',
   slippage: '1',
   priorityFee: '0.001',
-  maxFee: '0.005',
   selectedToken: null,
 };
 
