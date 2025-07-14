@@ -21,7 +21,11 @@ export default function WalletProviderWrapper({ children }: WalletProviderWrappe
     // You can also provide a custom RPC endpoint.
     const endpoint = useMemo(() => {
         if (network === WalletAdapterNetwork.Mainnet) {
-            // Use custom RPC endpoint from environment variable
+            // In browser, use proxy endpoint for better reliability
+            if (typeof window !== 'undefined') {
+                return `${window.location.origin}/api/solana-rpc`;
+            }
+            // Fallback for SSR or if proxy fails
             return process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
         }
         return clusterApiUrl(network);
@@ -38,7 +42,16 @@ export default function WalletProviderWrapper({ children }: WalletProviderWrappe
     );
 
     return (
-        <ConnectionProvider endpoint={endpoint}>
+        <ConnectionProvider 
+            endpoint={endpoint}
+            config={{
+                commitment: 'confirmed',
+                wsEndpoint: endpoint.replace('http', 'ws'),
+                httpHeaders: {
+                    'Content-Type': 'application/json',
+                }
+            }}
+        >
             <WalletProvider wallets={wallets} autoConnect>
                 <WalletModalProvider>
                     {children}
