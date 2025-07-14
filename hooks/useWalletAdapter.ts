@@ -134,20 +134,40 @@ export function useWalletAdapter() {
       return;
     }
 
-    try {
-      setIsLoadingBalance(true);
-      setError(null);
-      
-      const connection = await getStableConnection();
-      const lamports = await connection.getBalance(publicKey);
-      const solBalance = lamports / LAMPORTS_PER_SOL;
-      setBalance(solBalance);
-    } catch (error) {
-      setError('잔고를 불러오는데 실패했습니다.');
-      setBalance(null);
-    } finally {
-      setIsLoadingBalance(false);
+    setIsLoadingBalance(true);
+    setError(null);
+    const maxRetries = 3;
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[WalletAdapter] Fetching balance (attempt ${attempt}/${maxRetries})`);
+        const connection = await getStableConnection();
+        console.log(`[WalletAdapter] Using RPC endpoint: ${connection.rpcEndpoint}`);
+        
+        const lamports = await connection.getBalance(publicKey);
+        const solBalance = lamports / LAMPORTS_PER_SOL;
+        setBalance(solBalance);
+        console.log(`[WalletAdapter] Balance fetched successfully: ${solBalance} SOL`);
+        setIsLoadingBalance(false);
+        return;
+      } catch (error) {
+        lastError = error;
+        console.error(`[WalletAdapter] Balance fetch attempt ${attempt} failed:`, error);
+        
+        if (attempt < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+          console.log(`[WalletAdapter] Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
     }
+
+    // All retries failed
+    console.error('[WalletAdapter] All balance fetch attempts failed:', lastError);
+    setError('잔고를 불러오는데 실패했습니다. 잠시 후 다시 시도해주세요.');
+    setBalance(null);
+    setIsLoadingBalance(false);
   }, [publicKey, getStableConnection]);
 
   // 트랜잭션 전송

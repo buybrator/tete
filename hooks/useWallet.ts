@@ -202,16 +202,35 @@ export function useWallet() {
     if (!publicKey || !connection) return;
     
     setIsLoadingBalance(true);
-    try {
-      const balance = await connection.getBalance(publicKey);
-      setBalance(balance / LAMPORTS_PER_SOL);
-      setError(null);
-    } catch {
-      setError('잔고 조회에 실패했습니다');
-      setBalance(null);
-    } finally {
-      setIsLoadingBalance(false);
+    const maxRetries = 3;
+    let lastError: any = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[Balance] Attempting to fetch balance (attempt ${attempt}/${maxRetries})`);
+        const balance = await connection.getBalance(publicKey);
+        setBalance(balance / LAMPORTS_PER_SOL);
+        setError(null);
+        setIsLoadingBalance(false);
+        console.log(`[Balance] Successfully fetched balance: ${balance / LAMPORTS_PER_SOL} SOL`);
+        return;
+      } catch (error) {
+        lastError = error;
+        console.error(`[Balance] Attempt ${attempt} failed:`, error);
+        
+        if (attempt < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+          console.log(`[Balance] Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
     }
+    
+    // All retries failed
+    console.error('[Balance] All balance fetch attempts failed:', lastError);
+    setError('잔고 조회에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    setBalance(null);
+    setIsLoadingBalance(false);
   }, [publicKey, connection]);
   
   // 지갑 연결

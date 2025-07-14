@@ -53,7 +53,8 @@
       "mcp__supabase__get_project_url",
       "mcp__filesystem__read_multiple_files",
       "mcp__filesystem__list_allowed_directories",
-      "Bash(vercel:*)"
+      "Bash(vercel:*)",
+      "mcp__browsermcp__browser_navigate"
     ],
     "deny": []
   },
