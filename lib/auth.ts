@@ -3,7 +3,10 @@ import { PublicKey } from '@solana/web3.js'
 import nacl from 'tweetnacl'
 
 // JWT 시크릿 키 (환경 변수에서 가져오기)
-const JWT_SECRET = process.env.JWT_SECRET || process.env.NEXT_PUBLIC_JWT_SECRET || 'development-secret-key'
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is not configured')
+}
 
 // JWT 페이로드 타입 정의
 interface JWTPayload {
