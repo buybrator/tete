@@ -115,10 +115,10 @@ export function useWallet() {
           await createProfile(walletAddress);
         }
       } else {
-        throw new Error(result.error || '프로필 로드 실패');
+        throw new Error(result.error || 'Failed to load profile');
       }
     } catch {
-      setError('프로필 로드에 실패했습니다');
+      setError('Failed to load profile');
       // 프로필 로드 실패 시에도 빈 프로필로 설정하여 UI가 작동하도록 함
       setProfile(null);
     } finally {
@@ -148,10 +148,10 @@ export function useWallet() {
       if (result.success && result.profile) {
         setProfile(result.profile);
       } else {
-        throw new Error(result.error || '프로필 생성 실패');
+        throw new Error(result.error || 'Failed to create profile');
       }
     } catch {
-      setError('프로필 생성에 실패했습니다');
+      setError('Failed to create profile');
     }
   }, [setError]);
   
@@ -193,7 +193,7 @@ export function useWallet() {
         window.dispatchEvent(profileUpdateEvent);
       }
     } catch {
-      setError('프로필 업데이트에 실패했습니다');
+      setError('Failed to update profile');
     }
   }, [address]);
   
@@ -228,7 +228,7 @@ export function useWallet() {
     
     // All retries failed
     console.error('[Balance] All balance fetch attempts failed:', lastError);
-    setError('잔고 조회에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    setError('Failed to fetch balance. Please try again later.');
     setBalance(null);
     setIsLoadingBalance(false);
   }, [publicKey, connection]);
@@ -255,14 +255,14 @@ export function useWallet() {
       
       if (error instanceof Error) {
         if (error.name === 'WalletNotReadyError') {
-          setError('지갑이 설치되지 않았습니다. Phantom 또는 Solflare를 설치해주세요.');
+          setError('Wallet not installed. Please install Phantom or Solflare.');
         } else if (error.name === 'WalletNotSelectedError') {
-          setError('지갑을 선택해주세요.');
+          setError('Please select a wallet.');
         } else {
-          setError(error.message || '지갑 연결에 실패했습니다');
+          setError(error.message || 'Failed to connect wallet');
         }
       } else {
-        setError('지갑 연결에 실패했습니다');
+        setError('Failed to connect wallet');
       }
     }
   }, [wallet, connected, connect, setVisible]);
@@ -275,7 +275,7 @@ export function useWallet() {
       setBalance(null);
       setError(null);
     } catch {
-      setError('지갑 연결 해제에 실패했습니다');
+      setError('Failed to disconnect wallet');
     }
   }, [disconnect]);
   

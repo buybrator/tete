@@ -33,7 +33,7 @@ export default function WalletProviderWrapper({ children }: WalletProviderWrappe
 
     const wallets = useMemo(
         () => [
-            // Phantom은 Standard Wallet로 자동 등록되므로 제거
+            // Phantom is automatically registered as Standard Wallet, so removed
             // new PhantomWalletAdapter(),
             new SolflareWalletAdapter(),
         ],

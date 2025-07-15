@@ -295,9 +295,9 @@ export default function TokenChart({ tokenAddress, className = '' }: TokenChartP
         const startData = await startResponse.json();
         
         if (startData.success) {
-          toast.success('15분 자동 업데이트가 활성화되었습니다', { id: 'background-collector' });
+          // 성공 메시지 제거됨
         } else {
-          toast.error('자동 업데이트 시작에 실패했습니다', { id: 'background-collector' });
+          // 에러 메시지 제거됨
         }
       } else {
       }
