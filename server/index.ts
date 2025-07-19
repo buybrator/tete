@@ -22,7 +22,12 @@ if (!REDIS_URL) {
 }
 
 const pubClient = createClient({
-  url: REDIS_URL
+  url: REDIS_URL,
+  socket: {
+    enableReadyCheck: true,
+    maxRetriesPerRequest: 3,
+    retryDelayOnFailover: 100
+  }
 });
 const subClient = pubClient.duplicate();
 

@@ -37,7 +37,10 @@ class RedisCacheManager {
       this.client = createClient({
         url: REDIS_URL,
         socket: {
-          reconnectStrategy: (retries) => Math.min(retries * 50, 500)
+          reconnectStrategy: (retries) => Math.min(retries * 50, 500),
+          enableReadyCheck: true,
+          maxRetriesPerRequest: 3,
+          retryDelayOnFailover: 100
         }
       });
 
