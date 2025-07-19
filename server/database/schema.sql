@@ -9,7 +9,10 @@ CREATE TABLE IF NOT EXISTS chat_rooms (
     member_count INTEGER DEFAULT 1,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- 인덱스 생성
+    INDEX idx_chat_rooms_token_address (token_address)
 );
 
 -- 사용자 프로필 테이블
@@ -36,7 +39,7 @@ CREATE TABLE IF NOT EXISTS token_price_history (
     
     -- 인덱스 생성
     INDEX idx_token_timestamp (token_address, timestamp_1min),
-    INDEX idx_timestamp_desc (timestamp_1min DESC),
+    INDEX idx_price_history_timestamp (timestamp_1min DESC),
     
     -- 유니크 제약조건 (토큰별 1분 단위당 하나의 데이터만)
     UNIQUE(token_address, timestamp_1min)
