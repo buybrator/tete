@@ -84,36 +84,12 @@ export async function createOrUpdateProfile(walletAddress: string, nickname?: st
       .single()
 
     if (error) {
-      
-      // upsert가 실패하면 직접 insert 시도
-      const { data: insertData, error: insertError } = await supabase
-        .from('profiles')
-        .insert(profileData)
-        .select()
-        .single()
-        
-      if (insertError) {
-        // 에러가 있어도 가짜 프로필 데이터를 반환하여 인증 플로우 계속 진행
-        return {
-          wallet_address: walletAddress,
-          nickname: nickname || `User_${walletAddress.slice(0, 8)}`,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      }
-      
-      return insertData
+      throw new Error('Profile creation failed');
     }
     
     return data
-  } catch {
-    // 에러가 발생해도 인증 플로우를 계속 진행하기 위해 가짜 프로필 반환
-    return {
-      wallet_address: walletAddress,
-      nickname: nickname || `User_${walletAddress.slice(0, 8)}`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }
+  } catch (error) {
+    throw new Error('Profile creation failed');
   }
 }
 
