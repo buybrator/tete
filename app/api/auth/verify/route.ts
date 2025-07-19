@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyJWT } from '@/lib/auth'
+import { verifyJWT, generateJWT } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { PublicKey } from '@solana/web3.js'
 import nacl from 'tweetnacl'
 import bs58 from 'bs58'
+import { SessionManager } from '@/lib/session-manager'
+import { CacheManager } from '@/lib/cache-manager'
 
 // Authorization 헤더에서 토큰 추출하는 유틸리티 함수 (내부 함수로 변경)
 function extractTokenFromHeader(request: NextRequest): string | null {
@@ -46,10 +48,8 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Generate auth token (simple implementation - in production use JWT)
-    const authToken = bs58.encode(
-      Buffer.from(`${publicKey}:${Date.now()}:${Math.random()}`)
-    )
+    // Generate JWT auth token
+    const authToken = generateJWT(publicKey)
     
     return NextResponse.json({
       success: true,
@@ -87,7 +87,34 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 사용자 프로필 조회
+    // 세션에서 프로필 확인 (캐시 우선)
+    const sessionResult = await SessionManager.getSession(decoded.walletAddress)
+    
+    if (sessionResult.success && sessionResult.sessionData?.profile) {
+      // 세션에서 프로필 가져오기 성공
+      return NextResponse.json({
+        valid: true,
+        walletAddress: decoded.walletAddress,
+        profile: sessionResult.sessionData.profile,
+      })
+    }
+
+    // 캐시에서 프로필 확인
+    const cachedProfile = await CacheManager.getUserProfile(decoded.walletAddress)
+    
+    if (cachedProfile.fromCache && cachedProfile.data) {
+      // 캐시에서 프로필 가져오기 성공
+      // 세션도 업데이트
+      await SessionManager.createSession(decoded.walletAddress, token, cachedProfile.data)
+      
+      return NextResponse.json({
+        valid: true,
+        walletAddress: decoded.walletAddress,
+        profile: cachedProfile.data,
+      })
+    }
+
+    // 캐시 미스 - DB에서 프로필 조회
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
@@ -100,6 +127,10 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       )
     }
+
+    // 캐시와 세션에 저장
+    await CacheManager.setUserProfile(decoded.walletAddress, profile)
+    await SessionManager.createSession(decoded.walletAddress, token, profile)
 
     // 성공 응답
     return NextResponse.json({

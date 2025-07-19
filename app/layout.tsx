@@ -6,6 +6,7 @@ import WalletProviderWrapper from '@/providers/WalletProvider';
 import { TradeSettingsProvider } from '@/contexts/TradeSettingsContext';
 import { Toaster } from 'sonner';
 import ErrorSuppressor from '@/components/ErrorSuppressor';
+import CryptoPolyfill from '@/components/CryptoPolyfill';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -25,11 +26,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ko" className={inter.className}>
       <head>
+        <script src="/crypto-polyfill.js" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Bitcount+Grid+Double:wght@100..900&family=Comfortaa:wght@300..700&display=swap" rel="stylesheet" />
       </head>
       <body className="min-h-screen bg-[#f5f5dc] text-black antialiased">
+        <CryptoPolyfill />
         <ErrorSuppressor />
         <WalletProviderWrapper>
           <TradeSettingsProvider>

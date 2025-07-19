@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { CacheManager } from '@/lib/cache-manager';
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,6 +19,20 @@ export async function GET(request: NextRequest) {
         { error: 'Invalid URI format' },
         { status: 400 }
       );
+    }
+
+    // 캐시에서 메타데이터 확인
+    const cachedMetadata = await CacheManager.getTokenMetadata(uri);
+    if (cachedMetadata.fromCache) {
+      return NextResponse.json(cachedMetadata.data, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET',
+          'Access-Control-Allow-Headers': 'Content-Type',
+          'Cache-Control': 'public, max-age=3600',
+          'X-Cache': 'HIT'
+        }
+      });
     }
 
 
@@ -40,6 +55,9 @@ export async function GET(request: NextRequest) {
 
     const metadata = await response.json();
 
+    // 캐시에 저장 (1시간)
+    await CacheManager.setTokenMetadata(uri, metadata);
+
     // CORS 헤더 추가
     return NextResponse.json(metadata, {
       headers: {
@@ -47,6 +65,7 @@ export async function GET(request: NextRequest) {
         'Access-Control-Allow-Methods': 'GET',
         'Access-Control-Allow-Headers': 'Content-Type',
         'Cache-Control': 'public, max-age=3600', // 1시간 캐시
+        'X-Cache': 'MISS'
       }
     });
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { CacheManager } from '@/lib/cache-manager';
 
 // 데이터베이스 기반 차트 API
 export async function GET(request: NextRequest) {
@@ -12,6 +13,15 @@ export async function GET(request: NextRequest) {
         { error: 'Token address is required' },
         { status: 400 }
       );
+    }
+
+    // 캐시에서 차트 데이터 확인
+    const cachedChart = await CacheManager.getChartData(tokenAddress);
+    if (cachedChart.fromCache) {
+      return NextResponse.json({
+        ...cachedChart.data,
+        cached: true
+      });
     }
 
     // 1분 간격 데이터를 조회 (최대 60개)
@@ -46,7 +56,7 @@ export async function GET(request: NextRequest) {
         volume: record.volume || 0
       }));
 
-      return NextResponse.json({
+      const response = {
         success: true,
         data: chartData,
         metadata: {
@@ -55,7 +65,12 @@ export async function GET(request: NextRequest) {
           interval: '15min',
           fallback: true
         }
-      });
+      };
+
+      // 캐시에 저장
+      await CacheManager.setChartData(tokenAddress, response);
+
+      return NextResponse.json(response);
     }
 
     // 1분 데이터를 차트 형식으로 변환
@@ -69,7 +84,7 @@ export async function GET(request: NextRequest) {
       volume: record.volume || 0
     }));
 
-    return NextResponse.json({
+    const response = {
       success: true,
       data: chartData,
       metadata: {
@@ -77,7 +92,12 @@ export async function GET(request: NextRequest) {
         count: chartData.length,
         interval: '1min'
       }
-    });
+    };
+
+    // 캐시에 저장
+    await CacheManager.setChartData(tokenAddress, response);
+
+    return NextResponse.json(response);
 
   } catch (error) {
     return NextResponse.json(

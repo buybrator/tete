@@ -54,7 +54,13 @@
       "mcp__filesystem__read_multiple_files",
       "mcp__filesystem__list_allowed_directories",
       "Bash(vercel:*)",
-      "mcp__browsermcp__browser_navigate"
+      "mcp__browsermcp__browser_navigate",
+      "Bash(openssl rand:*)",
+      "Bash(pkill:*)",
+      "Bash(true)",
+      "Bash(timeout:*)",
+      "mcp__filesystem__read_file",
+      "mcp__filesystem__directory_tree"
     ],
     "deny": []
   },

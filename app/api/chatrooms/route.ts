@@ -2,10 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
 import { getStableConnection } from '@/lib/solana';
 import { fetchTokenMetadataWithRetry } from '@/lib/tokenMetadata';
+import { CacheManager } from '@/lib/cache-manager';
 
 // GET: 모든 채팅방 조회
 export async function GET() {
   try {
+    // 캐시에서 채팅방 목록 확인
+    const cachedRooms = await CacheManager.getChatRooms();
+    
+    if (cachedRooms.fromCache && cachedRooms.data) {
+      return NextResponse.json({
+        success: true,
+        chatrooms: cachedRooms.data,
+        cached: true
+      });
+    }
+
+    // 캐시 미스 - DB에서 조회
     // 런타임에서 Supabase 사용
     const { supabaseAdmin } = await import('@/lib/supabase');
     
@@ -39,6 +52,9 @@ export async function GET() {
       isActive: true,
       image: room.image // 이미지 URL 포함
     }));
+    
+    // 캐시에 저장 (5분)
+    await CacheManager.setChatRooms(formattedChatrooms);
     
     return NextResponse.json({
       success: true,
@@ -165,6 +181,9 @@ export async function POST(request: NextRequest) {
       isActive: true,
       image: insertedRoom.image // 토큰 이미지 URL 포함
     };
+
+    // 채팅방 목록 캐시 무효화
+    await CacheManager.setChatRooms(null); // 캐시 무효화
 
     return NextResponse.json({
       success: true,

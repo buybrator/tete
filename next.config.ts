@@ -33,11 +33,21 @@ const nextConfig: NextConfig = {
         pg: false,
         express: false,
         'socket.io': false,
+        crypto: require.resolve('crypto-browserify'),
       };
       
       // 서버 전용 모듈들을 external로 처리
       config.externals = config.externals || [];
       config.externals.push('pg', 'express', 'socket.io', 'cors');
+      
+      // crypto.randomUUID 폴리필 추가
+      config.plugins = config.plugins || [];
+      config.plugins.push(
+        new (require('webpack')).ProvidePlugin({
+          process: 'process/browser',
+          Buffer: ['buffer', 'Buffer'],
+        })
+      );
     }
     return config;
   },

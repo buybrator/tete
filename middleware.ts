@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { RedisRateLimiter } from './lib/rate-limiter-redis';
 
 // 🎯 Rate Limiting 설정
 const RATE_LIMIT_CONFIG = {
@@ -10,9 +11,6 @@ const RATE_LIMIT_CONFIG = {
     auth: 30             // 인증: 분당 30개
   }
 };
-
-// IP별 요청 카운터 (실제 운영에서는 Redis 사용 권장)
-const requestCounts = new Map<string, Map<string, { count: number; resetTime: number }>>();
 
 function getRateLimitKey(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
@@ -36,96 +34,54 @@ function getEndpointCategory(pathname: string): keyof typeof RATE_LIMIT_CONFIG.m
   return 'general';
 }
 
-function checkRateLimit(ip: string, category: keyof typeof RATE_LIMIT_CONFIG.maxRequests): {
+async function checkRateLimit(ip: string, category: keyof typeof RATE_LIMIT_CONFIG.maxRequests): Promise<{
   allowed: boolean;
   remaining: number;
   resetTime: number;
-} {
-  const now = Date.now();
+}> {
+  const limit = RATE_LIMIT_CONFIG.maxRequests[category];
+  const windowSeconds = RATE_LIMIT_CONFIG.windowMs / 1000;
   
-  if (!requestCounts.has(ip)) {
-    requestCounts.set(ip, new Map());
-  }
-  
-  const userCounts = requestCounts.get(ip)!;
-  const categoryData = userCounts.get(category);
-  
-  // 윈도우가 만료되었거나 데이터가 없으면 리셋
-  if (!categoryData || categoryData.resetTime <= now) {
-    const resetTime = now + RATE_LIMIT_CONFIG.windowMs;
-    userCounts.set(category, { count: 1, resetTime });
-    return {
-      allowed: true,
-      remaining: RATE_LIMIT_CONFIG.maxRequests[category] - 1,
-      resetTime
-    };
-  }
-  
-  // 제한 확인
-  const maxRequests = RATE_LIMIT_CONFIG.maxRequests[category];
-  if (categoryData.count >= maxRequests) {
-    return {
-      allowed: false,
-      remaining: 0,
-      resetTime: categoryData.resetTime
-    };
-  }
-  
-  // 카운트 증가
-  categoryData.count++;
-  return {
-    allowed: true,
-    remaining: maxRequests - categoryData.count,
-    resetTime: categoryData.resetTime
-  };
+  return await RedisRateLimiter.checkRateLimit(ip, category, limit, windowSeconds);
 }
 
-// 오래된 데이터 정리 (5분마다)
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, userCounts] of requestCounts.entries()) {
-    for (const [category, data] of userCounts.entries()) {
-      if (data.resetTime <= now) {
-        userCounts.delete(category);
-      }
-    }
-    if (userCounts.size === 0) {
-      requestCounts.delete(ip);
-    }
-  }
-}, 5 * 60 * 1000);
-
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // API 라우트에만 Rate Limiting 적용
   if (pathname.startsWith('/api/')) {
     const ip = getRateLimitKey(request);
     const category = getEndpointCategory(pathname);
-    const rateLimit = checkRateLimit(ip, category);
     
-    // Rate Limit 헤더 추가
-    const response = rateLimit.allowed 
-      ? NextResponse.next()
-      : NextResponse.json(
-          { 
-            error: 'Too Many Requests',
-            message: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
-            retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
-          },
-          { status: 429 }
-        );
-    
-    response.headers.set('X-RateLimit-Limit', RATE_LIMIT_CONFIG.maxRequests[category].toString());
-    response.headers.set('X-RateLimit-Remaining', rateLimit.remaining.toString());
-    response.headers.set('X-RateLimit-Reset', rateLimit.resetTime.toString());
-    
-    if (!rateLimit.allowed) {
-      response.headers.set('Retry-After', Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString());
-      // Rate limit 로그 제거됨
+    try {
+      const rateLimit = await checkRateLimit(ip, category);
+      
+      // Rate Limit 헤더 추가
+      const response = rateLimit.allowed 
+        ? NextResponse.next()
+        : NextResponse.json(
+            { 
+              error: 'Too Many Requests',
+              message: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
+              retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
+            },
+            { status: 429 }
+          );
+      
+      response.headers.set('X-RateLimit-Limit', RATE_LIMIT_CONFIG.maxRequests[category].toString());
+      response.headers.set('X-RateLimit-Remaining', rateLimit.remaining.toString());
+      response.headers.set('X-RateLimit-Reset', rateLimit.resetTime.toString());
+      
+      if (!rateLimit.allowed) {
+        response.headers.set('Retry-After', Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString());
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Rate limiting error, allowing request:', error);
+      // Rate limiting 에러 시 요청 허용
+      return NextResponse.next();
     }
-    
-    return response;
   }
   
   return NextResponse.next();

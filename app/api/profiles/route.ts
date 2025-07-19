@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJWT } from '@/lib/auth';
+import { CacheManager } from '@/lib/cache-manager';
+import { SessionManager } from '@/lib/session-manager';
 
 // 토큰에서 지갑 주소 추출 유틸리티
 function extractTokenFromHeader(request: NextRequest): string | null {
@@ -129,6 +131,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 프로필 캐시 무효화
+    await CacheManager.invalidateUserData(wallet_address);
+    // 세션도 무효화
+    await SessionManager.invalidateSession(wallet_address);
 
     return NextResponse.json({
       success: true,
@@ -206,6 +212,10 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // 프로필 캐시 무효화
+    await CacheManager.invalidateUserData(decoded.walletAddress);
+    // 세션도 무효화
+    await SessionManager.invalidateSession(decoded.walletAddress);
 
     return NextResponse.json({
       success: true,

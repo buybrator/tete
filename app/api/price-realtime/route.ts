@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TokenPriceService } from '@/lib/tokenPriceService';
+import { CacheManager } from '@/lib/cache-manager';
 
 // 🔄 실시간 가격 및 변화율 조회 API
 export async function GET(request: NextRequest) {
@@ -14,6 +15,16 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
+
+    // 캐시에서 가격 데이터 확인
+    const cachedPrice = await CacheManager.getTokenPrice(token);
+    if (cachedPrice.fromCache) {
+      return NextResponse.json({
+        success: true,
+        data: cachedPrice.data,
+        cached: true
+      });
+    }
 
     const priceService = new TokenPriceService();
     
@@ -42,6 +53,9 @@ export async function GET(request: NextRequest) {
       priceChange,
       lastUpdated: new Date().toISOString()
     };
+
+    // 결과를 캐시에 저장 (30초)
+    await CacheManager.setTokenPrice(token, result);
 
 
     return NextResponse.json({
