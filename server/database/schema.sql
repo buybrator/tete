@@ -131,4 +131,6 @@ RETURNS TIMESTAMP WITH TIME ZONE AS $$
 BEGIN
     RETURN date_trunc('minute', input_timestamp);
 END;
-$$ LANGUAGE plpgsql; 
+$$ LANGUAGE plpgsql;
+
+ 

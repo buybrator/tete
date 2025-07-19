@@ -15,21 +15,50 @@ export async function GET(request: NextRequest) {
     
     const startTime = Date.now();
     
-    // 1. 기본 토큰들의 가격 수집
+    // 1. 모든 토큰 주소 수집
+    const chatRoomTokens = await chatRoomTokenCollector.getAllChatRoomTokens();
+    const allTokens = [...DEFAULT_TOKENS, ...chatRoomTokens.filter(token => !DEFAULT_TOKENS.includes(token))];
     
-    const defaultResults = await Promise.allSettled(
-      DEFAULT_TOKENS.map(async (tokenAddress) => {
-        try {
-          const success = await tokenPriceService.updateTokenPrice(tokenAddress);
-          return { tokenAddress, success, source: 'default' };
-        } catch (error) {
-          return { tokenAddress, success: false, error, source: 'default' };
-        }
-      })
-    );
+    // 2. 배치 방식으로 모든 토큰 가격 업데이트
+    const batchSuccess = await tokenPriceService.updateMultipleTokenPricesBatch(allTokens);
+    
+    let defaultResults: any[] = [];
+    let chatRoomResult: any = { totalTokens: 0, successfulUpdates: 0, failedTokens: [], details: [] };
+    
+    if (batchSuccess) {
+      // 배치 성공 시 모든 토큰을 성공으로 처리
+      defaultResults = DEFAULT_TOKENS.map(tokenAddress => ({
+        status: 'fulfilled' as const,
+        value: { tokenAddress, success: true, source: 'default' }
+      }));
+      
+      chatRoomResult = {
+        totalTokens: chatRoomTokens.length,
+        successfulUpdates: chatRoomTokens.length,
+        failedTokens: [],
+        details: chatRoomTokens.map(tokenAddress => ({
+          tokenAddress,
+          success: true,
+          source: 'chatroom'
+        }))
+      };
+    } else {
+      // 배치 실패 시 개별 처리로 폴백
+      console.log('Batch update failed, falling back to individual updates');
+      
+      defaultResults = await Promise.allSettled(
+        DEFAULT_TOKENS.map(async (tokenAddress) => {
+          try {
+            const success = await tokenPriceService.updateTokenPrice(tokenAddress);
+            return { tokenAddress, success, source: 'default' };
+          } catch (error) {
+            return { tokenAddress, success: false, error, source: 'default' };
+          }
+        })
+      );
 
-    // 2. 채팅방 토큰들의 가격 수집
-    const chatRoomResult = await chatRoomTokenCollector.collectAllChatRoomTokenPrices();
+      chatRoomResult = await chatRoomTokenCollector.collectAllChatRoomTokenPrices();
+    }
     
     // 결과 통합
     const chatRoomResults = chatRoomResult.details.map(detail => ({
@@ -66,7 +95,8 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      message: `가격 데이터 수집 완료`,
+      message: `가격 데이터 수집 완료 (${batchSuccess ? '배치 처리' : '개별 처리'})`,
+      batchProcessed: batchSuccess,
       stats: {
         defaultTokens: {
           total: DEFAULT_TOKENS.length,

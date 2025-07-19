@@ -160,10 +160,126 @@ export class TokenPriceService {
   }
 
   /**
-   * 여러 토큰의 가격을 일괄 업데이트합니다
+   * 여러 토큰의 가격을 배치로 가져옵니다
+   */
+  private async fetchBatchPrices(tokenAddresses: string[]): Promise<Map<string, number>> {
+    const priceMap = new Map<string, number>();
+    
+    try {
+      const response = await fetch(
+        `https://lite-api.jup.ag/price/v2?ids=${tokenAddresses.join(',')}&showExtraInfo=true`
+      );
+      
+      if (!response.ok) {
+        return priceMap;
+      }
+
+      const data = await response.json();
+      
+      for (const [address, tokenData] of Object.entries(data.data || {})) {
+        if (tokenData && typeof tokenData === 'object' && 'price' in tokenData) {
+          const price = parseFloat(String(tokenData.price));
+          if (!isNaN(price)) {
+            priceMap.set(address, price);
+          }
+        }
+      }
+      
+      return priceMap;
+    } catch {
+      return priceMap;
+    }
+  }
+
+  /**
+   * 여러 토큰의 가격을 배치 UPSERT로 업데이트합니다 (Supabase 내장 기능 사용)
+   */
+  async updateMultipleTokenPricesBatch(tokenAddresses: string[]): Promise<boolean> {
+    if (tokenAddresses.length === 0) return true;
+
+    try {
+      // 1. 배치로 가격 데이터 가져오기
+      const priceMap = await this.fetchBatchPrices(tokenAddresses);
+      if (priceMap.size === 0) {
+        return false;
+      }
+
+      // 2. 현재 시간을 1분 단위로 정규화
+      const timestamp1min = this.normalize1MinTimestamp(new Date());
+
+      // 3. 기존 데이터 확인
+      const { data: existingData } = await supabase
+        .from('token_price_history')
+        .select('*')
+        .in('token_address', tokenAddresses)
+        .eq('timestamp_1min', timestamp1min);
+
+      const existingMap = new Map(
+        (existingData || []).map(item => [item.token_address, item])
+      );
+
+      // 4. 배치 UPSERT 데이터 준비
+      const upsertData: TokenPriceHistoryInsert[] = [];
+      
+      for (const [tokenAddress, currentPrice] of priceMap) {
+        const existing = existingMap.get(tokenAddress);
+        
+        if (existing) {
+          // 기존 데이터 업데이트용 - OHLC 계산
+          const highPrice = Math.max(existing.high_price, currentPrice);
+          const lowPrice = Math.min(existing.low_price, currentPrice);
+          
+          upsertData.push({
+            token_address: tokenAddress,
+            price: currentPrice,
+            open_price: existing.open_price,
+            high_price: highPrice,
+            low_price: lowPrice,
+            close_price: currentPrice,
+            timestamp_1min: timestamp1min,
+            volume: 0,
+          });
+        } else {
+          // 새 데이터 삽입용 - 모든 OHLC 값이 현재 가격
+          upsertData.push({
+            token_address: tokenAddress,
+            price: currentPrice,
+            open_price: currentPrice,
+            high_price: currentPrice,
+            low_price: currentPrice,
+            close_price: currentPrice,
+            timestamp_1min: timestamp1min,
+            volume: 0,
+          });
+        }
+      }
+
+      if (upsertData.length === 0) return true;
+
+      // 5. Supabase 배열 upsert 실행
+      const { error } = await supabase
+        .from('token_price_history')
+        .upsert(upsertData, {
+          onConflict: 'token_address,timestamp_1min',
+          ignoreDuplicates: false
+        });
+      
+      if (error) {
+        console.error('Batch upsert error:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Batch update error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 여러 토큰의 가격을 일괄 업데이트합니다 (기존 방식 - 호환성 유지)
    */
   async updateMultipleTokenPrices(tokenAddresses: string[]): Promise<void> {
-    
     const promises = tokenAddresses.map(address => this.updateTokenPrice(address));
     await Promise.allSettled(promises);
   }
