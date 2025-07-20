@@ -58,6 +58,15 @@ function MobileWalletProfile() {
     fetchBalance,
     clearError
   } = useWallet();
+  
+  console.log('[MOBILE WALLET PROFILE] Component values:', {
+    isConnected,
+    address,
+    nickname,
+    avatar,
+    balance,
+    error
+  });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [tempNickname, setTempNickname] = useState('');
   const [tempAvatar, setTempAvatar] = useState('');

@@ -61,22 +61,35 @@ export function useWallet() {
   // 프로필에서 닉네임과 아바타 가져오기
   const nickname = profile?.nickname || '';
   
+  console.log('[WALLET HOOK] Current profile state:', profile);
+  console.log('[WALLET HOOK] Extracted nickname:', nickname);
+  console.log('[WALLET HOOK] Raw avatar_url:', profile?.avatar_url);
+  
   // 아바타 처리: emoji: 접두사 제거 및 기본값 설정
   const avatar = useMemo(() => {
     const rawAvatar = profile?.avatar_url;
-    if (!rawAvatar) return DEFAULT_AVATARS[0];
+    console.log('[WALLET HOOK] Processing avatar, rawAvatar:', rawAvatar);
+    
+    if (!rawAvatar) {
+      console.log('[WALLET HOOK] No avatar, using default:', DEFAULT_AVATARS[0]);
+      return DEFAULT_AVATARS[0];
+    }
     
     // emoji: 접두사가 있으면 제거 (이모지인 경우)
     if (rawAvatar.startsWith('emoji:')) {
-      return rawAvatar.replace('emoji:', '');
+      const emoji = rawAvatar.replace('emoji:', '');
+      console.log('[WALLET HOOK] Emoji avatar:', emoji);
+      return emoji;
     }
     
     // HTTP URL이나 data URL인 경우 그대로 반환
     if (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:')) {
+      console.log('[WALLET HOOK] URL avatar:', rawAvatar);
       return rawAvatar;
     }
     
     // 그 외의 경우 (이모지 등) 그대로 반환
+    console.log('[WALLET HOOK] Other avatar:', rawAvatar);
     return rawAvatar;
   }, [profile?.avatar_url]);
   
@@ -138,19 +151,23 @@ export function useWallet() {
     setError(null);
     
     try {
+      console.log(`[LOAD PROFILE] Starting load for wallet: ${walletAddress}`);
       const response = await fetch(`/api/profiles?wallet_address=${encodeURIComponent(walletAddress)}`, {
         credentials: 'include'
       });
+      
+      console.log(`[LOAD PROFILE] Response status: ${response.status}`);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const result = await response.json();
+      console.log(`[LOAD PROFILE] API result:`, result);
       
       if (result.success) {
         if (result.profile) {
-          console.log('Loaded profile:', result.profile);
+          console.log('[LOAD PROFILE] Setting profile with data:', result.profile);
           setProfile(result.profile);
           
           // 프로필 이미지 프리로딩

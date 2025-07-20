@@ -243,6 +243,14 @@ function WalletProfile(): React.ReactElement {
     connectWallet
   } = useWallet();
   
+  console.log('[WALLET PROFILE] Component values:', {
+    isConnected,
+    address,
+    nickname,
+    avatar,
+    profile
+  });
+  
   const DEFAULT_AVATARS = ['👤', '🧑', '👩', '🤵', '👩‍💼', '🧑‍💼', '👨‍💼', '🧙‍♂️', '🧙‍♀️', '🥷'];
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [tempNickname, setTempNickname] = useState('');
