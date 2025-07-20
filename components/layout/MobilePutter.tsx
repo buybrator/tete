@@ -589,13 +589,19 @@ export default function MobilePutter() {
   return (
     <>
       <footer className="mobile-putter">
-        {/* Explore */}
+        {/* Logo */}
         <button 
-          className="group relative flex flex-col items-center justify-center gap-1 bg-transparent hover:bg-yellow-400 text-white hover:text-black transition-colors duration-150 font-bold h-full px-3 py-2 border-none outline-none"
+          className="relative flex items-center justify-center bg-transparent h-full px-3 py-2 border-none outline-none"
           style={{ boxShadow: 'none', border: 'none', background: 'transparent' }}
         >
-          <Compass className="w-5 h-5 group-hover:rotate-12 transition-transform duration-200 text-white group-hover:text-black" />
-          <span className="text-xs uppercase tracking-wide leading-none">explore</span>
+          <img 
+            src="/logo.png" 
+            alt="Logo" 
+            className="w-8 h-8"
+            style={{ 
+              imageRendering: 'crisp-edges'
+            }}
+          />
         </button>
 
         {/* Search */}

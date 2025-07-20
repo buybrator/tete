@@ -600,7 +600,12 @@ export default function Navbar() {
     <>
       {/* Logo */}
       <div className="navbar-logo">
-        🚀 TradeChat
+        <img 
+          src="/logo.png" 
+          alt="Logo" 
+          className="h-10 w-auto"
+          style={{ imageRendering: 'crisp-edges' }}
+        />
       </div>
 
       {/* Chatroom search (Desktop center) */}

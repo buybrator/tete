@@ -60,7 +60,9 @@
       "Bash(true)",
       "Bash(timeout:*)",
       "mcp__filesystem__read_file",
-      "mcp__filesystem__directory_tree"
+      "mcp__filesystem__directory_tree",
+      "Bash(test:*)",
+      "Bash(cp:*)"
     ],
     "deny": []
   },

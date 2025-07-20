@@ -612,43 +612,12 @@ export default function PCNavbar() {
       <nav className="hidden lg:flex h-[70px] w-full bg-[oklch(23.93%_0_0)] border-b-4 border-black items-center justify-between px-6">
                   {/* Logo */}
         <div className="flex items-center gap-3">
-                      {/* Logo area surrounded by squares */}
-          <div className="relative">
-                          {/* Top squares */}
-            <div className="absolute -top-[17.5px] left-0 flex">
-              <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
-              <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
-              <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
-              <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
-            </div>
-            
-                          {/* Left and right squares */}
-            <div className="flex items-center">
-              <div className="flex flex-col">
-                <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
-                <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
-              </div>
-              <div className="w-[35px] h-[35px] border-2 border-primary bg-primary/10 flex items-center justify-center">
-                <span className="text-2xl">🚀</span>
-              </div>
-              <div className="flex flex-col">
-                <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
-                <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
-              </div>
-            </div>
-            
-                          {/* Bottom squares */}
-            <div className="absolute -bottom-[17.5px] left-0 flex">
-              <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
-              <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
-              <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
-              <div className="w-[17.5px] h-[17.5px] border border-gray-400"></div>
-            </div>
-          </div>
-          
-          <span className="text-xl font-bold text-primary">
-            TradeChat
-          </span>
+          <img 
+            src="/logo.png" 
+            alt="Logo" 
+            className="h-[50px] w-auto"
+            style={{ imageRendering: 'crisp-edges' }}
+          />
         </div>
 
                   {/* Central chatroom search */}
