@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { useWallet } from '@/hooks/useWallet'; // Restored to original
+import { useWallet } from '@/providers/WalletProvider';
 // Removed useWalletModal - direct connection implementation
 import ClientOnly from '@/components/ClientOnly'; // Prevent hydration errors
 import TokenAvatar from '@/components/ui/TokenAvatar';

@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Label } from '@/components/ui/label';
 import { Compass, Search, User, X, Upload, RefreshCw } from 'lucide-react';
-import { useWallet } from '@/hooks/useWallet';
+import { useWallet } from '@/providers/WalletProvider';
 import TokenAvatar from '@/components/ui/TokenAvatar';
 import CreateChatRoomDialog from './CreateChatRoomDialog';
 

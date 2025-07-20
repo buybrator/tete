@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken'
 import { PublicKey } from '@solana/web3.js'
 import nacl from 'tweetnacl'
+import bs58 from 'bs58'
 
 // JWT 시크릿 키 (환경 변수에서 가져오기)
 const JWT_SECRET = process.env.JWT_SECRET
@@ -43,20 +44,30 @@ export function verifyWalletSignature(
   publicKey: string
 ): boolean {
   try {
+    console.log('[AUTH DEBUG] Starting signature verification')
+    console.log('[AUTH DEBUG] Message:', message)
+    console.log('[AUTH DEBUG] Signature:', signature)
+    console.log('[AUTH DEBUG] PublicKey:', publicKey)
+    
     // 메시지를 Uint8Array로 변환
     const messageBytes = new TextEncoder().encode(message)
+    console.log('[AUTH DEBUG] Message bytes length:', messageBytes.length)
     
-    // 서명을 Uint8Array로 변환
-    const signatureBytes = new Uint8Array(
-      signature.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
-    )
+    // 서명을 Uint8Array로 변환 (Base58 디코딩)
+    const signatureBytes = bs58.decode(signature)
+    console.log('[AUTH DEBUG] Signature bytes length:', signatureBytes.length)
     
     // 공개키를 Uint8Array로 변환
     const publicKeyBytes = new PublicKey(publicKey).toBytes()
+    console.log('[AUTH DEBUG] PublicKey bytes length:', publicKeyBytes.length)
     
     // 서명 검증
-    return nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes)
-  } catch {
+    const isValid = nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes)
+    console.log('[AUTH DEBUG] Signature verification result:', isValid)
+    
+    return isValid
+  } catch (error) {
+    console.error('[AUTH DEBUG] Signature verification error:', error)
     return false
   }
 }
@@ -67,12 +78,26 @@ export async function createOrUpdateProfile(walletAddress: string, nickname?: st
     // 서버 사이드에서는 일반 supabase 클라이언트 사용 (RLS 우회 시도)
     const { supabase } = await import('./supabase')
     
-    // 매우 간단한 upsert 시도 (RLS가 비활성화되어 있다면 작동해야 함)
-    const profileData = {
+    // 먼저 기존 프로필 확인
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('wallet_address', walletAddress)
+      .single()
+
+    // 프로필 데이터 준비
+    const profileData: any = {
       wallet_address: walletAddress,
-      nickname: nickname || `User_${walletAddress.slice(0, 8)}`,
       updated_at: new Date().toISOString()
     };
+
+    // 닉네임 처리: 명시적으로 제공된 경우만 업데이트
+    if (nickname !== undefined) {
+      profileData.nickname = nickname;
+    } else if (!existingProfile) {
+      // 새 프로필이고 닉네임이 없는 경우만 기본값 설정
+      profileData.nickname = `User_${walletAddress.slice(0, 8)}`;
+    }
     
     const { data, error } = await supabase
       .from('profiles')
@@ -84,11 +109,14 @@ export async function createOrUpdateProfile(walletAddress: string, nickname?: st
       .single()
 
     if (error) {
+      console.error('[AUTH] Profile upsert error:', error);
       throw new Error('Profile creation failed');
     }
     
+    console.log('[AUTH] Profile created/updated:', data);
     return data
   } catch (error) {
+    console.error('[AUTH] createOrUpdateProfile error:', error);
     throw new Error('Profile creation failed');
   }
 }

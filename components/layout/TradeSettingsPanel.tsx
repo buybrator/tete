@@ -9,7 +9,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import { useTradeSettings } from '@/contexts/TradeSettingsContext';
 import TokenChart from '@/components/chart/TokenChart';
 import TokenAvatar from '@/components/ui/TokenAvatar';
-import { useWallet } from '@/hooks/useWallet';
+import { useWallet } from '@/providers/WalletProvider';
 
 type Props = {
   mobile?: boolean;

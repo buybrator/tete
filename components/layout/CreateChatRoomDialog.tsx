@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useWallet } from '@/hooks/useWallet';
+import { useWallet } from '@/providers/WalletProvider';
 import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getStableConnection } from '@/lib/solana';
 

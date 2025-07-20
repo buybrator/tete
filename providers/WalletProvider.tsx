@@ -6,6 +6,7 @@ import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
 import { clusterApiUrl } from '@solana/web3.js';
+import { WalletProvider as CustomWalletProvider } from '@/contexts/WalletContext';
 
 // Default styles that can be overridden by your app
 import '@solana/wallet-adapter-react-ui/styles.css';
@@ -54,7 +55,9 @@ export default function WalletProviderWrapper({ children }: WalletProviderWrappe
         >
             <WalletProvider wallets={wallets} autoConnect>
                 <WalletModalProvider>
-                    {children}
+                    <CustomWalletProvider>
+                        {children}
+                    </CustomWalletProvider>
                 </WalletModalProvider>
             </WalletProvider>
         </ConnectionProvider>
@@ -62,5 +65,7 @@ export default function WalletProviderWrapper({ children }: WalletProviderWrappe
 }
 
 // Re-export hooks for convenience
-export { useWallet, useConnection } from '@solana/wallet-adapter-react';
+export { useConnection } from '@solana/wallet-adapter-react';
 export { useWalletModal } from '@solana/wallet-adapter-react-ui';
+// Custom wallet hook with profile management
+export { useWallet } from '@/contexts/WalletContext';

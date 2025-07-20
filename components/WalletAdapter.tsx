@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useWallet } from '@/hooks/useWallet';
+import { useWallet } from '@/providers/WalletProvider';
 import { 
   Card, CardContent, CardDescription, CardHeader, CardTitle 
 } from '@/components/ui/card';

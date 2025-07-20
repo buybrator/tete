@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { useWalletAdapter } from '@/hooks/useWalletAdapter';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
-import { useWallet } from '@/hooks/useWallet';
+import { useWallet } from '@/providers/WalletProvider';
 import WalletAdapter, { WalletButton } from '@/components/WalletAdapter';
 import ClientOnly from '@/components/ClientOnly';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

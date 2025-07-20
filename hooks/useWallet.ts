@@ -15,6 +15,12 @@ const authenticatingAddresses = new Set<string>();
 const completedAddresses = new Set<string>();
 const authenticationPromises = new Map<string, Promise<any>>();
 
+// 디바운싱을 위한 타이머
+let walletConnectDebounceTimer: NodeJS.Timeout | null = null;
+
+// 프로필 로드 중 상태 관리
+const loadingProfiles = new Set<string>();
+
 export const formatWalletAddress = (address: string): string => {
   if (!address) return '';
   return `${address.slice(0, 4)}...${address.slice(-4)}`;
@@ -29,7 +35,7 @@ interface WalletProfile {
   updated_at?: string;
 }
 
-export function useWallet() {
+export function useWalletInternal() {
   const { 
     publicKey, 
     connected, 
@@ -54,44 +60,41 @@ export function useWallet() {
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<WalletProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [authToken, setAuthToken] = useState<string | null>(null);
   
   // 지갑 주소
   const address = publicKey?.toBase58() || null;
   
-  // 프로필에서 닉네임과 아바타 가져오기
-  const nickname = profile?.nickname || '';
-  
-  console.log('[WALLET HOOK] Current profile state:', profile);
-  console.log('[WALLET HOOK] Extracted nickname:', nickname);
-  console.log('[WALLET HOOK] Raw avatar_url:', profile?.avatar_url);
-  
-  // 아바타 처리: emoji: 접두사 제거 및 기본값 설정
-  const avatar = useMemo(() => {
+  // 프로필에서 닉네임과 아바타 가져오기 (메모이제이션으로 안정화)
+  const { nickname, avatar } = useMemo(() => {
+    const profileNickname = profile?.nickname || '';
     const rawAvatar = profile?.avatar_url;
-    console.log('[WALLET HOOK] Processing avatar, rawAvatar:', rawAvatar);
+    
+    // 로깅을 줄임 (너무 많은 로그 발생)
+    if (profile) {
+      console.log('[WALLET HOOK] Processing profile:', { nickname: profileNickname, avatar_url: rawAvatar });
+    }
+    
+    let processedAvatar = DEFAULT_AVATARS[0]; // 기본값
     
     if (!rawAvatar) {
-      console.log('[WALLET HOOK] No avatar, using default:', DEFAULT_AVATARS[0]);
-      return DEFAULT_AVATARS[0];
+      processedAvatar = DEFAULT_AVATARS[0];
+    } else if (rawAvatar.startsWith('emoji:')) {
+      // emoji: 접두사가 있으면 제거 (이모지인 경우)
+      processedAvatar = rawAvatar.replace('emoji:', '');
+    } else if (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:')) {
+      // HTTP URL이나 data URL인 경우 그대로 반환
+      processedAvatar = rawAvatar;
+    } else {
+      // 그 외의 경우 (이모지 등) 그대로 반환
+      processedAvatar = rawAvatar;
     }
     
-    // emoji: 접두사가 있으면 제거 (이모지인 경우)
-    if (rawAvatar.startsWith('emoji:')) {
-      const emoji = rawAvatar.replace('emoji:', '');
-      console.log('[WALLET HOOK] Emoji avatar:', emoji);
-      return emoji;
-    }
-    
-    // HTTP URL이나 data URL인 경우 그대로 반환
-    if (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:')) {
-      console.log('[WALLET HOOK] URL avatar:', rawAvatar);
-      return rawAvatar;
-    }
-    
-    // 그 외의 경우 (이모지 등) 그대로 반환
-    console.log('[WALLET HOOK] Other avatar:', rawAvatar);
-    return rawAvatar;
-  }, [profile?.avatar_url]);
+    return {
+      nickname: profileNickname,
+      avatar: processedAvatar
+    };
+  }, [profile?.nickname, profile?.avatar_url]);
   
   // 지갑 인증
   const authenticateWallet = useCallback(async (walletAddress: string) => {
@@ -137,6 +140,13 @@ export function useWallet() {
         throw new Error(authResult.error || 'Authentication failed');
       }
       
+      // JWT 토큰 저장
+      if (authResult.authToken) {
+        setAuthToken(authResult.authToken);
+        // 로컬 스토리지에도 저장 (페이지 새로고침 시 사용)
+        localStorage.setItem('authToken', authResult.authToken);
+      }
+      
       return authResult;
     } catch (error) {
       console.error('Wallet authentication error:', error);
@@ -147,12 +157,28 @@ export function useWallet() {
 
   // 프로필 로드
   const loadProfile = useCallback(async (walletAddress: string) => {
+    // 이미 로드 중인 주소는 건너뛰기
+    if (loadingProfiles.has(walletAddress)) {
+      console.log(`[LOAD PROFILE] Already loading profile for: ${walletAddress}`);
+      return;
+    }
+    
+    loadingProfiles.add(walletAddress);
     setIsLoadingProfile(true);
     setError(null);
     
     try {
       console.log(`[LOAD PROFILE] Starting load for wallet: ${walletAddress}`);
+      const headers: HeadersInit = {};
+      
+      // 토큰이 있으면 Authorization 헤더 추가
+      const token = authToken || localStorage.getItem('authToken');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const response = await fetch(`/api/profiles?wallet_address=${encodeURIComponent(walletAddress)}`, {
+        headers,
         credentials: 'include'
       });
       
@@ -188,16 +214,25 @@ export function useWallet() {
       // 프로필 로드 실패 시에도 빈 프로필로 설정하여 UI가 작동하도록 함
       setProfile(null);
     } finally {
+      loadingProfiles.delete(walletAddress);
       setIsLoadingProfile(false);
     }
-  }, []);
+  }, [authToken]);
   
   // 프로필 생성
   const createProfile = useCallback(async (walletAddress: string) => {
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      
+      // 토큰이 있으면 Authorization 헤더 추가
+      const token = authToken || localStorage.getItem('authToken');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const response = await fetch('/api/profiles', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           wallet_address: walletAddress,
@@ -220,7 +255,7 @@ export function useWallet() {
     } catch {
       setError('Failed to create profile');
     }
-  }, [setError]);
+  }, [setError, authToken]);
   
   // 프로필 업데이트
   const updateProfile = useCallback(async (updates: { nickname?: string; avatar?: string }) => {
@@ -236,9 +271,17 @@ export function useWallet() {
         }
       }
       
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      
+      // 토큰이 있으면 Authorization 헤더 추가
+      const token = authToken || localStorage.getItem('authToken');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const response = await fetch('/api/profiles', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           wallet_address: address,
@@ -263,7 +306,7 @@ export function useWallet() {
     } catch {
       setError('Failed to update profile');
     }
-  }, [address]);
+  }, [address, authToken]);
   
   // 잔고 조회
   const fetchBalance = useCallback(async () => {
@@ -352,10 +395,20 @@ export function useWallet() {
     setError(null);
   }, []);
   
-  // 기존 인증 상태 확인 (쿠키의 JWT 토큰 활용)
+  // 기존 인증 상태 확인 (JWT 토큰 활용)
   const checkExistingAuth = useCallback(async (walletAddress: string) => {
     try {
+      // 로컬 스토리지에서 토큰 확인
+      const storedToken = localStorage.getItem('authToken');
+      if (!storedToken) {
+        console.log('No stored auth token found');
+        return false;
+      }
+      
       const response = await fetch('/api/auth/verify', {
+        headers: {
+          'Authorization': `Bearer ${storedToken}`
+        },
         credentials: 'include'
       });
       
@@ -364,18 +417,30 @@ export function useWallet() {
         if (result.valid && result.walletAddress === walletAddress && result.profile) {
           console.log('Found existing valid authentication for:', walletAddress);
           setProfile(result.profile);
+          setAuthToken(storedToken);
           return true;
         }
+      } else {
+        // 토큰이 유효하지 않으면 제거
+        localStorage.removeItem('authToken');
       }
     } catch (error) {
       console.error('Failed to check existing auth:', error);
+      localStorage.removeItem('authToken');
     }
     return false;
   }, []);
 
-  // 지갑 연결 시 인증 및 프로필 로드
+  // 지갑 연결 시 인증 및 프로필 로드 (디바운싱 적용)
   useEffect(() => {
-    const handleWalletConnect = async () => {
+    // 기존 타이머 취소
+    if (walletConnectDebounceTimer) {
+      clearTimeout(walletConnectDebounceTimer);
+    }
+    
+    // 100ms 디바운싱
+    walletConnectDebounceTimer = setTimeout(() => {
+      const handleWalletConnect = async () => {
       if (connected && address) {
         // 이미 동일한 주소에 대한 인증 Promise가 진행 중이면 기다림
         if (authenticationPromises.has(address)) {
@@ -420,12 +485,15 @@ export function useWallet() {
             console.log('Starting new wallet authentication for:', address);
             authenticatingAddresses.add(address);
             
-            await authenticateWallet(address);
-            await loadProfile(address);
-            
-            authenticatingAddresses.delete(address);
-            completedAddresses.add(address);
-            console.log('Wallet authentication completed for:', address);
+            try {
+              await authenticateWallet(address);
+              // 인증 성공 후 프로필 로드
+              await loadProfile(address);
+              completedAddresses.add(address);
+              console.log('Wallet authentication completed for:', address);
+            } finally {
+              authenticatingAddresses.delete(address);
+            }
             
           } catch (error) {
             console.error('Failed to authenticate wallet:', error);
@@ -452,6 +520,9 @@ export function useWallet() {
         setProfile(null);
         setBalance(null);
         setError(null);
+        setAuthToken(null);
+        // 연결 해제 시 토큰 제거
+        localStorage.removeItem('authToken');
         // 연결 해제 시 인증 진행 중 상태만 정리
         if (address) {
           authenticatingAddresses.delete(address);
@@ -459,10 +530,18 @@ export function useWallet() {
           // completedAddresses는 유지하여 재연결 시 기존 인증 상태 활용
         }
       }
-    };
+      };
+      
+      handleWalletConnect();
+    }, 100); // 100ms 디바운싱
     
-    handleWalletConnect();
-  }, [connected, address, checkExistingAuth]);
+    // 클린업 함수
+    return () => {
+      if (walletConnectDebounceTimer) {
+        clearTimeout(walletConnectDebounceTimer);
+      }
+    };
+  }, [connected, address, checkExistingAuth, authenticateWallet, loadProfile, fetchBalance]);
   
   return {
     // 연결 상태
@@ -481,6 +560,7 @@ export function useWallet() {
     nickname,
     avatar,
     isLoadingProfile,
+    authToken,
     
     // 잔고 정보
     balance,
