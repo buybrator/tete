@@ -1,13 +1,19 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { ImageCacheManager } from '@/lib/utils';
+import bs58 from 'bs58';
 
 export const DEFAULT_AVATARS = ['👤', '🧑', '👩', '🤵', '👩‍💼', '🧑‍💼', '👨‍💼', '🧙‍♂️', '🧙‍♀️', '🥷'];
+
+// 전역 인증 상태 관리 (React 상태 시스템과 독립적)
+const authenticatingAddresses = new Set<string>();
+const completedAddresses = new Set<string>();
+const authenticationPromises = new Map<string, Promise<any>>();
 
 export const formatWalletAddress = (address: string): string => {
   if (!address) return '';
@@ -74,24 +80,67 @@ export function useWallet() {
     return rawAvatar;
   }, [profile?.avatar_url]);
   
-  // 지갑 연결 시 프로필 로드
-  useEffect(() => {
-    if (connected && address) {
-      loadProfile(address);
-      fetchBalance();
-    } else {
-      setProfile(null);
-      setBalance(null);
+  // 지갑 인증
+  const authenticateWallet = useCallback(async (walletAddress: string) => {
+    try {
+      // 1. 서명할 메시지 요청
+      const msgResponse = await fetch(`/api/auth/wallet?walletAddress=${encodeURIComponent(walletAddress)}`, {
+        credentials: 'include'
+      });
+      
+      if (!msgResponse.ok) {
+        throw new Error('Failed to get auth message');
+      }
+      
+      const { message } = await msgResponse.json();
+      
+      // 2. 지갑으로 메시지 서명
+      if (!signMessage) {
+        throw new Error('Wallet does not support message signing');
+      }
+      
+      const encodedMessage = new TextEncoder().encode(message);
+      const signature = await signMessage(encodedMessage);
+      
+      // 3. 서명 검증 및 토큰 생성
+      const authResponse = await fetch('/api/auth/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          walletAddress,
+          signature: bs58.encode(signature),
+          message
+        })
+      });
+      
+      if (!authResponse.ok) {
+        throw new Error('Authentication failed');
+      }
+      
+      const authResult = await authResponse.json();
+      
+      if (!authResult.success) {
+        throw new Error(authResult.error || 'Authentication failed');
+      }
+      
+      return authResult;
+    } catch (error) {
+      console.error('Wallet authentication error:', error);
+      throw error;
     }
-  }, [connected, address]);
+  }, [signMessage]);
   
+
   // 프로필 로드
   const loadProfile = useCallback(async (walletAddress: string) => {
     setIsLoadingProfile(true);
     setError(null);
     
     try {
-      const response = await fetch(`/api/profiles?wallet_address=${encodeURIComponent(walletAddress)}`);
+      const response = await fetch(`/api/profiles?wallet_address=${encodeURIComponent(walletAddress)}`, {
+        credentials: 'include'
+      });
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -132,6 +181,7 @@ export function useWallet() {
       const response = await fetch('/api/profiles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           wallet_address: walletAddress,
           nickname: null,
@@ -172,6 +222,7 @@ export function useWallet() {
       const response = await fetch('/api/profiles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           wallet_address: address,
           nickname: updates.nickname?.trim() || null,
@@ -283,6 +334,118 @@ export function useWallet() {
   const clearError = useCallback(() => {
     setError(null);
   }, []);
+  
+  // 기존 인증 상태 확인 (쿠키의 JWT 토큰 활용)
+  const checkExistingAuth = useCallback(async (walletAddress: string) => {
+    try {
+      const response = await fetch('/api/auth/verify', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.valid && result.walletAddress === walletAddress && result.profile) {
+          console.log('Found existing valid authentication for:', walletAddress);
+          setProfile(result.profile);
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check existing auth:', error);
+    }
+    return false;
+  }, []);
+
+  // 지갑 연결 시 인증 및 프로필 로드
+  useEffect(() => {
+    const handleWalletConnect = async () => {
+      if (connected && address) {
+        // 이미 동일한 주소에 대한 인증 Promise가 진행 중이면 기다림
+        if (authenticationPromises.has(address)) {
+          console.log('Authentication promise already exists for:', address, '- waiting for completion');
+          try {
+            await authenticationPromises.get(address);
+            console.log('Authentication promise completed for:', address);
+            fetchBalance();
+            return;
+          } catch (error) {
+            console.error('Authentication promise failed for:', address, error);
+            authenticationPromises.delete(address);
+          }
+        }
+        
+        // 이미 인증 진행 중이면 스킵 (추가 보안)
+        if (authenticatingAddresses.has(address)) {
+          console.log('Authentication already in progress for:', address);
+          return;
+        }
+        
+        // 인증 Promise 생성 및 캐시
+        const authPromise = (async () => {
+          try {
+            // 1. 먼저 기존 인증 상태 확인 (쿠키의 JWT 토큰)
+            const hasValidAuth = await checkExistingAuth(address);
+            
+            if (hasValidAuth) {
+              console.log('Using existing authentication for:', address);
+              completedAddresses.add(address);
+              return;
+            }
+            
+            // 2. 이미 완료된 경우 프로필만 로드
+            if (completedAddresses.has(address)) {
+              console.log('Authentication already completed, loading profile for:', address);
+              await loadProfile(address);
+              return;
+            }
+            
+            // 3. 새로운 인증 필요
+            console.log('Starting new wallet authentication for:', address);
+            authenticatingAddresses.add(address);
+            
+            await authenticateWallet(address);
+            await loadProfile(address);
+            
+            authenticatingAddresses.delete(address);
+            completedAddresses.add(address);
+            console.log('Wallet authentication completed for:', address);
+            
+          } catch (error) {
+            console.error('Failed to authenticate wallet:', error);
+            authenticatingAddresses.delete(address);
+            setError('Failed to authenticate wallet. Please try again.');
+            throw error;
+          } finally {
+            // Promise 완료 후 캐시에서 제거
+            authenticationPromises.delete(address);
+          }
+        })();
+        
+        // Promise를 캐시에 저장
+        authenticationPromises.set(address, authPromise);
+        
+        try {
+          await authPromise;
+          fetchBalance();
+        } catch (error) {
+          // 에러는 이미 authPromise 내부에서 처리됨
+        }
+        
+      } else if (!connected) {
+        setProfile(null);
+        setBalance(null);
+        setError(null);
+        // 연결 해제 시 인증 진행 중 상태만 정리
+        if (address) {
+          authenticatingAddresses.delete(address);
+          authenticationPromises.delete(address);
+          // completedAddresses는 유지하여 재연결 시 기존 인증 상태 활용
+        }
+      }
+    };
+    
+    handleWalletConnect();
+  }, [connected, address, checkExistingAuth]);
   
   return {
     // 연결 상태
