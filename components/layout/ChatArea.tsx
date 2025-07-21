@@ -36,12 +36,50 @@ export default function ChatArea() {
   const [selectedRoom, setSelectedRoom] = useState('');
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
   const [popupRoomId, setPopupRoomId] = useState<string | null>(null);
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
+  const [priceChange, setPriceChange] = useState<number>(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   // Chat message hooks
   const { messages } = useChatMessages(selectedRoom);
+
+  // Fetch real-time price data
+  useEffect(() => {
+    if (!selectedRoom || selectedRoom === 'So11111111111111111111111111111111111111112') {
+      setCurrentPrice(0);
+      setPriceChange(0);
+      return;
+    }
+
+    const fetchRealtimePrice = async () => {
+      try {
+        const response = await fetch(`/api/price-realtime?token=${encodeURIComponent(selectedRoom)}`);
+        
+        if (!response.ok) {
+          return;
+        }
+
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          setCurrentPrice(result.data.currentPrice);
+          setPriceChange(result.data.priceChange);
+        }
+      } catch {
+        // Ignore errors
+      }
+    };
+
+    // Initial fetch
+    fetchRealtimePrice();
+
+    // Update every minute
+    const interval = setInterval(fetchRealtimePrice, 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedRoom]);
 
 
 
@@ -232,7 +270,7 @@ export default function ChatArea() {
             size="md"
             imageUrl={currentRoom.image}
           />
-          <div className="flex flex-col">
+          <div className="flex flex-col flex-1">
             <h3 className="font-bold text-lg text-[oklch(0.9249_0_0)]">{currentRoom.name}</h3>
             <div className="flex items-center gap-1">
               <span className="text-xs text-[oklch(0.9249_0_0)]">
@@ -248,6 +286,22 @@ export default function ChatArea() {
             </div>
           </div>
         </div>
+        {/* 모바일에서만 표시되는 가격 정보 - 팝업 버튼 왼쪽 */}
+        <div className="flex items-center space-x-3 lg:hidden">
+          {currentPrice > 0 && (
+            <div className="flex flex-col items-end">
+              <span className="text-sm font-bold text-white leading-none">
+                ${currentPrice.toFixed(6)}
+              </span>
+              <span className={`text-xs font-medium leading-none mt-1 ${
+                priceChange >= 0 ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}%
+              </span>
+            </div>
+          )}
+        </div>
+        
         <div className="flex items-center space-x-2">
                       <button 
               onClick={() => {
