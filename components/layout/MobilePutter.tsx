@@ -710,8 +710,7 @@ export default function MobilePutter() {
               >
                 <span className="text-xl">➕</span>
                                   <div className="flex-1">
-                    <div className="font-semibold">Create chat room</div>
-                    <div className="text-xs text-gray-300">Create a new chatroom</div>
+                    <div className="font-semibold">Add chat room</div>
                   </div>
               </button>
               

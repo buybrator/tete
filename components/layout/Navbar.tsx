@@ -219,8 +219,7 @@ function ChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
             >
               <span className="text-lg">➕</span>
               <div className="flex-1">
-                <div className="font-semibold">Create chat room</div>
-                <div className="text-xs text-muted-foreground">Create new chatroom</div>
+                <div className="font-semibold">Add achat room</div>
               </div>
             </div>
           </div>

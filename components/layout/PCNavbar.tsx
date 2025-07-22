@@ -196,8 +196,7 @@ function PCChatRoomSearch({ onRoomSelect, onCreateRoom }: ChatRoomSearchProps) {
             >
               <span className="text-lg">➕</span>
               <div className="flex-1">
-                <div className="font-semibold">Create chat room</div>
-                <div className="text-xs text-gray-300">Create a new chat room</div>
+                <div className="font-semibold">Add chat room</div>
               </div>
             </div>
           </div>
