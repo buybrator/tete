@@ -252,7 +252,8 @@
   /* Desktop Layout (≥1024px) */
   .desktop-layout {
     @apply hidden lg:flex lg:flex-col lg:overflow-hidden lg:bg-background;
-    /* PCNavbar 70px를 고려한 높이 조정 - 패딩 최소화 */
+    /* PCNavbar 70px를 고려한 상단 마진과 높이 조정 */
+    margin-top: 70px; /* PCNavbar 높이만큼 아래로 밀어냄 */
     height: calc(100vh - 70px);
     padding: 16px; /* p-4를 명시적으로 16px로 */
     gap: 16px; /* gap-4를 명시적으로 16px로 */
