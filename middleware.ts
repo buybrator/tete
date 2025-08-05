@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { RedisRateLimiter } from './lib/rate-limiter-redis';
 
 // 🎯 Rate Limiting 설정
 const RATE_LIMIT_CONFIG = {
@@ -34,18 +33,22 @@ function getEndpointCategory(pathname: string): keyof typeof RATE_LIMIT_CONFIG.m
   return 'general';
 }
 
-async function checkRateLimit(ip: string, category: keyof typeof RATE_LIMIT_CONFIG.maxRequests): Promise<{
+// Rate limiting is disabled in Edge Runtime due to Redis incompatibility
+// Will be handled at the API route level instead
+function checkRateLimit(ip: string, category: keyof typeof RATE_LIMIT_CONFIG.maxRequests): {
   allowed: boolean;
   remaining: number;
   resetTime: number;
-}> {
-  const limit = RATE_LIMIT_CONFIG.maxRequests[category];
-  const windowSeconds = RATE_LIMIT_CONFIG.windowMs / 1000;
-  
-  return await RedisRateLimiter.checkRateLimit(ip, category, limit, windowSeconds);
+} {
+  // Always allow in middleware - actual rate limiting will be done in API routes
+  return {
+    allowed: true,
+    remaining: RATE_LIMIT_CONFIG.maxRequests[category],
+    resetTime: Date.now() + RATE_LIMIT_CONFIG.windowMs
+  };
 }
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // API 라우트에만 Rate Limiting 적용
@@ -54,7 +57,7 @@ export async function middleware(request: NextRequest) {
     const category = getEndpointCategory(pathname);
     
     try {
-      const rateLimit = await checkRateLimit(ip, category);
+      const rateLimit = checkRateLimit(ip, category);
       
       // Rate Limit 헤더 추가
       const response = rateLimit.allowed 

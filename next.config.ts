@@ -8,7 +8,8 @@ const nextConfig: NextConfig = {
   
   // Performance optimizations
   experimental: {
-    optimizeCss: true,
+    // optimizeCss disabled due to critters compatibility issue
+    optimizeCss: false,
     optimizePackageImports: ['framer-motion', 'gsap'],
   },
   
