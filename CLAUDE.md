@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Language Instructions
+
+- 코드 작성: 영어 (변수명, 함수명, 주석 등 모든 코드는 영어로)
+- 설명 및 대답: 한글 (사용자와의 모든 커뮤니케이션은 한글로)
+
 ## Project Overview
 
 TradeChat is a decentralized trading platform that combines Solana blockchain with real-time chat functionality. The frontend UI/UX is complete with mock data, and the project is transitioning to real backend integration with Supabase and Solana blockchain.

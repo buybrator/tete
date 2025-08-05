@@ -26,7 +26,7 @@
         "command": "npx",
         "args": ["-y", "firecrawl-mcp"],
         "env": {
-          "FIRECRAWL_API_KEY": "fc-e1d5924a7072487292bb9d036988a5f9"
+          "FIRECRAWL_API_KEY": "fc-d70428ce561b4ebcb503a57aa01467cc"
         }
       },
           "server-sequential-thinking": {
@@ -43,10 +43,13 @@
             ]
           },
           
+
               "browsermcp": {
                 "command": "npx",
                 "args": ["@browsermcp/mcp@latest"]
               },
+
+
       "postgres": {
         "command": "npx",
         "args": [

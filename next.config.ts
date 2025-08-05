@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
   },
   basePath: process.env.NODE_ENV === 'production' ? '' : '',
   
+  // Performance optimizations
+  experimental: {
+    optimizeCss: true,
+    optimizePackageImports: ['framer-motion', 'gsap'],
+  },
+  
   // ESLint 설정 - 빌드 중 무시
   eslint: {
     ignoreDuringBuilds: true,

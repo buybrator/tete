@@ -11,8 +11,22 @@ import CryptoPolyfill from '@/components/CryptoPolyfill';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: 'Trade Chat',
-  description: 'SOL DEX & Memo Chat',
+  title: 'TradeChat - Decentralized Trading with Real-time Chat',
+  description: 'Trade, chat, and connect on Solana. The future of decentralized trading with real-time community insights.',
+  keywords: ['trading', 'crypto', 'solana', 'defi', 'chat', 'blockchain', 'decentralized'],
+  authors: [{ name: 'TradeChat Team' }],
+  themeColor: '#1e293b',
+  openGraph: {
+    title: 'TradeChat - Decentralized Trading Platform',
+    description: 'Trade, chat, and connect on Solana with real-time community insights.',
+    type: 'website',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'TradeChat - Decentralized Trading Platform',
+    description: 'Trade, chat, and connect on Solana with real-time community insights.',
+  },
 };
 
 export const viewport = {
