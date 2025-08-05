@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@devnomic/marquee": "^1.0.3",
     "@hookform/resolvers": "^5.0.1",
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
     "@metaplex-foundation/umi": "^1.2.0",
