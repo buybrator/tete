@@ -11,6 +11,7 @@ import { Upload, Search, RefreshCw } from 'lucide-react';
 import { useRef, useEffect, useMemo } from 'react';
 import CreateChatRoomDialog from './CreateChatRoomDialog';
 import TokenAvatar from '@/components/ui/TokenAvatar';
+import Link from 'next/link';
 
 // Mock chat room data
 const mockRooms = [
@@ -369,7 +370,7 @@ function PCWalletProfile() {
     return (
       <div className="flex flex-col items-center gap-1">
         <Button 
-          className="border-2 border-black rounded-none h-[36px] px-6 font-semibold shadow-[4px_4px_0px_0px_black] hover:shadow-none focus:shadow-none active:shadow-none"
+          className="border-2 border-black rounded-none h-[36px] px-3 sm:px-6 font-semibold shadow-[4px_4px_0px_0px_black] hover:shadow-none focus:shadow-none active:shadow-none text-xs sm:text-sm"
           style={{ 
             backgroundColor: 'oklch(23.93% 0 0)',
             color: 'oklch(0.9249 0 0)'
@@ -391,7 +392,7 @@ function PCWalletProfile() {
       <DialogTrigger asChild>
         <Button
           variant="neutral"
-          className="border-2 border-black rounded-none h-[36px] pl-0 pr-6 flex items-center justify-start shadow-[4px_4px_0px_0px_black] hover:shadow-none active:shadow-none hover:translate-x-1 hover:translate-y-1 active:translate-x-1 active:translate-y-1 transition-all"
+          className="border-2 border-black rounded-none h-[36px] pl-0 pr-3 sm:pr-6 flex items-center justify-start shadow-[4px_4px_0px_0px_black] hover:shadow-none active:shadow-none hover:translate-x-1 hover:translate-y-1 active:translate-x-1 active:translate-y-1 transition-all"
           style={{ 
             backgroundColor: 'oklch(23.93% 0 0)',
             color: 'oklch(0.9249 0 0)'
@@ -413,7 +414,7 @@ function PCWalletProfile() {
               </AvatarFallback>
             )}
           </Avatar>
-          <span className="text-sm font-medium flex-1 text-center">
+          <span className="text-xs sm:text-sm font-medium flex-1 text-center">
             {nickname || `${address?.slice(0, 4)}...${address?.slice(-4)}`}
           </span>
         </Button>
@@ -591,7 +592,11 @@ function PCWalletProfile() {
   );
 }
 
-export default function PCNavbar() {
+interface PCNavbarProps {
+  showOnAllScreens?: boolean;
+}
+
+export default function PCNavbar({ showOnAllScreens = false }: PCNavbarProps) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const handleRoomSelect = useCallback((roomId: string) => {
@@ -608,19 +613,21 @@ export default function PCNavbar() {
   return (
     <>
       {/* PC-only Navbar - 70px height, no padding */}
-      <nav className="hidden lg:flex h-[70px] w-full bg-[oklch(23.93%_0_0)] border-b-4 border-black items-center justify-between px-6">
+      <nav className={`${showOnAllScreens ? 'flex' : 'hidden lg:flex'} fixed top-0 left-0 right-0 z-50 h-[70px] w-full bg-[oklch(23.93%_0_0)] border-b-4 border-black items-center justify-between px-3 sm:px-6`}>
                   {/* Logo */}
         <div className="flex items-center gap-3">
-          <img 
-            src="/logo.png" 
-            alt="Logo" 
-            className="h-[50px] w-auto"
-            style={{ imageRendering: 'crisp-edges' }}
-          />
+          <Link href="/" className="flex items-center">
+            <img 
+              src="/logo.svg" 
+              alt="Logo" 
+              className={`${showOnAllScreens ? 'h-[40px] sm:h-[50px]' : 'h-[50px]'} w-auto hover:opacity-80 transition-opacity`}
+              style={{ imageRendering: 'crisp-edges' }}
+            />
+          </Link>
         </div>
 
                   {/* Central chatroom search */}
-        <div className="flex-1 max-w-md mx-8">
+        <div className={`flex-1 max-w-md mx-8 ${showOnAllScreens ? 'hidden sm:block' : 'block'}`}>
           <PCChatRoomSearch 
             onRoomSelect={handleRoomSelect} 
             onCreateRoom={handleCreateRoom}

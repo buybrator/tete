@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(26.86% 0.0327 60.06);
+  --background: oklch(0.2393 0 0);
   --secondary-background: oklch(100% 0 0);
   --foreground: oklch(0% 0 0);
   --main-foreground: oklch(0% 0 0);
@@ -184,9 +184,10 @@
     font-family: "Satoshi", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
   
-  /* 모바일에서 전체 스크롤 방지 - 사이드바와 관계없이 항상 유지 */
+  /* 트레이딩 페이지에서만 모바일 스크롤 방지 */
   @media (max-width: 1023px) {
-    html, body {
+    /* 트레이딩 페이지에서만 스크롤 방지 */
+    body.trade-page {
       height: 100%;
       overflow: hidden;
       position: fixed;

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { useChatMessages, addMessage } from '@/hooks/useChatMessages';
-import { useMemo } from '@/hooks/useMemo';
+import { useMemo } from '@/hooks/useMemoTransaction';
 import { useTradeSettings } from '@/contexts/TradeSettingsContext';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Loader2 } from 'lucide-react';

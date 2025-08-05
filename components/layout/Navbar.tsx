@@ -600,7 +600,7 @@ export default function Navbar() {
       {/* Logo */}
       <div className="navbar-logo">
         <img 
-          src="/logo.png" 
+          src="/logo.svg" 
           alt="Logo" 
           className="h-10 w-auto"
           style={{ imageRendering: 'crisp-edges' }}
